@@ -1,0 +1,6 @@
+@SAPArchiveLink_HostAddress = http://localhost:5262
+
+GET {{SAPArchiveLink_HostAddress}}/contentserver/
+Accept: application/json
+
+###

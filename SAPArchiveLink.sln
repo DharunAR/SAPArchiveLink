@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35825.156 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SAPArchiveLink", "SAPArchiveLink\SAPArchiveLink.csproj", "{2216615C-4DD4-4E26-874B-C047FBC24B40}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2216615C-4DD4-4E26-874B-C047FBC24B40}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2216615C-4DD4-4E26-874B-C047FBC24B40}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2216615C-4DD4-4E26-874B-C047FBC24B40}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2216615C-4DD4-4E26-874B-C047FBC24B40}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {82D45AB9-CC77-4B0B-95BC-E242E0F442F7}
+	EndGlobalSection
+EndGlobal
