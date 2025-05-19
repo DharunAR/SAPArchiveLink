@@ -1,4 +1,4 @@
-﻿namespace SAPArchiveLink.Helpers
+﻿namespace SAPArchiveLink
 {
     public class CommandResponse
     {

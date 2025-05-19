@@ -1,8 +1,4 @@
-﻿using SAPArchiveLink.Core.Handlers;
-using SAPArchiveLink.Models;
-using SAPArchiveLink.Services;
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public static class ServiceRegistration
     {

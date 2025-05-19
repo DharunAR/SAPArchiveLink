@@ -1,6 +1,6 @@
-﻿using SAPArchiveLink.Models;
+﻿
 
-namespace SAPArchiveLink.Helpers
+namespace SAPArchiveLink
 {
     public static class ALCommandTemplateResolver
     {

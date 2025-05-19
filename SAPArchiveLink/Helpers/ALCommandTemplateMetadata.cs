@@ -1,4 +1,6 @@
-﻿namespace SAPArchiveLink.Helpers
+﻿
+
+namespace SAPArchiveLink
 {
     public static class ALCommandTemplateMetadata
     {

@@ -1,4 +1,4 @@
-﻿namespace SAPArchiveLink.Models
+﻿namespace SAPArchiveLink
 {
     public class ALException : Exception
     {

@@ -1,7 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using SAPArchiveLink.Helpers;
-using SAPArchiveLink.Models;
-using SAPArchiveLink.Services;
 using System.Text.RegularExpressions;
 
 namespace SAPArchiveLink.Controllers
@@ -15,14 +12,18 @@ namespace SAPArchiveLink.Controllers
         public ContentServerController(ICommandDispatcherService dispatcher)
         {
             _dispatcher = dispatcher;
-        }
+        }        
 
-        [HttpGet, HttpPost, HttpPut, HttpDelete]
+        // [HttpGet, HttpPost, HttpPut, HttpDelete]
+        [HttpGet("/ContentServer")]
+        [HttpPost("/ContentServer")]
+        [HttpPut("/ContentServer")]       
+        [HttpDelete("/ContentServer")]
         public async Task<IActionResult> Handle()
         {
             try
             {
-                string queryString = Request.QueryString.Value;
+                string queryString = Request.QueryString.Value??"";
                 if (string.IsNullOrEmpty(queryString))
                 {
                     return BadRequest("Query string is required.");
