@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.GETATTRIBUTE;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return new CommandResponse("Attribute retrieved");
+            return CommandResponse.FromText("Attribute retrieved");
         }
     }
 }

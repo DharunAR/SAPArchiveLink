@@ -17,13 +17,13 @@ namespace SAPArchiveLink
             string compId = command.GetValue(ALParameter.VarCompId);
 
             if (string.IsNullOrWhiteSpace(contRep) || string.IsNullOrWhiteSpace(docId) || string.IsNullOrWhiteSpace(pVersion))
-                return new CommandResponse("Missing required parameters: contRep, docId, pVersion") { StatusCode = 400 };
+                return CommandResponse.FromText("Missing required parameters: contRep, docId, pVersion", 400);
 
             bool isMultipart = request.HasFormContentType;
 
             // Return 403 if doc already exists
             if (await DocumentExists(contRep, docId))
-                return new CommandResponse("Document already exists") { StatusCode = 403 };
+                return CommandResponse.FromText("Document already exists", 403);
 
             if (isMultipart)
             {
@@ -32,34 +32,34 @@ namespace SAPArchiveLink
                 var files = form.Files;
 
                 if (files.Count == 0)
-                    return new CommandResponse("No components found in multipart body") { StatusCode = 400 };
+                    return CommandResponse.FromText("No components found in multipart body", 400);
 
                 foreach (var file in files)
                 {
                     string componentId = file.Headers["X-compId"].ToString();
                     if (string.IsNullOrWhiteSpace(componentId))
-                        return new CommandResponse("Missing X-compId header in multipart part") { StatusCode = 400 };
+                        return CommandResponse.FromText("Missing X-compId header in multipart part",400);
 
                     using var stream = file.OpenReadStream();
                     await SaveComponent(contRep, docId, componentId, stream);
                 }
 
                 await SaveMetadata(contRep, docId);
-                return new CommandResponse("Document created (POST multipart)") { StatusCode = 201 };
+                return CommandResponse.FromText("Document created (POST multipart)", 201);
             }
             else
             {
                 // Handle CREATE_PUT: single stream
                 if (string.IsNullOrWhiteSpace(compId))
-                    return new CommandResponse("compId is required for PUT") { StatusCode = 400 };
+                    return CommandResponse.FromText("compId is required for PUT", 400);
 
                 if (!request.ContentLength.HasValue || request.ContentLength <= 0)
-                    return new CommandResponse("Missing or invalid Content-Length") { StatusCode = 400 };
+                    return CommandResponse.FromText("Missing or invalid Content-Length", 400);
 
                 using var stream = request.Body;
                 await SaveComponent(contRep, docId, compId, stream);
                 await SaveMetadata(contRep, docId);
-                return new CommandResponse("Document created (PUT)") { StatusCode = 201 };
+                return CommandResponse.FromText("Document created (PUT)", 201);
             }
         }
 

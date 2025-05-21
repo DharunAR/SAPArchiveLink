@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.UPDATE_PUT; // Also handles UPDATE_POST
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return new CommandResponse("Document updated");
+            return CommandResponse.FromText("Document updated");
         }
     }
 }

@@ -11,9 +11,9 @@ namespace SAPArchiveLink
             string docId = command.GetValue("docId");
             if (string.IsNullOrEmpty(docId))
             {
-                return new CommandResponse("docId is required for DOCGET") { StatusCode = 400 };
+                return CommandResponse.FromText("docId is required for DOCGET",400);
             }
-            return new CommandResponse($"Document {docId} retrieved");
+            return CommandResponse.FromText($"Document {docId} retrieved");
         }
     }
 }

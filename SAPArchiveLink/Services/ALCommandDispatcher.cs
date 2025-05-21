@@ -37,23 +37,12 @@ namespace SAPArchiveLink
 
             var response = await ExecuteRequest(context, command);
 
-            if (response.StatusCode == 307 && response.Headers.ContainsKey("Location"))
+            if (response.StatusCode == 307 && response.Headers.TryGetValue("Location", out string? locationUrl))
             {
-                return new RedirectResult(response.Headers["Location"], false);
+                return new RedirectResult(locationUrl, false);
             }
 
-            foreach (var header in response.Headers)
-            {
-                if (header.Key != "Location")
-                {
-                    request.HttpRequest.HttpContext.Response.Headers[header.Key] = header.Value;
-                }
-            }
-
-            return new ObjectResult(response.Content)
-            {
-                StatusCode = response.StatusCode
-            };
+            return new ArchiveLinkResult(response);
         }
 
         private async Task<CommandResponse> ExecuteRequest(ICommandRequestContext context, ICommand command)
@@ -64,30 +53,35 @@ namespace SAPArchiveLink
                 if (doForward && (command.IsHttpPOST() || command.IsHttpPUT()))
                 {
                     string redirectUrl = $"https://{context.GetServerName()}:{context.GetPort()}/{context.GetContextPath()}?{context.GetALQueryString(false)}";
-                    return new CommandResponse($"Redirect to {redirectUrl}")
-                    {
-                        StatusCode = 307,
-                        Headers = { { "Location", redirectUrl } }
-                    };
+
+                    var redirectResponse = CommandResponse.FromText(string.Empty, 307);
+                    redirectResponse.Headers["Location"] = redirectUrl;
+                    return redirectResponse;
                 }
 
                 if (!_handlers.TryGetValue(command.GetTemplate(), out var handler))
                 {
-                    return new CommandResponse($"Unsupported command: {command.GetTemplate()} for HTTP method {context.GetHttpMethod()}")
-                    {
-                        StatusCode = 400
-                    };
+                    return CommandResponse.FromError($"Unsupported command: {command.GetTemplate()} for HTTP method {context.GetHttpMethod()}",
+                        "ICS_7120",400);
                 }
 
                 return await handler.HandleAsync(command, context);
             }
             catch (ALException ex)
             {
-                return new CommandResponse(ex.Message) { StatusCode = 400 };
+                return CommandResponse.FromError(
+                    ex.Message,
+                    "ICS_AL_ERROR",
+                    400
+                );
             }
             catch (Exception ex)
             {
-                return new CommandResponse($"Unexpected error: {ex.Message}") { StatusCode = 500 };
+                return CommandResponse.FromError(
+                    $"An unexpected internal server error occurred: {ex.Message}",
+                    "ICS_5000",
+                    500
+                );
             }
         }
     }

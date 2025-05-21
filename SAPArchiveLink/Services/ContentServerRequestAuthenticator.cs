@@ -20,7 +20,7 @@ namespace SAPArchiveLink
         {
             _logger.LogDebug("Validating command {CommandName} with version {Version}", command.GetTemplate(), command.GetValue("pVersion"));
 
-            string pVersion = command.GetValue("pVersion");
+            string pVersion = command.GetValue(ALParameter.VarPVersion);
             if (command.GetTemplate() != ALCommandTemplate.ADMINCONTREP && !IsSupportedVersion(pVersion))
             {
                 throw new ALException(ALException.AL_VERSION_NOT_SUPPORTED, ALException.AL_VERSION_NOT_SUPPORTED_STR,
@@ -37,7 +37,7 @@ namespace SAPArchiveLink
             if (command.GetTemplate() == ALCommandTemplate.SIGNURL && !request.HttpRequest.IsHttps)
             {
                 throw new ALException(ALException.AL_NON_SSL_ACCESS, ALException.AL_NON_SSL_ACCESS_STR,
-                    new object[] { command.GetValue("contRep") ?? "unknown" }, StatusCodes.Status403Forbidden);
+                    new object[] { command.GetValue(ALParameter.VarContRep) ?? "unknown" }, StatusCodes.Status403Forbidden);
             }
 
             ValidateContentHeadersIfNeeded(command, request.HttpRequest);
@@ -49,9 +49,9 @@ namespace SAPArchiveLink
 
         private X509Certificate2 CheckAuthentication(ICommand command, List<IArchiveCertificate> certificates)
         {
-            bool requiresSignature = !string.IsNullOrEmpty(command.GetValue("secKey")) ||
-                                     !string.IsNullOrEmpty(command.GetValue("rmspi")) ||
-                                     !string.IsNullOrEmpty(command.GetValue("rmsnode")) ||
+            bool requiresSignature = !string.IsNullOrEmpty(command.GetValue(ALParameter.VarSecKey)) ||
+                                     !string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsPi)) ||
+                                     !string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsNode)) ||
                                      command.GetTemplate() == ALCommandTemplate.SIGNURL;
 
             if (!requiresSignature)
@@ -61,7 +61,7 @@ namespace SAPArchiveLink
             {
                 var cert = VerifyUrl(command, certificates);
 
-                if (command.GetValue("rmspi") is not null or "" && !command.IsImmutable())
+                if (command.GetValue(ALParameter.VarRmsPi) is not null or "" && !command.IsImmutable())
                 {
                     throw new ALException(ALException.AL_UNEXPECTED_PARAMETER, ALException.AL_UNEXPECTED_PARAMETER_STR,
                         new object[] { "rmspi|rmsnode", command.GetTemplate() }, StatusCodes.Status400BadRequest);
@@ -81,13 +81,13 @@ namespace SAPArchiveLink
             _verifier.SetCertificates(certificates);
 
             string charset = command.GetURLCharset() ?? "UTF-8";
-            string secKey = command.GetValue("secKey");
+            string secKey = command.GetValue(ALParameter.VarSecKey);
             if (string.IsNullOrEmpty(secKey))
                 throw new ALException("MISSING_SIGNATURE", "Missing secKey parameter", null, StatusCodes.Status403Forbidden);
 
-            string authId = command.GetValue("authId");
-            string expiration = command.GetValue("expiration");
-            string accessModeStr = command.GetValue("accessMode");
+            string authId = command.GetValue(ALParameter.VarAuthId);
+            string expiration = command.GetValue(ALParameter.VarExpiration);
+            string accessModeStr = command.GetValue(ALParameter.VarAccessMode);
 
             if (string.IsNullOrEmpty(authId) || string.IsNullOrEmpty(expiration) || string.IsNullOrEmpty(accessModeStr))
             {
