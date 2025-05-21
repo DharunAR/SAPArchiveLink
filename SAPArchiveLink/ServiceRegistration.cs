@@ -6,6 +6,8 @@
         {
             services.AddControllers();
             services.AddScoped<ICommandDispatcherService, ALCommandDispatcher>();
+            services.AddScoped<IVerifier, Verifier>();
+            services.AddScoped<ContentServerRequestAuthenticator>();
 
             // Register all ICommandHandler implementations
             services.AddScoped<ICommandHandler, AdmInfoCommandHandler>();

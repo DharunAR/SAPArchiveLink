@@ -1,7 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 
-
-
 namespace SAPArchiveLink
 {
     public class ALCommandDispatcher : ICommandDispatcherService
@@ -21,7 +19,7 @@ namespace SAPArchiveLink
             _handlers[handler.CommandTemplate] = handler;
         }
 
-        public async Task<IActionResult> RunRequest(CommandRequest request)
+        public async Task<IActionResult> RunRequest(CommandRequest request, ContentServerRequestAuthenticator _authenticator)
         {
             var context = new CommandRequestContext(request.HttpRequest);
             var command = ALCommand.FromHttpRequest(new CommandRequest
@@ -31,6 +29,11 @@ namespace SAPArchiveLink
                 Charset = request.Charset,
                 HttpRequest = request.HttpRequest
             });
+
+            // Authenticate the request
+            // In a real application, certificates might be retrieved from a service or configuration
+            var certificates = new List<IArchiveCertificate>(); // Populate as needed
+            var certificate = _authenticator.CheckRequest(request, command, certificates);
 
             var response = await ExecuteRequest(context, command);
 
@@ -68,9 +71,9 @@ namespace SAPArchiveLink
                     };
                 }
 
-                if (!_handlers.TryGetValue(command.Template, out var handler))
+                if (!_handlers.TryGetValue(command.GetTemplate(), out var handler))
                 {
-                    return new CommandResponse($"Unsupported command: {command.Template} for HTTP method {context.GetHttpMethod()}")
+                    return new CommandResponse($"Unsupported command: {command.GetTemplate()} for HTTP method {context.GetHttpMethod()}")
                     {
                         StatusCode = 400
                     };
@@ -80,7 +83,7 @@ namespace SAPArchiveLink
             }
             catch (ALException ex)
             {
-                return new CommandResponse(ex.Message) { StatusCode = ex.StatusCode ?? 400 };
+                return new CommandResponse(ex.Message) { StatusCode = 400 };
             }
             catch (Exception ex)
             {

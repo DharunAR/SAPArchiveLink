@@ -1,6 +1,4 @@
-﻿
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public class AdminContRepCommandHandler : ICommandHandler
     {

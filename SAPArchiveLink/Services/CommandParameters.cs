@@ -2,26 +2,55 @@
 {
     public class CommandParameters
     {
-        private readonly Dictionary<string, string> _params = new Dictionary<string, string>();
+        private readonly Dictionary<string, string> _parameters;
 
-        public CommandParameters(string url, string charset)
+        public CommandParameters()
         {
-            // Simulate ALCommand.initFromQueryString logic
-            // Parse URL query string (e.g., "contRep=XYZ&docId=123")
-            var pairs = url.Split('&');
+            _parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        // Parse query string into parameters
+        public void ParseQueryString(string queryString)
+        {
+            if (string.IsNullOrEmpty(queryString)) return;
+
+            queryString = queryString.TrimStart('?');
+            var pairs = queryString.Split('&')
+                .Select(part => part.Split('='))
+                .Where(parts => parts.Length == 2);
+
             foreach (var pair in pairs)
             {
-                var parts = pair.Split('=');
-                if (parts.Length == 2)
-                {
-                    _params[parts[0]] = parts[1];
-                }
+                string key = pair[0];
+                string value = Uri.UnescapeDataString(pair[1]);
+                _parameters[key] = value;
             }
         }
 
-        public string GetValue(string name)
+        // Get a parameter value by key
+        public string GetValue(string key)
         {
-            return _params.TryGetValue(name, out var value) ? value : null;
+            return _parameters.TryGetValue(key, out var value) ? value : null;
+        }
+
+        // Set a parameter value
+        public void SetValue(string key, string value)
+        {
+            if (string.IsNullOrEmpty(key))
+                throw new ArgumentNullException(nameof(key));
+
+            _parameters[key] = value;
+        }
+
+        // Get all parameters for signing (used in GetStringToSign)
+        public string GetStringToSign(bool includeSignature, string charset)
+        {
+            var parametersToSign = _parameters
+                .Where(kv => !includeSignature || kv.Key != "secKey")
+                .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(kv => $"{kv.Key}={kv.Value}");
+
+            return string.Join("&", parametersToSign);
         }
     }
 }

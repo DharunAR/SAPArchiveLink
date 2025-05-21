@@ -1,17 +1,30 @@
-﻿
-
-
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public interface ICommand
     {
-        ALCommandTemplate Template { get; }
+        ALCommandTemplate GetTemplate();
+
+        string GetValue(string key);
+        void SetValue(string key, string value);
+
+        string GetURLCharset();
+        string GetStringToSign(bool includeSignature, string charset);
+
+        char GetAccessMode();
+
         bool IsHttpGET();
         bool IsHttpPOST();
         bool IsHttpPUT();
         bool IsHttpDELETE();
-        string GetValue(string parameterName);
-        char GetAccessMode();
+
+        bool IsVerified();
+        void SetVerified();
+
+        bool IsImmutable();
+        void SetImmutable();
+
+        string GetCertSubject();
+        void SetCertSubject(string certSubject);
     }
+
 }

@@ -8,13 +8,15 @@ namespace SAPArchiveLink.Controllers
     public class ContentServerController : ControllerBase
     {
         private readonly ICommandDispatcherService _dispatcher;
+        private readonly ContentServerRequestAuthenticator _authenticator;
 
-        public ContentServerController(ICommandDispatcherService dispatcher)
+        public ContentServerController(ICommandDispatcherService dispatcher, 
+                ContentServerRequestAuthenticator authenticator)
         {
             _dispatcher = dispatcher;
+            _authenticator = authenticator;
         }        
 
-        // [HttpGet, HttpPost, HttpPut, HttpDelete]
         [HttpGet("/ContentServer")]
         [HttpPost("/ContentServer")]
         [HttpPut("/ContentServer")]       
@@ -50,11 +52,11 @@ namespace SAPArchiveLink.Controllers
                     HttpRequest = Request
                 };
 
-                return await _dispatcher.RunRequest(commandRequest);
+                return await _dispatcher.RunRequest(commandRequest, _authenticator);
             }
             catch (ALException ex)
             {
-                return StatusCode(ex.StatusCode ?? 400, new { error = ex.Message });
+                return StatusCode(400, new { error = ex.Message });
             }
             catch (Exception ex)
             {

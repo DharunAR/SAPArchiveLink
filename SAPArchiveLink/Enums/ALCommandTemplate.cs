@@ -1,5 +1,12 @@
 ﻿namespace SAPArchiveLink
 {
+    public enum ALProtocolVersion
+    {
+        OO45 = 45,
+        OO46 = 46,
+        OO47 = 47,
+        Unsupported = -1
+    }
     public enum ALCommandTemplate
     {
         // Access Functions
@@ -56,5 +63,11 @@
         SETRECORD,
         SETDOCFLAG,
         CACHE
+    }
+
+    public enum SslMode
+    {
+        RequireSsl,
+        RequireHttp
     }
 }
