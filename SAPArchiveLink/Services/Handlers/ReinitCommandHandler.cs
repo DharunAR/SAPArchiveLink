@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.REINIT;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return CommandResponse.FromText("Reinitialization completed");
+            return CommandResponse.ForProtocolText("Reinitialization completed");
         }
     }
 }

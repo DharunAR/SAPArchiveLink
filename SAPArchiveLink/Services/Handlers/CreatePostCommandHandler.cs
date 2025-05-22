@@ -10,9 +10,9 @@ namespace SAPArchiveLink
             string contRep = command.GetValue("contRep");
             if (string.IsNullOrEmpty(contRep))
             {
-                return CommandResponse.FromText("contRep is required for CREATE",400);
+                return CommandResponse.ForProtocolText("contRep is required for CREATE",400);
             }
-            return CommandResponse.FromText($"Document created (POST) in repository {contRep}");
+            return CommandResponse.ForProtocolText($"Document created (POST) in repository {contRep}");
         }
     }
 }

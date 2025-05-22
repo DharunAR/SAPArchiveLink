@@ -10,9 +10,9 @@ namespace SAPArchiveLink
             string docId = command.GetValue("docId");
             if (string.IsNullOrEmpty(docId))
             {
-                return CommandResponse.FromText("docId is required for DELETE",400);
+                return CommandResponse.ForProtocolText("docId is required for DELETE",400);
             }
-            return CommandResponse.FromText($"Document {docId} deleted");
+            return CommandResponse.ForProtocolText($"Document {docId} deleted");
         }
     }
 }

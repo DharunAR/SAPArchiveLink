@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.SETATTRIBUTE;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return CommandResponse.FromText("Attribute set");
+            return CommandResponse.ForProtocolText("Attribute set");
         }
     }
 }

@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.ANALYZESEC;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return CommandResponse.FromText("Security analysis completed");
+            return CommandResponse.ForProtocolText("Security analysis completed");
         }
     }
 }

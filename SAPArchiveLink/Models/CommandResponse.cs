@@ -1,51 +1,68 @@
-﻿namespace SAPArchiveLink
+﻿using System.Net.Mime;
+
+namespace SAPArchiveLink
 {
     public class CommandResponse
     {
-        public byte[] BinaryContent { get; private set; }
+        public Stream StreamContent { get; private set; }
         public string TextContent { get; private set; }
-        public bool IsBinary { get; private set; }
+        public bool IsStream { get; private set; }
 
-        public int StatusCode { get; set; } = 200;
-        public string ContentType { get; set; } = "text/plain; charset=UTF-8";
+        public int StatusCode { get; set; } = StatusCodes.Status200OK;
+        public string ContentType { get; set; } = MediaTypeNames.Text.Plain + "; charset=UTF-8";
         public Dictionary<string, string> Headers { get; set; } = new();
 
         private CommandResponse() { }
 
-        // Text response (e.g., info, errors, metadata)
-        public static CommandResponse FromText(string content, int statusCode = 200, string contentType = "text/plain; charset=UTF-8")
+        // For standard plain text SAP ArchiveLink protocol responses
+        public static CommandResponse ForProtocolText(string content, int statusCode = StatusCodes.Status200OK, string charset = "UTF-8")
         {
             return new CommandResponse
             {
                 TextContent = content,
                 StatusCode = statusCode,
-                ContentType = contentType,
-                IsBinary = false
+                ContentType = MediaTypeNames.Text.Plain + "; charset=" + charset,
+                IsStream = false
             };
         }
 
-        // Binary response (e.g., docGet)
-        public static CommandResponse FromBinary(byte[] content, string contentType = "application/octet-stream", int statusCode = 200)
+        // For HTML formatted responses, typically administrative info
+        public static CommandResponse ForHtmlReport(string htmlContent, int statusCode = StatusCodes.Status200OK, string charset = "UTF-8")
         {
-            var response = new CommandResponse
+            return new CommandResponse
             {
-                BinaryContent = content,
+                TextContent = htmlContent,
+                StatusCode = statusCode,
+                ContentType = MediaTypeNames.Text.Html + "; charset=" + charset,
+                IsStream = false
+            };
+        }
+
+        // For actual binary document content retrieval (e.g., GET_CONTENT)
+        public static CommandResponse ForDocumentContent(Stream contentStream, string contentType = MediaTypeNames.Application.Octet, int statusCode = StatusCodes.Status200OK)
+        {
+            return new CommandResponse
+            {
+                StreamContent = contentStream,
                 StatusCode = statusCode,
                 ContentType = contentType,
-                IsBinary = true
+                IsStream = true
             };
-            if (content != null)
-            {
-                response.Headers["Content-Length"] = content.Length.ToString();
-            }
-            return response;
         }
 
-        // Error response
-        // Can optionally add contentType parameter if different error formats are needed
-        public static CommandResponse FromError(string message, string errorCode = "ICS_5000", int statusCode = 400)
+        // Error response (can be kept as is, or use ForProtocolText with error formatting)
+        public static CommandResponse ForError(string message, string errorCode = "ICS_5000", int statusCode = StatusCodes.Status400BadRequest)
         {
-            return FromText($"ErrorCode={errorCode}\nErrorMessage={message}", statusCode);
+            return ForProtocolText($"ErrorCode={errorCode}\nErrorMessage={message}", statusCode);
+        }
+
+        // Helper to add headers
+        public void AddHeader(string key, string value)
+        {
+            if (!string.IsNullOrEmpty(key) && value != null)
+            {
+                Headers[key] = value;
+            }
         }
     }
 }

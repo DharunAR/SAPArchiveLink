@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.DOCGETFROMCS;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return CommandResponse.FromText("Document retrieved from content server");
+            return CommandResponse.ForProtocolText("Document retrieved from content server");
         }
     }
 }

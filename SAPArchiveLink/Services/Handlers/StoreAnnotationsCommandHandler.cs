@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.STOREANNOTATIONS;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return CommandResponse.FromText("Annotations stored");
+            return CommandResponse.ForProtocolText("Annotations stored");
         }
     }
 }

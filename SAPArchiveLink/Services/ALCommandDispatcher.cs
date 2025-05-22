@@ -54,14 +54,14 @@ namespace SAPArchiveLink
                 {
                     string redirectUrl = $"https://{context.GetServerName()}:{context.GetPort()}/{context.GetContextPath()}?{context.GetALQueryString(false)}";
 
-                    var redirectResponse = CommandResponse.FromText(string.Empty, 307);
+                    var redirectResponse = CommandResponse.ForProtocolText(string.Empty, 307);
                     redirectResponse.Headers["Location"] = redirectUrl;
                     return redirectResponse;
                 }
 
                 if (!_handlers.TryGetValue(command.GetTemplate(), out var handler))
                 {
-                    return CommandResponse.FromError($"Unsupported command: {command.GetTemplate()} for HTTP method {context.GetHttpMethod()}",
+                    return CommandResponse.ForError($"Unsupported command: {command.GetTemplate()} for HTTP method {context.GetHttpMethod()}",
                         "ICS_7120",400);
                 }
 
@@ -69,7 +69,7 @@ namespace SAPArchiveLink
             }
             catch (ALException ex)
             {
-                return CommandResponse.FromError(
+                return CommandResponse.ForError(
                     ex.Message,
                     "ICS_AL_ERROR",
                     400
@@ -77,7 +77,7 @@ namespace SAPArchiveLink
             }
             catch (Exception ex)
             {
-                return CommandResponse.FromError(
+                return CommandResponse.ForError(
                     $"An unexpected internal server error occurred: {ex.Message}",
                     "ICS_5000",
                     500

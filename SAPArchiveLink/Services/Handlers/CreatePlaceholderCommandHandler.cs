@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.CREATEPLACEHOLDER;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return CommandResponse.FromText("Placeholder created");
+            return CommandResponse.ForProtocolText("Placeholder created");
         }
     }
 }

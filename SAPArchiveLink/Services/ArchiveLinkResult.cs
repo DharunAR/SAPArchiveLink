@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
+using System.Text;
 
 namespace SAPArchiveLink
 {
@@ -18,33 +19,28 @@ namespace SAPArchiveLink
             httpResponse.StatusCode = _response.StatusCode;
             httpResponse.ContentType = _response.ContentType;
 
-            // Add custom headers from CommandResponse
             foreach (var header in _response.Headers)
             {
                 httpResponse.Headers[header.Key] = header.Value;
             }
-            if (_response.IsBinary && _response.BinaryContent != null)
-            {
-                httpResponse.Headers.ContentLength = _response.BinaryContent.Length;
-            }
-            else if (!_response.IsBinary && _response.TextContent != null)
+            if (!_response.IsStream && _response.TextContent != null)
             {
                 httpResponse.Headers.ContentLength = System.Text.Encoding.UTF8.GetByteCount(_response.TextContent);
             }
-            // Write the content to the response body
-            if (_response.IsBinary)
+            if (_response.IsStream && _response.StreamContent != null)
             {
-                if (_response.BinaryContent != null)
+                if (_response.StreamContent.CanSeek)
                 {
-                    await httpResponse.Body.WriteAsync(_response.BinaryContent, 0, _response.BinaryContent.Length);
+                    httpResponse.ContentLength = _response.StreamContent.Length;
+                    _response.StreamContent.Position = 0;
                 }
+
+                await _response.StreamContent.CopyToAsync(httpResponse.Body);
             }
-            else // Text content
+            else if (!_response.IsStream && _response.TextContent != null)
             {
-                if (_response.TextContent != null)
-                {
-                    await httpResponse.WriteAsync(_response.TextContent);
-                }
+                httpResponse.ContentLength = Encoding.UTF8.GetByteCount(_response.TextContent);
+                await httpResponse.WriteAsync(_response.TextContent);
             }
         }
     }

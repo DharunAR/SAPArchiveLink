@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.GETDOCHISTORY;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return CommandResponse.FromText("Document history retrieved");
+            return CommandResponse.ForProtocolText("Document history retrieved");
         }
     }
 }

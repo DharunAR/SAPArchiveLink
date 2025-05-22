@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.RESERVEDOCID;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return CommandResponse.FromText("Document ID reserved");
+            return CommandResponse.ForProtocolText("Document ID reserved");
         }
     }
 }
