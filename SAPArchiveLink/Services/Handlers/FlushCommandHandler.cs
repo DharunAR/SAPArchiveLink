@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.FLUSH;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return new CommandResponse("Flush operation completed");
+            return CommandResponse.ForProtocolText("Flush operation completed");
         }
     }
 }

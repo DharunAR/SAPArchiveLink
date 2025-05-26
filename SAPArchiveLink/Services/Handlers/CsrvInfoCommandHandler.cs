@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.CSRVINFO;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return new CommandResponse("Content server info retrieved");
+            return CommandResponse.ForProtocolText("Content server info retrieved");
         }
     }
 }

@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.GETCONTENT;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return new CommandResponse("Content retrieved");
+            return CommandResponse.ForProtocolText("Content retrieved");
         }
     }
 }

@@ -7,7 +7,7 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.ATTRSEARCH;
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            return new CommandResponse("Attribute search completed");
+            return CommandResponse.ForProtocolText("Attribute search completed");
         }
     }
 }
