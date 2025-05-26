@@ -1,6 +1,15 @@
+using NLog;
+using NLog.Web;
 using SAPArchiveLink;
 
+//var logger = NLog.LogManager.Setup().LoadConfigurationFromFile("nlog.config").GetCurrentClassLogger();
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
+builder.Logging.AddNLog("nlog.config");
+builder.Host.UseNLog();
 
 ServiceRegistration.RegisterServices(builder.Services);
 

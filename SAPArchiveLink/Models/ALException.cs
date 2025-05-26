@@ -85,7 +85,10 @@
         public void SetBodyConsumed() => IsBodyConsumed = true;
 
         public ALException(string key, string format, object[] args, int statusCode = 400, Exception? ex = null)
-            : base(key, FormatMessage(format, args), ex ?? null, statusCode) { }
+            : base(key, FormatMessage(format, args), ex ?? new Exception("Inner exception is null"), statusCode) { }
+
+        public ALException(string key, string format, object[] args, Exception? ex = null)
+       : base(key, FormatMessage(format, args), ex ?? new Exception("Inner exception is null")) { }
 
         public ALException(string key, string message, int statusCode = 400)
             : base(key, message, statusCode) { }

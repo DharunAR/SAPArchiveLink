@@ -10,8 +10,7 @@ namespace SAPArchiveLink.Controllers
         private readonly ICommandDispatcherService _dispatcher;
         private readonly ContentServerRequestAuthenticator _authenticator;
 
-        public ContentServerController(ICommandDispatcherService dispatcher, 
-                ContentServerRequestAuthenticator authenticator)
+        public ContentServerController(ICommandDispatcherService dispatcher,ContentServerRequestAuthenticator authenticator)
         {
             _dispatcher = dispatcher;
             _authenticator = authenticator;

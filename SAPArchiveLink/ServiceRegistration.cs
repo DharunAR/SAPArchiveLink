@@ -59,6 +59,7 @@
             services.AddScoped<ICommandHandler, GetAnnotationsCommandHandler>();
             services.AddScoped<ICommandHandler, DistributeContentCommandHandler>();
             services.AddScoped<ICommandHandler, GetContentCommandHandler>();
+            services.AddTransient(typeof(ILogHelper<>), typeof(LogHelper<>));
         }
     }
 }
