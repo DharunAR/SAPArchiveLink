@@ -1,8 +1,4 @@
-﻿
-
-
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public interface ICommandHandler
     {

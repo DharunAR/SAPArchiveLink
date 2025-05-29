@@ -61,5 +61,11 @@
             services.AddScoped<ICommandHandler, GetContentCommandHandler>();
             services.AddTransient(typeof(ILogHelper<>), typeof(LogHelper<>));
         }
+
+        public static void RegisterTrimConfig(IServiceCollection services, ConfigurationManager configuration)
+        {
+            services.Configure<TrimConfigSettings>(configuration.GetSection("TRIMConfig"));
+            services.AddSingleton(configuration.GetSection("TRIMConfig").Get<TrimConfigSettings>());
+        }
     }
 }

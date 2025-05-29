@@ -10,7 +10,7 @@ builder.Logging.ClearProviders();
 builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
 builder.Logging.AddNLog("nlog.config");
 builder.Host.UseNLog();
-
+ServiceRegistration.RegisterTrimConfig(builder.Services, builder.Configuration);
 ServiceRegistration.RegisterServices(builder.Services);
 
 var app = builder.Build();
