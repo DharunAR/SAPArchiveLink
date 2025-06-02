@@ -59,14 +59,7 @@ namespace SAPArchiveLink
                     e
                 );
             }
-
-            var response = new CommandResponse("_characterSetOut")
-            {
-                //  ResponseCode = (int)HttpStatusCode.OK
-            };
-
-            // Logger.Leave(MN);
-            return response;
+            return CommandResponse.ForProtocolText("Certificate published");
 
            // return new CommandResponse("Certificate updated");
         }

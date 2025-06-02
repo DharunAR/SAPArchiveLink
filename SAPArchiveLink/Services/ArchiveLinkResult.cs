@@ -23,23 +23,72 @@ namespace SAPArchiveLink
             {
                 httpResponse.Headers[header.Key] = header.Value;
             }
-            if (!_response.IsStream && _response.TextContent != null)
+
+            if (_response.IsStream && _response.Components != null)
             {
-                httpResponse.Headers.ContentLength = System.Text.Encoding.UTF8.GetByteCount(_response.TextContent);
+                // Handle multipart/form-data response
+                string boundary = _response.Boundary;
+
+                var encoding = Encoding.UTF8;
+                var writer = new StreamWriter(httpResponse.Body, encoding, leaveOpen: true);
+
+                if (_response.Components.Count == 0)
+                {
+                    // Empty document response
+                    await writer.WriteAsync($"--{boundary}--\r\n");
+                    await writer.FlushAsync();
+                    return;
+                }
+
+                foreach (var component in _response.Components)
+                {
+                    await writer.WriteAsync($"--{boundary}\r\n");
+
+                    string contentType = component.ContentType;
+                    if (!string.IsNullOrEmpty(component.Charset))
+                        contentType += $"; charset={component.Charset}";
+                    if (!string.IsNullOrEmpty(component.Version))
+                        contentType += $"; version={component.Version}";
+
+                    await writer.WriteAsync($"Content-Type: {contentType}\r\n");
+                    await writer.WriteAsync($"Content-Length: {component.ContentLength}\r\n");
+                    await writer.WriteAsync($"X-Content-Length: {component.ContentLength}\r\n");
+                    await writer.WriteAsync($"X-compId: {component.CompId}\r\n");
+                    await writer.WriteAsync($"X-compDateC: {component.CreationDate:yyyy-MM-dd}\r\n");
+                    await writer.WriteAsync($"X-compTimeC: {component.CreationDate:HH:mm:ss}\r\n");
+                    await writer.WriteAsync($"X-compDateM: {component.ModifiedDate:yyyy-MM-dd}\r\n");
+                    await writer.WriteAsync($"X-compTimeM: {component.ModifiedDate:HH:mm:ss}\r\n");
+                    await writer.WriteAsync($"X-compStatus: {component.Status}\r\n");
+                    await writer.WriteAsync($"X-pVersion: {component.PVersion}\r\n");
+                    await writer.WriteAsync("\r\n"); // end of headers
+                    await writer.FlushAsync();
+
+                    // Write binary content
+                    if (component.Data.CanSeek)
+                        component.Data.Position = 0;
+
+                    await component.Data.CopyToAsync(httpResponse.Body);
+                    await writer.WriteAsync("\r\n");
+                    await writer.FlushAsync();
+                }
+
+                await writer.WriteAsync($"--{boundary}--\r\n");
+                await writer.FlushAsync();
             }
-            if (_response.IsStream && _response.StreamContent != null)
+            else if (_response.IsStream && _response.StreamContent != null)
             {
                 if (_response.StreamContent.CanSeek)
                 {
-                    httpResponse.ContentLength = _response.StreamContent.Length;
                     _response.StreamContent.Position = 0;
+                    httpResponse.ContentLength = _response.StreamContent.Length;
                 }
 
                 await _response.StreamContent.CopyToAsync(httpResponse.Body);
             }
             else if (!_response.IsStream && _response.TextContent != null)
             {
-                httpResponse.ContentLength = Encoding.UTF8.GetByteCount(_response.TextContent);
+                var encoding = Encoding.UTF8;
+                httpResponse.ContentLength = encoding.GetByteCount(_response.TextContent);
                 await httpResponse.WriteAsync(_response.TextContent);
             }
         }

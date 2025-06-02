@@ -14,4 +14,10 @@
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Reference Include="TRIM.SDK">
+      <HintPath>..\lib\TRIM.SDK.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

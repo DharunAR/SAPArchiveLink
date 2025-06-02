@@ -1,7 +1,10 @@
-﻿namespace SAPArchiveLink
+﻿using TRIM.SDK;
+
+namespace SAPArchiveLink
 {
     public static class ServiceRegistration
     {
+        public static bool IsTrimInitialized = false;
         public static void RegisterServices(IServiceCollection services)
         {
             services.AddControllers();
@@ -59,13 +62,43 @@
             services.AddScoped<ICommandHandler, GetAnnotationsCommandHandler>();
             services.AddScoped<ICommandHandler, DistributeContentCommandHandler>();
             services.AddScoped<ICommandHandler, GetContentCommandHandler>();
+            services.AddScoped<CMArchieveLinkClient>();
             services.AddTransient(typeof(ILogHelper<>), typeof(LogHelper<>));
         }
 
         public static void RegisterTrimConfig(IServiceCollection services, ConfigurationManager configuration)
         {
+            var config = configuration.GetSection("TRIMConfig").Get<TrimConfigSettings>();
             services.Configure<TrimConfigSettings>(configuration.GetSection("TRIMConfig"));
-            services.AddSingleton(configuration.GetSection("TRIMConfig").Get<TrimConfigSettings>());
+            services.AddSingleton(config);
+            if(config != null)
+            {
+                InitializeTrimService(config);
+            }
+        }
+
+        private static void InitializeTrimService(TrimConfigSettings trimConfig)
+        {
+            try
+            {
+                TrimApplication.SetAsWebService(trimConfig.WorkPath);
+                if (!string.IsNullOrWhiteSpace(trimConfig.BinariesLoadPath))
+                {
+                    TrimApplication.TrimBinariesLoadPath = trimConfig.BinariesLoadPath;
+                }
+                TrimApplication.Initialize();
+                IsTrimInitialized = true;
+            }
+            catch (TrimException)
+            {
+                //We should probably return back the CommandResponse with Server error(500),
+                //when TrimApplication is not initialised.
+                IsTrimInitialized = false;
+            }
+            catch (Exception)
+            {
+                
+            }
         }
     }
 }
