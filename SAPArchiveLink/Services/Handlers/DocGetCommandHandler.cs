@@ -17,33 +17,45 @@ namespace SAPArchiveLink
 
         public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
-            string docId = command.GetValue(ALParameter.VarDocId);
-            string contRep = command.GetValue(ALParameter.VarContRep);
-            string compId = command.GetValue(ALParameter.VarCompId);
-            string pVersion = command.GetValue(ALParameter.VarPVersion);
+            try
+            {
+                string docId = command.GetValue(ALParameter.VarDocId);
+                string contRep = command.GetValue(ALParameter.VarContRep);
+                string compId = command.GetValue(ALParameter.VarCompId);
+                string pVersion = command.GetValue(ALParameter.VarPVersion);
 
-            if (string.IsNullOrEmpty(docId) || string.IsNullOrEmpty(contRep))
-                return CommandResponse.ForError("Missing required parameters: docId and contRep", "ICS_4001");
-
-            var record = _archiveClient.GetRecord(docId, contRep);
-            if (record == null)
-                return CommandResponse.ForError("Record not found", "ICS_4040", StatusCodes.Status404NotFound);
-
-            var components = record.ChildSapComponents;
-            //if (components == null || components.Count == 0)
-            //    return CommandResponse.ForError("No components found for the document", "ICS_4041", StatusCodes.Status404NotFound);
-
-            if (!string.IsNullOrEmpty(compId))
-            {  
-                if (!_archiveClient.IsRecordComponentAvailable(components, compId))
+                if (string.IsNullOrEmpty(docId) || string.IsNullOrEmpty(contRep))
+                    return CommandResponse.ForError("Missing required parameters: docId and contRep", "ICS_4001");
+                
+                // Dispose the database context in the handler to avoid premature disposal.
+                // If disposed inside ArchiveClient, data access in the handler will fail.
+                using (var db = _archiveClient.GetDatabase())
                 {
-                    return CommandResponse.ForError($"Component '{compId}' not found", "ICS_4042", StatusCodes.Status404NotFound);
-                }
-            }
+                    var record = _archiveClient.GetRecord(db, docId, contRep);
+                    if (record == null)
+                        return CommandResponse.ForError("Record not found", "ICS_4040", StatusCodes.Status404NotFound);
 
-            var documentComponents = _archiveClient.GetDocumentComponents(components);
-           
-            return CommandResponse.ForMultipartDocument(documentComponents);
+                    var components = record.ChildSapComponents;
+                    //if (components == null || components.Count == 0)
+                    //    return CommandResponse.ForError("No components found for the document", "ICS_4041", StatusCodes.Status404NotFound);
+
+                    if (!string.IsNullOrEmpty(compId))
+                    {
+                        if (!_archiveClient.IsRecordComponentAvailable(components, compId))
+                        {
+                            return CommandResponse.ForError($"Component '{compId}' not found", "ICS_4042", StatusCodes.Status404NotFound);
+                        }
+                    }
+
+                    var documentComponents = _archiveClient.GetDocumentComponents(components);
+
+                    return CommandResponse.ForMultipartDocument(documentComponents);
+                }    
+            }
+            catch (Exception ex)
+            {
+                return null;
+            } 
         }
 
 

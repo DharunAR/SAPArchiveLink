@@ -1,5 +1,4 @@
-﻿using SAPArchiveLink.Client;
-using TRIM.SDK;
+﻿using TRIM.SDK;
 
 namespace SAPArchiveLink
 {
@@ -13,27 +12,24 @@ namespace SAPArchiveLink
 
         public void PutArchiveCertificate()
         {
-            using (var db = GetDatabase())
-            {
 
-            }
         }
-        public Record GetRecord(string docId, string contRep)
+        public Record GetRecord(Database db, string docId, string contRep)
         {
-            using (var db = GetDatabase())
+            Record? retVal = null;
+            TrimMainObjectSearch tmos = new TrimMainObjectSearch(db, BaseObjectTypes.Record);
+            TrimSearchClause docClause = new TrimSearchClause(db, BaseObjectTypes.Record, SearchClauseIds.RecordSapdoc);
+            docClause.SetCriteriaFromString(docId);
+            tmos.AddSearchClause(docClause);
+            TrimSearchClause contRepClause = new TrimSearchClause(db, BaseObjectTypes.Record, SearchClauseIds.RecordSaprepos);
+            contRepClause.SetCriteriaFromString(contRep);
+            tmos.AddSearchClause(contRepClause);
+            if (tmos.Count > 0)
             {
-                Record? retVal = null;
-                TrimMainObjectSearch tmos = new TrimMainObjectSearch(db, BaseObjectTypes.Record);
-                TrimSearchClause docClause = new TrimSearchClause(db, BaseObjectTypes.Record, SearchClauseIds.RecordSapdoc);
-                docClause.SetCriteriaFromString(docId);
-                TrimSearchClause contRepClause = new TrimSearchClause(db, BaseObjectTypes.Record, SearchClauseIds.RecordSaprepos);
-                contRepClause.SetCriteriaFromString(contRep);
-                if (tmos.Count > 0)
-                {
-                    retVal = tmos.GetEnumerator()?.Current as Record;
-                }
-                return retVal;
-            }   
+                var uris = tmos.GetResultAsUriArray(1);
+                retVal = new Record(db, uris[0]);
+            }
+            return retVal;
         }
 
         public List<SAPDocumentComponent> GetDocumentComponents(RecordSapComponents components)
@@ -84,7 +80,7 @@ namespace SAPArchiveLink
             return false;
         }
 
-        private Database GetDatabase()
+        public Database GetDatabase()
         {
             return DatabaseConnection.GetDatabase(_trimConfig);
         }

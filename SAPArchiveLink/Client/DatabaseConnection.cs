@@ -1,6 +1,6 @@
 ﻿using TRIM.SDK;
 
-namespace SAPArchiveLink.Client
+namespace SAPArchiveLink
 {
     public static class DatabaseConnection
     {

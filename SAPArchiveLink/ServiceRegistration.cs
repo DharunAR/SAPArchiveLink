@@ -81,11 +81,11 @@ namespace SAPArchiveLink
         {
             try
             {
-                TrimApplication.SetAsWebService(trimConfig.WorkPath);
                 if (!string.IsNullOrWhiteSpace(trimConfig.BinariesLoadPath))
                 {
                     TrimApplication.TrimBinariesLoadPath = trimConfig.BinariesLoadPath;
                 }
+                TrimApplication.SetAsWebService(trimConfig.WorkPath);
                 TrimApplication.Initialize();
                 IsTrimInitialized = true;
             }
