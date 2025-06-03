@@ -2,7 +2,7 @@
 
 namespace SAPArchiveLink
 {
-    public class CommandResponse
+    public class CommandResponse: ICommandResponse
     {
         public Stream StreamContent { get; private set; }
         public string TextContent { get; private set; }

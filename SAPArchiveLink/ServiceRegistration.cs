@@ -63,16 +63,17 @@ namespace SAPArchiveLink
             services.AddScoped<ICommandHandler, DistributeContentCommandHandler>();
             services.AddScoped<ICommandHandler, GetContentCommandHandler>();
             services.AddScoped<CMArchieveLinkClient>();
+            services.AddSingleton<ICommandResponseFactory, CommandResponseFactory>();
             services.AddTransient(typeof(ILogHelper<>), typeof(LogHelper<>));
         }
 
         public static void RegisterTrimConfig(IServiceCollection services, ConfigurationManager configuration)
         {
             var config = configuration.GetSection("TRIMConfig").Get<TrimConfigSettings>();
-            services.Configure<TrimConfigSettings>(configuration.GetSection("TRIMConfig"));
-            services.AddSingleton(config);
+            services.Configure<TrimConfigSettings>(configuration.GetSection("TRIMConfig"));               
             if(config != null)
             {
+                services.AddSingleton(config);
                 InitializeTrimService(config);
             }
         }

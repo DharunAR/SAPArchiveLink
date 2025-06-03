@@ -3,6 +3,6 @@
     public interface ICommandHandler
     {
         ALCommandTemplate CommandTemplate { get; }
-        Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context);
+        Task<ICommandResponse> HandleAsync(ICommand command, ICommandRequestContext context);
     }
 }

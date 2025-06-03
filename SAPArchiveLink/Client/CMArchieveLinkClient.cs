@@ -2,7 +2,7 @@
 
 namespace SAPArchiveLink
 {
-    public class CMArchieveLinkClient
+    public class CMArchieveLinkClient: ICMArchieveLinkClient
     {
         private readonly TrimConfigSettings _trimConfig;
         public CMArchieveLinkClient(TrimConfigSettings trimConfig)

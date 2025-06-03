@@ -6,9 +6,9 @@ namespace SAPArchiveLink
 {
     public class ArchiveLinkResult : IActionResult
     {
-        private readonly CommandResponse _response;
+        private readonly ICommandResponse _response;
 
-        public ArchiveLinkResult(CommandResponse response)
+        public ArchiveLinkResult(ICommandResponse response)
         {
             _response = response ?? throw new ArgumentNullException(nameof(response));
         }

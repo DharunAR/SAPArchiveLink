@@ -7,8 +7,8 @@ namespace SAPArchiveLink
 {
     public class DocGetCommandHandler : ICommandHandler
     {
-        private CMArchieveLinkClient _archiveClient;
-        public DocGetCommandHandler(CMArchieveLinkClient archiveClient)
+        private ICMArchieveLinkClient _archiveClient;
+        public DocGetCommandHandler(ICMArchieveLinkClient archiveClient)
         {
             _archiveClient = archiveClient;
         }
