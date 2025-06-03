@@ -14,8 +14,8 @@
         public ICommandResponse CreateMultipartDocument(List<SAPDocumentComponent> components, int statusCode = 200)
             => CommandResponse.ForMultipartDocument(components, statusCode);
 
-        public ICommandResponse CreateError(string message, string errorCode = "ICS_5000", int statusCode = 400)
-            => CommandResponse.ForError(message, errorCode, statusCode);
+        public ICommandResponse CreateError(string message, int statusCode = StatusCodes.Status400BadRequest)
+            => CommandResponse.ForError(message, statusCode);
     }
 
 }

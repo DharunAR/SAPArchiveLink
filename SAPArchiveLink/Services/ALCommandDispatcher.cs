@@ -5,7 +5,7 @@ namespace SAPArchiveLink
     public class ALCommandDispatcher : ICommandDispatcherService
     {
         private readonly Dictionary<ALCommandTemplate, ICommandHandler> _handlers = new();
-        ICommandResponseFactory commandResponseFactory;
+        ICommandResponseFactory _commandResponseFactory;
 
         public ALCommandDispatcher(IEnumerable<ICommandHandler> commandHandlers, ICommandResponseFactory commandResponseFactory)
         {
@@ -14,7 +14,7 @@ namespace SAPArchiveLink
                 RegisterHandler(handler);
             }
 
-            this.commandResponseFactory = commandResponseFactory;
+            _commandResponseFactory = commandResponseFactory;
         }
 
         public void RegisterHandler(ICommandHandler handler)
@@ -55,7 +55,7 @@ namespace SAPArchiveLink
                 if (!ServiceRegistration.IsTrimInitialized)
                 {
                     //Trim application is not initialised, user might probably check the logs for resolving the problem.
-                    return commandResponseFactory.CreateError("Trim application is not initialized, Please check the logs", "ICS_5000", StatusCodes.Status500InternalServerError);
+                    return _commandResponseFactory.CreateError("Trim application is not initialized, Please check the logs", StatusCodes.Status500InternalServerError);
                 }
                 bool doForward = Environment.GetEnvironmentVariable("FORWARD_CONTENT_TO_KNOWNSERVER")?.Trim().ToLower() == "true";
                 if (doForward && (command.IsHttpPOST() || command.IsHttpPUT()))
@@ -69,27 +69,18 @@ namespace SAPArchiveLink
 
                 if (!_handlers.TryGetValue(command.GetTemplate(), out var handler))
                 {
-                    return CommandResponse.ForError($"Unsupported command: {command.GetTemplate()} for HTTP method {context.GetHttpMethod()}",
-                        "ICS_7120",400);
+                    return _commandResponseFactory.CreateError($"Unsupported command: {command.GetTemplate()} for HTTP method {context.GetHttpMethod()}");
                 }
 
                 return await handler.HandleAsync(command, context);
             }
             catch (ALException ex)
             {
-                return CommandResponse.ForError(
-                    ex.Message,
-                    "ICS_AL_ERROR",
-                    400
-                );
+                return _commandResponseFactory.CreateError(ex.Message);
             }
             catch (Exception ex)
             {
-                return CommandResponse.ForError(
-                    $"An unexpected internal server error occurred: {ex.Message}",
-                    "ICS_5000",
-                    500
-                );
+                return _commandResponseFactory.CreateError($"An unexpected internal server error occurred: {ex.Message}", StatusCodes.Status500InternalServerError);
             }
         }
     }

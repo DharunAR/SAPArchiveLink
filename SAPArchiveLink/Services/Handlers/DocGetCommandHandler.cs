@@ -45,7 +45,7 @@ namespace SAPArchiveLink
 
                 // Validate required parameters
                 if (string.IsNullOrEmpty(docId) || string.IsNullOrEmpty(contRep))
-                    return _responseFactory.CreateError("Missing required parameters: docId and contRep", "ICS_4001");
+                    return _responseFactory.CreateError("Missing required parameters: docId and contRep");
 
                 if (!string.IsNullOrEmpty(secKey))
                 {
@@ -69,7 +69,7 @@ namespace SAPArchiveLink
                 {
                     var record = _archiveClient.GetRecord(db, docId, contRep);
                     if (record == null)
-                        return _responseFactory.CreateError("Record not found", "ICS_4040", StatusCodes.Status404NotFound);
+                        return _responseFactory.CreateError("Record not found", StatusCodes.Status404NotFound);
 
                     var components = record.ChildSapComponents;
 
@@ -77,7 +77,7 @@ namespace SAPArchiveLink
                     if (!string.IsNullOrEmpty(compId))
                     {
                         if (!_archiveClient.IsRecordComponentAvailable(components, compId))
-                            return _responseFactory.CreateError($"Component '{compId}' not found", "ICS_4042", StatusCodes.Status404NotFound);
+                            return _responseFactory.CreateError($"Component '{compId}' not found", StatusCodes.Status404NotFound);
 
                         var component = await _archiveClient.GetDocumentComponent(components, compId);
                         var response = _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName);
@@ -115,7 +115,7 @@ namespace SAPArchiveLink
             }
             catch (Exception ex)
             {
-                return _responseFactory.CreateError($"Internal server error: {ex.Message}", "ICS_5000", StatusCodes.Status500InternalServerError);
+                return _responseFactory.CreateError($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
             }
         }
     }

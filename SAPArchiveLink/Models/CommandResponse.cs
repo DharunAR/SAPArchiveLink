@@ -96,25 +96,26 @@ namespace SAPArchiveLink
         }
 
         /// <summary>
-        /// Creates a plain text error response with an ArchiveLink-compatible error format.
-        /// Includes optional error code and sets X-ErrorDescription header. 
+        /// Creates a plain text error response with an SAP ArchiveLink-compliant message body
+        /// and appropriate HTTP status code.
         /// </summary>
         /// <param name="message"></param>
-        /// <param name="errorCode"></param>
         /// <param name="statusCode"></param>
         /// <returns></returns>
-        public static CommandResponse ForError(string message, string errorCode = "ICS_5000", int statusCode = StatusCodes.Status400BadRequest)
+        public static CommandResponse ForError(string message, int statusCode = StatusCodes.Status400BadRequest)
         {
             var response = new CommandResponse
             {
-                TextContent = $"ErrorCode={errorCode}\nErrorMessage={message}",
+                TextContent = $"ErrorMessage={message}",
                 StatusCode = statusCode,
                 ContentType = $"{MediaTypeNames.Text.Plain}; charset=UTF-8",
                 IsStream = false
             };
+
             response.AddHeader("X-ErrorDescription", message);
             return response;
         }
+
 
         /// <summary>
         /// Add a custom response header
