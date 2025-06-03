@@ -5,7 +5,7 @@ namespace SAPArchiveLink
     public class DeleteCommandHandler : ICommandHandler
     {
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.DELETE;
-        public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
+        public async Task<ICommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
             string docId = command.GetValue("docId");
             if (string.IsNullOrEmpty(docId))

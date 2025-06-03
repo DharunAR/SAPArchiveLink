@@ -61,7 +61,7 @@ public class BaseServices : IBaseServices
         try
         {
             //csClient.PutArchiveCertificate(authId, icsArchiveCertificate, protectionLevel, content64, archiveDataID);
-            cmClient.PutArchiveCertificate();
+            //cmClient.PutArchiveCertificate();
         }
         catch (IOException e)
         {

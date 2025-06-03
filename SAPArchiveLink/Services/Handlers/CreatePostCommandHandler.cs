@@ -5,7 +5,7 @@ namespace SAPArchiveLink
     public class CreatePostCommandHandler : ICommandHandler
     {
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.CREATE_POST;
-        public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
+        public async Task<ICommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
             string contRep = command.GetValue("contRep");
             if (string.IsNullOrEmpty(contRep))

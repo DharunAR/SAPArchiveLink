@@ -6,7 +6,7 @@ namespace SAPArchiveLink
     {
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.CREATE_PUT; // Also handles CREATE_POST
 
-        public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
+        public async Task<ICommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
             var request = context.GetRequest();
 

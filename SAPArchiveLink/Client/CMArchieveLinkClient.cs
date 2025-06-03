@@ -1,4 +1,10 @@
-﻿using TRIM.SDK;
+﻿using System.Net.Mime;
+using System.Runtime.InteropServices;
+using System;
+using TRIM.SDK;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+using SAPArchiveLink;
+using System.IO;
 
 namespace SAPArchiveLink
 {
@@ -27,7 +33,7 @@ namespace SAPArchiveLink
         /// <param name="permissions"></param>
         /// <param name="authId"></param>
         /// <param name="archiveDataID"></param>
-        public void PutArchiveCertificate(String serialName, String fingerprint, String issuerCertificate, String validFrom, String validTill, String content, int permissions, String authId, long archiveDataID)
+        public void PutArchiveCertificate(string serialName, string fingerprint, string issuerCertificate, string validFrom, string validTill, string content, int permissions, string authId, long archiveDataID)
         {
 
         }
@@ -58,12 +64,65 @@ namespace SAPArchiveLink
         }
 
         /// <summary>
+        /// Retreive the document component based on the ComponentId
+        /// </summary>
+        /// <param name="components"></param>
+        /// <param name="compId"></param>
+        /// <returns></returns>
+        public async Task<SAPDocumentComponent> GetDocumentComponent(RecordSapComponents components, string compId)
+        {
+            string? fileName;
+            RecordSapComponent? sapComponent = null;
+            if (!string.IsNullOrWhiteSpace(compId))
+            {
+                var tt = components.GetEnumerator() as List<RecordSapComponent>;
+                foreach (RecordSapComponent c in components)
+                {
+                    if (c.ComponentId == compId)
+                    {
+                        sapComponent = c;
+                        break;
+                    }
+                }
+                if (sapComponent != null)
+                {
+                    ExtractDocument extractDocument = sapComponent.GetExtractDocument();
+                    fileName = _trimConfig.WorkPath;
+                    extractDocument.DoExtract(fileName, true, false, string.Empty);
+
+                    using (Stream fileStream = File.OpenRead(extractDocument.FileName))
+                    {
+                        var memoryStream = new MemoryStream();
+                        await fileStream.CopyToAsync(memoryStream);
+                        memoryStream.Position = 0;
+                        return new SAPDocumentComponent
+                        {
+                            CompId = sapComponent.ComponentId,
+                            ContentType = sapComponent.ContentType ?? "application/octet-stream",
+                            Charset = sapComponent.CharacterSet ?? "UTF-8",
+                            Version = sapComponent.ApplicationVersion,
+                            ContentLength = sapComponent.Bytes,
+                            CreationDate = sapComponent.ArchiveDate,
+                            ModifiedDate = sapComponent.DateModified,
+                            Status = "online",
+                            PVersion = sapComponent.ArchiveLinkVersion,
+                            Data = memoryStream,
+                            FileName = extractDocument.FileName
+                        };
+                    }
+                }
+            }
+            return null;
+        }
+
+
+        /// <summary>
         /// Retrieves the document components for a given set of SAP components.
         /// </summary>
         /// <param name="components"></param>
         /// <returns></returns>
 
-        public List<SAPDocumentComponent> GetDocumentComponents(RecordSapComponents components)
+        public async Task<List<SAPDocumentComponent>> GetDocumentComponents(RecordSapComponents components)
         {
             List<SAPDocumentComponent> documentComponents = new();
             foreach (RecordSapComponent c in components)
@@ -78,23 +137,27 @@ namespace SAPArchiveLink
                 {
                     fileName = _trimConfig.WorkPath;
                 }
-                extractDocument.DoExtract(fileName, false, false, string.Empty);
+                extractDocument.DoExtract(fileName, true, false, string.Empty);
 
-                Stream fileStream = new FileStream(fileName, FileMode.Open, FileAccess.Read, FileShare.Read);
-
-                documentComponents.Add(new SAPDocumentComponent
+                using (Stream fileStream = File.OpenRead(extractDocument.FileName))
                 {
-                    CompId = c.ComponentId,
-                    ContentType = c.ContentType ?? "application/octet-stream",
-                    Charset = c.CharacterSet ?? "UTF-8",
-                    Version = c.ApplicationVersion,
-                    ContentLength = c.Bytes,
-                    CreationDate = c.ArchiveDate,
-                    ModifiedDate = c.DateModified,
-                    Status = "online",
-                    PVersion = c.ArchiveLinkVersion,
-                    Data = fileStream
-                });
+                    var memoryStream = new MemoryStream();
+                    await fileStream.CopyToAsync(memoryStream);
+                    memoryStream.Position = 0;
+                    documentComponents.Add(new SAPDocumentComponent
+                    {
+                        CompId = c.ComponentId,
+                        ContentType = c.ContentType ?? "application/octet-stream",
+                        Charset = c.CharacterSet ?? "UTF-8",
+                        Version = c.ApplicationVersion,
+                        ContentLength = c.Bytes,
+                        CreationDate = c.ArchiveDate,
+                        ModifiedDate = c.DateModified,
+                        Status = "online",
+                        PVersion = c.ArchiveLinkVersion,
+                        Data = fileStream
+                    });
+                }
             }
             return documentComponents;
         }

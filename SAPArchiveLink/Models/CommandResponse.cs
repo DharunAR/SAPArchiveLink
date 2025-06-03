@@ -1,4 +1,5 @@
-﻿using System.Net.Mime;
+﻿using Microsoft.AspNetCore.StaticFiles;
+using System.Net.Mime;
 
 namespace SAPArchiveLink
 {
@@ -16,6 +17,14 @@ namespace SAPArchiveLink
 
         private CommandResponse() { }
 
+        /// <summary>
+        /// Creates a plain text ArchiveLink response with specified content and status code.
+        /// Used for standard SAP protocol responses.
+        /// </summary>
+        /// <param name="content"></param>
+        /// <param name="statusCode"></param>
+        /// <param name="charset"></param>
+        /// <returns></returns>
         public static CommandResponse ForProtocolText(string content, int statusCode = StatusCodes.Status200OK, string charset = "UTF-8")
         {
             return new CommandResponse
@@ -27,6 +36,13 @@ namespace SAPArchiveLink
             };
         }
 
+        /// <summary>
+        /// Creates an HTML-formatted response, typically used for administrative commands (e.g., AdmInfo).
+        /// </summary>
+        /// <param name="htmlContent"></param>
+        /// <param name="statusCode"></param>
+        /// <param name="charset"></param>
+        /// <returns></returns>
         public static CommandResponse ForHtmlReport(string htmlContent, int statusCode = StatusCodes.Status200OK, string charset = "UTF-8")
         {
             return new CommandResponse
@@ -38,28 +54,37 @@ namespace SAPArchiveLink
             };
         }
 
+        /// <summary>
+        /// Creates a streamed response for a single binary document component. 
+        /// </summary>
+        /// <param name="contentStream"></param>
+        /// <param name="contentType"></param>
+        /// <param name="statusCode"></param>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
         public static CommandResponse ForDocumentContent(Stream contentStream, string contentType = MediaTypeNames.Application.Octet, int statusCode = StatusCodes.Status200OK, string fileName = null)
         {
             var response = new CommandResponse
             {
                 StreamContent = contentStream,
                 StatusCode = statusCode,
-                ContentType = contentType,
+                ContentType = GetMimeTypeFromExtension(fileName),
                 IsStream = true
             };
-
-            if (!string.IsNullOrEmpty(fileName))
-            {
-                response.AddHeader("Content-Disposition", $"attachment; filename=\"{fileName}\"");
-            }
 
             return response;
         }
 
+        /// <summary>
+        /// Creates a multipart/form-data response containing multiple document components.
+        /// </summary>
+        /// <param name="components"></param>
+        /// <param name="statusCode"></param>
+        /// <returns></returns>
         public static CommandResponse ForMultipartDocument(List<SAPDocumentComponent> components, int statusCode = StatusCodes.Status200OK)
         {
             string boundary = $"docGet_{Guid.NewGuid():N}";
-            return new CommandResponse
+            var response =  new CommandResponse
             {
                 Components = components,
                 StatusCode = statusCode,
@@ -67,13 +92,35 @@ namespace SAPArchiveLink
                 Boundary = boundary,
                 IsStream = true
             };
+            return response;
         }
 
+        /// <summary>
+        /// Creates a plain text error response with an ArchiveLink-compatible error format.
+        /// Includes optional error code and sets X-ErrorDescription header. 
+        /// </summary>
+        /// <param name="message"></param>
+        /// <param name="errorCode"></param>
+        /// <param name="statusCode"></param>
+        /// <returns></returns>
         public static CommandResponse ForError(string message, string errorCode = "ICS_5000", int statusCode = StatusCodes.Status400BadRequest)
         {
-            return ForProtocolText($"ErrorCode={errorCode}\nErrorMessage={message}", statusCode);
+            var response = new CommandResponse
+            {
+                TextContent = $"ErrorCode={errorCode}\nErrorMessage={message}",
+                StatusCode = statusCode,
+                ContentType = $"{MediaTypeNames.Text.Plain}; charset=UTF-8",
+                IsStream = false
+            };
+            response.AddHeader("X-ErrorDescription", message);
+            return response;
         }
 
+        /// <summary>
+        /// Add a custom response header
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
         public void AddHeader(string key, string value)
         {
             if (!string.IsNullOrWhiteSpace(key) && value != null)
@@ -81,5 +128,21 @@ namespace SAPArchiveLink
                 Headers[key] = value;
             }
         }
+
+        /// <summary>
+        /// Get the MIME type based on the file extension
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
+        private static string GetMimeTypeFromExtension(string fileName)
+        {
+            var provider = new FileExtensionContentTypeProvider();
+            if (!provider.TryGetContentType(fileName, out string contentType))
+            {
+                contentType = MediaTypeNames.Application.Octet;
+            }
+            return contentType;
+        }
+
     }
 }

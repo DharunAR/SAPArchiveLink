@@ -24,14 +24,13 @@ namespace SAPArchiveLink
                 httpResponse.Headers[header.Key] = header.Value;
             }
 
-            if (_response.IsStream && _response.Components != null)
+            if (_response.IsStream && _response.Components?.Count > 0)
             {
                 // Handle multipart/form-data response
                 string boundary = _response.Boundary;
 
                 var encoding = Encoding.UTF8;
                 var writer = new StreamWriter(httpResponse.Body, encoding, leaveOpen: true);
-
                 if (_response.Components.Count == 0)
                 {
                     // Empty document response
