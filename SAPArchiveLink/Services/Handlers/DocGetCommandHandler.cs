@@ -65,51 +65,53 @@ namespace SAPArchiveLink
                 }
 
                 // Connect to database and retrieve record
-                using var db = _archiveClient.GetDatabase();
-                var record = _archiveClient.GetRecord(db, docId, contRep);
-                if (record == null)
-                    return _responseFactory.CreateError("Record not found", "ICS_4040", StatusCodes.Status404NotFound);
-
-                var components = record.ChildSapComponents;
-
-                // Handle single component response
-                if (!string.IsNullOrEmpty(compId))
+                using (var db = _archiveClient.GetDatabase())
                 {
-                    if (!_archiveClient.IsRecordComponentAvailable(components, compId))
-                        return _responseFactory.CreateError($"Component '{compId}' not found", "ICS_4042", StatusCodes.Status404NotFound);
+                    var record = _archiveClient.GetRecord(db, docId, contRep);
+                    if (record == null)
+                        return _responseFactory.CreateError("Record not found", "ICS_4040", StatusCodes.Status404NotFound);
 
-                    var component = await _archiveClient.GetDocumentComponent(components, compId);
-                    var response = _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName);
+                    var components = record.ChildSapComponents;
 
-                    response.AddHeader("X-compId", component.CompId);
-                    response.AddHeader("X-Content-Length", component.ContentLength.ToString());
-                    response.AddHeader("X-compDateC", component.CreationDate.ToUniversalTime().ToString("yyyy-MM-dd"));
-                    response.AddHeader("X-compTimeC", component.CreationDate.ToUniversalTime().ToString("HH:mm:ss"));
-                    response.AddHeader("X-compDateM", component.ModifiedDate.ToUniversalTime().ToString("yyyy-MM-dd"));
-                    response.AddHeader("X-compTimeM", component.ModifiedDate.ToUniversalTime().ToString("HH:mm:ss"));
-                    response.AddHeader("X-compStatus", component.Status);
-                    response.AddHeader("X-pVersion", component.PVersion ?? pVersion);
-                    response.AddHeader("X-docId", docId);
-                    response.AddHeader("X-contRep", contRep);
+                    // Handle single component response
+                    if (!string.IsNullOrEmpty(compId))
+                    {
+                        if (!_archiveClient.IsRecordComponentAvailable(components, compId))
+                            return _responseFactory.CreateError($"Component '{compId}' not found", "ICS_4042", StatusCodes.Status404NotFound);
 
-                    return response;
-                }
+                        var component = await _archiveClient.GetDocumentComponent(components, compId);
+                        var response = _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName);
 
-                // Handle multipart response (multiple components)
-                var multipartComponents = await _archiveClient.GetDocumentComponents(components);
-                var multipartResponse = _responseFactory.CreateMultipartDocument(multipartComponents);
+                        response.AddHeader("X-compId", component.CompId);
+                        response.AddHeader("X-Content-Length", component.ContentLength.ToString());
+                        response.AddHeader("X-compDateC", component.CreationDate.ToUniversalTime().ToString("yyyy-MM-dd"));
+                        response.AddHeader("X-compTimeC", component.CreationDate.ToUniversalTime().ToString("HH:mm:ss"));
+                        response.AddHeader("X-compDateM", component.ModifiedDate.ToUniversalTime().ToString("yyyy-MM-dd"));
+                        response.AddHeader("X-compTimeM", component.ModifiedDate.ToUniversalTime().ToString("HH:mm:ss"));
+                        response.AddHeader("X-compStatus", component.Status);
+                        response.AddHeader("X-pVersion", component.PVersion ?? pVersion);
+                        response.AddHeader("X-docId", docId);
+                        response.AddHeader("X-contRep", contRep);
 
-                multipartResponse.AddHeader("X-dateC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
-                multipartResponse.AddHeader("X-timeC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
-                multipartResponse.AddHeader("X-dateM", record.DateModified.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
-                multipartResponse.AddHeader("X-timeM", record.DateModified.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
-                multipartResponse.AddHeader("X-contRep", contRep);
-                multipartResponse.AddHeader("X-numComps", components.Count.ToString());
-                multipartResponse.AddHeader("X-docId", docId);
-                multipartResponse.AddHeader("X-docStatus", "online");
-                multipartResponse.AddHeader("X-pVersion", pVersion);
+                        return response;
+                    }
 
-                return multipartResponse;
+                    // Handle multipart response (multiple components)
+                    var multipartComponents = await _archiveClient.GetDocumentComponents(components);
+                    var multipartResponse = _responseFactory.CreateMultipartDocument(multipartComponents);
+
+                    multipartResponse.AddHeader("X-dateC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
+                    multipartResponse.AddHeader("X-timeC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
+                    multipartResponse.AddHeader("X-dateM", record.DateModified.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
+                    multipartResponse.AddHeader("X-timeM", record.DateModified.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
+                    multipartResponse.AddHeader("X-contRep", contRep);
+                    multipartResponse.AddHeader("X-numComps", components.Count.ToString());
+                    multipartResponse.AddHeader("X-docId", docId);
+                    multipartResponse.AddHeader("X-docStatus", "online");
+                    multipartResponse.AddHeader("X-pVersion", pVersion);
+
+                    return multipartResponse;
+                }       
             }
             catch (Exception ex)
             {
