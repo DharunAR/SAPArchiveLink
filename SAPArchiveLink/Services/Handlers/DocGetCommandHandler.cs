@@ -15,7 +15,7 @@ namespace SAPArchiveLink
 
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.DOCGET;
 
-        public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
+        public async Task<ICommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
             try
             {

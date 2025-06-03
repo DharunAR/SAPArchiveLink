@@ -13,7 +13,7 @@
         }
         private readonly string _httpMethod;
         private readonly CommandParameters _parameters;
-        private readonly char _accessMode;
+        private readonly string _accessMode;
         private readonly string _charset;
         private readonly ILogger<ALCommand> _logger;
         private bool _isImmutable;
@@ -94,7 +94,7 @@
             return _parameters.GetStringToSign(includeSignature, charset);
         }
 
-        public char GetAccessMode()
+        public string GetAccessMode()
         {
             return _accessMode;
         }

@@ -1,4 +1,5 @@
 ﻿using System.Net.Security;
+using System.Text;
 
 namespace SAPArchiveLink
 {
@@ -11,27 +12,87 @@ namespace SAPArchiveLink
             return result;
         }
 
-        public static int AccessModeToInt(char? mode)
+        /// <summary>
+        /// Converts a protection level string (e.g., "rcud") to an integer representation. 
+        /// </summary>
+        /// <param name="protLevelStr"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        public static int AccessModeToInt(string protLevelStr)
         {
-            int accMode = ALCommand.PROT_NO_MAX;
-            if (!mode.HasValue)
+            const string methodName = "ConvertProtection";
+            int protectionLevel = 0;
+
+            if (!string.IsNullOrEmpty(protLevelStr))
             {
-                accMode = 0;
-            }
-            else
-            {
-                accMode = mode.Value switch
+                bool isError = false;
+
+                foreach (char cur in protLevelStr)
                 {
-                    ALCommand.PROT_READ => ALCommand.PROT_NO_READ,
-                    ALCommand.PROT_CREATE => ALCommand.PROT_NO_CREATE,
-                    ALCommand.PROT_UPDATE => ALCommand.PROT_NO_UPDATE,
-                    ALCommand.PROT_DELETE => ALCommand.PROT_NO_DELETE,
-                    ALCommand.PROT_ELIB => ALCommand.PROT_NO_ELIB,
-                    ALCommand.PROT_NONE => ALCommand.PROT_NO_NONE,
-                    _ => 0
-                };
+                    switch (cur)
+                    {
+                        case ALCommand.PROT_READ:
+                            protectionLevel |= ALCommand.PROT_NO_READ;
+                            break;
+                        case ALCommand.PROT_CREATE:
+                            protectionLevel |= ALCommand.PROT_NO_CREATE;
+                            break;
+                        case ALCommand.PROT_UPDATE:
+                            protectionLevel |= ALCommand.PROT_NO_UPDATE;
+                            break;
+                        case ALCommand.PROT_DELETE:
+                            protectionLevel |= ALCommand.PROT_NO_DELETE;
+                            break;
+                        case ALCommand.PROT_ELIB:
+                            protectionLevel |= ALCommand.PROT_NO_ELIB;
+                            break;
+                        default:
+                            isError = true;
+                            break;
+                    }
+                }
+
+                if (isError)
+                {
+                    string msg = $"Protection Level {protLevelStr} is invalid. Only (rcud) is allowed.";
+                    Console.Error.WriteLine($"{methodName}: {msg}");
+                    throw new InvalidOperationException(msg);
+                }
             }
-            return accMode;
+
+            return protectionLevel;
+        }
+
+        /// <summary>
+        /// Converts an integer representation of a protection level to a string (e.g., 3 -> "rc").
+        /// </summary>
+        /// <param name="protLevel"></param>
+        /// <returns></returns>
+        public static string ConvertToAccessMode(int protLevel)
+        {
+            StringBuilder protectionLevelStr = new StringBuilder("");
+            if ((protLevel & ALCommand.PROT_NO_READ) != 0)
+            {
+                protectionLevelStr.Append(ALCommand.PROT_READ);
+            }
+            if ((protLevel & ALCommand.PROT_NO_CREATE) != 0)
+            {
+                protectionLevelStr.Append(ALCommand.PROT_CREATE);
+            }
+            if ((protLevel & ALCommand.PROT_NO_UPDATE) != 0)
+            {
+                protectionLevelStr.Append(ALCommand.PROT_UPDATE);
+            }
+            if ((protLevel & ALCommand.PROT_NO_DELETE) != 0)
+            {
+                protectionLevelStr.Append(ALCommand.PROT_DELETE);
+            }
+            if ((protLevel & ALCommand.PROT_NO_ELIB) != 0)
+            {
+                protectionLevelStr.Append(ALCommand.PROT_ELIB);
+            }
+
+            return protectionLevelStr.ToString();
         }
     }
 

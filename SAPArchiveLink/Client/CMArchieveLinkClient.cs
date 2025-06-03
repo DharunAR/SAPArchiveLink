@@ -2,18 +2,43 @@
 
 namespace SAPArchiveLink
 {
+    /// <summary>
+    /// Implementation of the ICMArchieveLinkClient interface for handling archive link Client operations.
+    /// </summary>
     public class CMArchieveLinkClient: ICMArchieveLinkClient
     {
         private readonly TrimConfigSettings _trimConfig;
-        public CMArchieveLinkClient(TrimConfigSettings trimConfig)
+        private readonly IDatabaseConnection _databaseConnection;
+        public CMArchieveLinkClient(TrimConfigSettings trimConfig,IDatabaseConnection databaseConnection)
         {
             _trimConfig = trimConfig;
+            _databaseConnection= databaseConnection;
         }
 
-        public void PutArchiveCertificate()
+        /// <summary>
+        /// Puts an archive certificate into the system.
+        /// </summary>
+        /// <param name="serialName"></param>
+        /// <param name="fingerprint"></param>
+        /// <param name="issuerCertificate"></param>
+        /// <param name="validFrom"></param>
+        /// <param name="validTill"></param>
+        /// <param name="content"></param>
+        /// <param name="permissions"></param>
+        /// <param name="authId"></param>
+        /// <param name="archiveDataID"></param>
+        public void PutArchiveCertificate(String serialName, String fingerprint, String issuerCertificate, String validFrom, String validTill, String content, int permissions, String authId, long archiveDataID)
         {
 
         }
+
+        /// <summary>
+        /// Retrieves a record from the database based on the document ID and content repository.
+        /// </summary>
+        /// <param name="db"></param>
+        /// <param name="docId"></param>
+        /// <param name="contRep"></param>
+        /// <returns></returns>
         public Record GetRecord(Database db, string docId, string contRep)
         {
             Record? retVal = null;
@@ -31,6 +56,12 @@ namespace SAPArchiveLink
             }
             return retVal;
         }
+
+        /// <summary>
+        /// Retrieves the document components for a given set of SAP components.
+        /// </summary>
+        /// <param name="components"></param>
+        /// <returns></returns>
 
         public List<SAPDocumentComponent> GetDocumentComponents(RecordSapComponents components)
         {
@@ -68,6 +99,12 @@ namespace SAPArchiveLink
             return documentComponents;
         }
 
+        /// <summary>
+        /// Checks if a specific component is available in the record's SAP components.
+        /// </summary>
+        /// <param name="components"></param>
+        /// <param name="compId"></param>
+        /// <returns></returns>
         public bool IsRecordComponentAvailable(RecordSapComponents components, string compId)
         {
             foreach (RecordSapComponent component in components)
@@ -80,10 +117,13 @@ namespace SAPArchiveLink
             return false;
         }
 
+        /// <summary>
+        /// Gets the database connection for the archive link client.
+        /// </summary>
+        /// <returns></returns>
         public Database GetDatabase()
         {
-            return DatabaseConnection.GetDatabase(_trimConfig);
+            return _databaseConnection.GetDatabase();
         }
     }
-
 }

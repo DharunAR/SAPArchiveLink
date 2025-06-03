@@ -10,7 +10,7 @@
         string GetURLCharset();
         string GetStringToSign(bool includeSignature, string charset);
 
-        char GetAccessMode();
+        string GetAccessMode();
 
         bool IsHttpGET();
         bool IsHttpPOST();

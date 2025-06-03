@@ -9,12 +9,16 @@ namespace SAPArchiveLink
     {
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.PUTCERT;
         private readonly ILogHelper<PutCertCommandHandler> _logger;
+        private ICommandResponseFactory _commandResponseFactory;
+        ICMArchieveLinkClient _cmArchieveLinkClient;
 
-        public PutCertCommandHandler(ILogHelper<PutCertCommandHandler> helperLogger)
+        public PutCertCommandHandler(ILogHelper<PutCertCommandHandler> helperLogger,ICommandResponseFactory commandResponseFactory,ICMArchieveLinkClient cmArchieveLinkClient)
         {
             _logger = helperLogger;
+            _cmArchieveLinkClient = cmArchieveLinkClient;
+            _commandResponseFactory = commandResponseFactory;
         }
-        public async Task<CommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
+        public async Task<ICommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
             const string MN = "PutCert";
             _logger.LogInformation($"{MN} - Start processing");
@@ -59,7 +63,7 @@ namespace SAPArchiveLink
                     e
                 );
             }
-            return CommandResponse.ForProtocolText("Certificate published");
+            return _commandResponseFactory.CreateProtocolText("Certificate published");
 
            // return new CommandResponse("Certificate updated");
         }
