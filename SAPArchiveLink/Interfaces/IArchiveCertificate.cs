@@ -4,10 +4,22 @@ namespace SAPArchiveLink
 {
     public interface IArchiveCertificate
     {
-        byte[] GetFingerprint();
+        string GetFingerprint();
+
         int GetPermission();
+
         bool IsUsedInElibContext();
+
         X509Certificate2 GetCertificate();
+
+        string getSerialNumber();
+
+        string getIssuerName();
+
+        string ValidTill();
+
+        string ValidFrom();
+
     }
 
 }

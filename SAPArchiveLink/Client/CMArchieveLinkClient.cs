@@ -33,9 +33,18 @@ namespace SAPArchiveLink
         /// <param name="permissions"></param>
         /// <param name="authId"></param>
         /// <param name="archiveDataID"></param>
-        public void PutArchiveCertificate(string serialName, string fingerprint, string issuerCertificate, string validFrom, string validTill, string content, int permissions, string authId, long archiveDataID)
+        public Task PutArchiveCertificate(string authId, int protectionLevel, byte[] certificate, string contRep)
         {
 
+            ArchiveCertificate? archiveCertificate = null;
+            archiveCertificate = ArchiveCertificate.FromByteArray(certificate);
+            string serialName = archiveCertificate.getSerialNumber();
+            string fingerPrint = archiveCertificate.GetFingerprint();
+            string issuer = archiveCertificate.getIssuerName();
+            TrimDateTime validFrom = TrimDateTime.Parse(archiveCertificate.ValidFrom());
+            TrimDateTime validTill = TrimDateTime.Parse(archiveCertificate.ValidTill());
+
+            return null;
         }
 
         /// <summary>

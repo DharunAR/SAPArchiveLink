@@ -25,7 +25,7 @@ namespace SAPArchiveLink
         /// <param name="statusCode"></param>
         /// <param name="charset"></param>
         /// <returns></returns>
-        public static CommandResponse ForProtocolText(string content, int statusCode = StatusCodes.Status200OK, string charset = "UTF-8")
+        public static CommandResponse ForProtocolText(string content = "", int statusCode = StatusCodes.Status200OK, string charset = "UTF-8")
         {
             return new CommandResponse
             {

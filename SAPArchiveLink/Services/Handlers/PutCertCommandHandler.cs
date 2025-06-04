@@ -1,7 +1,10 @@
 ﻿
 
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using NLog;
 using System.Net;
+using System.Reflection;
 
 namespace SAPArchiveLink
 {
@@ -10,45 +13,39 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.PUTCERT;
         private readonly ILogHelper<PutCertCommandHandler> _logger;
         private ICommandResponseFactory _commandResponseFactory;
-        ICMArchieveLinkClient _cmArchieveLinkClient;
+        IBaseServices _baseServices;
 
-        public PutCertCommandHandler(ILogHelper<PutCertCommandHandler> helperLogger,ICommandResponseFactory commandResponseFactory,ICMArchieveLinkClient cmArchieveLinkClient)
+        public PutCertCommandHandler(ILogHelper<PutCertCommandHandler> helperLogger,ICommandResponseFactory commandResponseFactory,IBaseServices baseServices)
         {
-            _logger = helperLogger;
-            _cmArchieveLinkClient = cmArchieveLinkClient;
+            _logger = helperLogger;          
             _commandResponseFactory = commandResponseFactory;
+            _baseServices = baseServices;
         }
+
+        /// <summary>
+        /// Handles the SAP ArchiveLink 'putCert' command
+        /// </summary>
+        /// <param name="command"></param>
+        /// <param name="context"></param>
+        /// <returns></returns>
+        /// <exception cref="ALException"></exception>
         public async Task<ICommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
             const string MN = "PutCert";
             _logger.LogInformation($"{MN} - Start processing");
+            ICommandResponse respose;
             // Logger.Enter(MN); // Assuming Logger is your logging class
 
             //  IAccessIdentifier accessIdentifier = CreateAccessIdentifier(command, context);
             string contRep = command.GetValue(ALParameter.VarContRep);
             string authId = command.GetValue(ALParameter.VarAuthId);
-            string permissions = command.GetValue(ALParameter.VarPermissions);
-
-          //  Stream? inputStream = null;
+            string permissions = command.GetValue(ALParameter.VarPermissions);        
 
             try
             {
-                using (var inputStream = context.GetInputStream())
-                {
-                    using (var outputStream = new MemoryStream())
-                    {
-                        byte[] buffer = new byte[2048];
-                        int bytesRead;
 
-                        while ((bytesRead = inputStream.Read(buffer, 0, buffer.Length)) > 0)
-                        {
-                            outputStream.Write(buffer, 0, bytesRead);
-                        }
-
-                       // ICSArchiveIdentifier archive = ICSObjectFactory.CreateArchiveIdentifier(contRep);
-                       // _basicService.PutCert(accessIdentifier, authId, outputStream.ToArray(), archive, permissions);
-                    }
-                }
+                respose = await _baseServices.PutCert(authId, context.GetInputStream(), contRep, permissions);
+               
             }
             catch (Exception e)
             {
@@ -63,7 +60,7 @@ namespace SAPArchiveLink
                     e
                 );
             }
-            return _commandResponseFactory.CreateProtocolText("Certificate published");
+            return respose;
 
            // return new CommandResponse("Certificate updated");
         }

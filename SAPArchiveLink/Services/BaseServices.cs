@@ -4,156 +4,68 @@ using System.Security;
 
 namespace SAPArchiveLink;
 public class BaseServices : IBaseServices
-{
-    private ICommandResponseFactory _responseFactory;
-    private ICMArchieveLinkClient _archiveClient;
-    public BaseServices(ICMArchieveLinkClient archiveClient, ICommandResponseFactory responseFactory)
+{   
+    private readonly ILogHelper<BaseServices> _logger;  
+    ICMArchieveLinkClient _cmArchieveLinkClient;
+    IArchiveCertificate _archiveCertificate;
+    private ICommandResponseFactory _commandResponseFactory;
+
+    public BaseServices(ILogHelper<BaseServices> helperLogger, ICMArchieveLinkClient cmArchieveLinkClient, IArchiveCertificate archiveCertificate, ICommandResponseFactory commandResponseFactory)
     {
-        _archiveClient = archiveClient;
-        _responseFactory = responseFactory;
+        _archiveCertificate = archiveCertificate;
+        _cmArchieveLinkClient = cmArchieveLinkClient;
+        _logger = helperLogger;
+        _commandResponseFactory = commandResponseFactory;
     }
-
-    public void PutCert(string authId, byte[] certificate, string contRepId, string permissions)
-    {
-        const string methodName = "PutCert";     
-
-    // LC.Enter(methodName);
-
-    string errorAuthId = "Parameter 'auth id' must not be null or empty.";
-       // string titleAuthId = UALConstants.INVALID_PARAMETER;
-        ArchiveCertificate icsArchiveCertificate;
-
-        try
-        {
-            icsArchiveCertificate = ArchiveCertificate.FromByteArray(certificate);
-        }
-        catch (Exception ex) // RuntimeException | ICSException in Java
-        {
-            string certErrorMessage = "Bad Format of certificate. Got error: " + ex.Message;
-            string errorTitle = "wrong format of certificate";
-            //LC.Warn(methodName, certErrorMessage);
-            //throw new ICSJDSException(ICSException.ERROR_DS_GENERIC, UALConstants.INVALID_CERTIFICATE_FORMAT,
-            //                          UALConstants.HTTP_NOT_ACCEPTABLE_CODE, errorTitle, certErrorMessage,
-            //                          new SecurityException(certErrorMessage));
-        }
-
-        string content64 = Convert.ToBase64String(certificate);
-
-        if (string.IsNullOrEmpty(authId))
-        {
-           // LC.Warn(methodName, "Invalid authId");
-            //throw new ICSJDSException(ICSException.INVALID_PARAMETER, UALConstants.INVALID_AUTH_ID,
-            //                          UALConstants.HTTP_BAD_REQUEST, titleAuthId, errorAuthId,
-            //                          new ArgumentException(errorAuthId));
-        }
-
-        int protectionLevel = -1;
-        if (!string.IsNullOrEmpty(permissions))
-        {
-            protectionLevel = CommonUtils.ConvertProtection(permissions);
-        }
-
-        string archiveName = contRepId;
-        long? archiveDataID = null;
-
-        if (!string.IsNullOrWhiteSpace(archiveName))
-        {
-           // archiveDataID = GetArchiveIDByName(archiveName);
-        }
-
-        try
-        {
-            //csClient.PutArchiveCertificate(authId, icsArchiveCertificate, protectionLevel, content64, archiveDataID);
-            //cmClient.PutArchiveCertificate();
-        }
-        catch (IOException e)
-        {
-          //  LC.Warn(methodName, e.Message);
-            //throw new ICSException(ICSException.ERROR_WRAPPER, ICSException.ERROR_WRAPPER_STR,
-            //                       new object[] { e.GetType().Name, e.Message }, e);
-        }
-
-       // LC.Leave(methodName);
-    }
-
 
     /// <summary>
-    /// Retrieves either a single document component (if 'compId' is provided)
-    /// or all components using multipart/form-data.
-    /// Response includes all required ArchiveLink headers and binary content 
+    /// Handles the SAP ArchiveLink 'putCert' command.
     /// </summary>
-    /// <param name="sapDoc"></param>
+    /// <param name="authId"></param>
+    /// <param name="inputStream"></param>
+    /// <param name="contRepId"></param>
+    /// <param name="permissions"></param>
     /// <returns></returns>
-    public async Task<ICommandResponse> DoGetSapDocument(SapDocumentRequest sapDoc)
+    public async Task<ICommandResponse> PutCert(string authId, Stream inputStream, string contRepId, string permissions)
     {
-        // Validate required parameters
-        if (string.IsNullOrEmpty(sapDoc.DocId) || string.IsNullOrEmpty(sapDoc.ContRep))
-            return _responseFactory.CreateError("Missing required parameters: docId and contRep");
-
-        if (!string.IsNullOrEmpty(sapDoc.SecKey))
+        try
         {
-            // TODO signature verification to be implemented
-            /*
-            if (string.IsNullOrEmpty(accessMode) || string.IsNullOrEmpty(authId) || string.IsNullOrEmpty(expiration))
-                return _responseFactory.CreateError("Missing security parameters for signed URL", "ICS_4002");
-
-            if (!accessMode.Contains("r"))
-                return _responseFactory.CreateError("Read access mode required", "ICS_4010", StatusCodes.Status401Unauthorized);
-
-            string signedPayload = $"{contRep}{docId}{(compId ?? "")}{accessMode}{authId}{expiration}";
-            bool isValid = _archiveClient.VerifySignature(signedPayload, secKey);
-            if (!isValid)
-                return _responseFactory.CreateError("Invalid signature", "ICS_4011", StatusCodes.Status401Unauthorized);
-            */
-        }
-
-        // Connect to database and retrieve record
-        using (var db = _archiveClient.GetDatabase())
-        {
-            var record = _archiveClient.GetRecord(db, sapDoc.DocId, sapDoc.ContRep);
-            if (record == null)
-                return _responseFactory.CreateError("Record not found", StatusCodes.Status404NotFound);
-
-            var components = record.ChildSapComponents;
-
-            // Handle single component response
-            if (!string.IsNullOrEmpty(sapDoc.CompId))
+            const string MN = "PutCert";
+            if (string.IsNullOrWhiteSpace(authId))
             {
-                if (!_archiveClient.IsRecordComponentAvailable(components, sapDoc.CompId))
-                    return _responseFactory.CreateError($"Component '{sapDoc.CompId}' not found", StatusCodes.Status404NotFound);
-
-                var component = await _archiveClient.GetDocumentComponent(components, sapDoc.CompId);
-                var response = _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName);
-
-                response.AddHeader("X-compId", component.CompId);
-                response.AddHeader("X-Content-Length", component.ContentLength.ToString());
-                response.AddHeader("X-compDateC", component.CreationDate.ToUniversalTime().ToString("yyyy-MM-dd"));
-                response.AddHeader("X-compTimeC", component.CreationDate.ToUniversalTime().ToString("HH:mm:ss"));
-                response.AddHeader("X-compDateM", component.ModifiedDate.ToUniversalTime().ToString("yyyy-MM-dd"));
-                response.AddHeader("X-compTimeM", component.ModifiedDate.ToUniversalTime().ToString("HH:mm:ss"));
-                response.AddHeader("X-compStatus", component.Status);
-                response.AddHeader("X-pVersion", component.PVersion ?? sapDoc.PVersion);
-                response.AddHeader("X-docId", sapDoc.DocId);
-                response.AddHeader("X-contRep", sapDoc.ContRep);
-
-                return response;
+                _logger.LogError($"{MN} - Missing required parameter: authId");
+                //need to look at the error code here,  it is a 404 error
+                return _commandResponseFactory.CreateError("Missing required parameter: authId", StatusCodes.Status404NotFound);
+            }
+            if (string.IsNullOrWhiteSpace(contRepId))
+            {
+                _logger.LogError($"{MN} - Missing required parameter: contRep");
+                return _commandResponseFactory.CreateError("\"Parameter 'contRep' must not be null or empty", StatusCodes.Status404NotFound);
             }
 
-            // Handle multipart response (multiple components)
-            var multipartComponents = await _archiveClient.GetDocumentComponents(components);
-            var multipartResponse = _responseFactory.CreateMultipartDocument(multipartComponents);
+            using var memoryStream = new MemoryStream();
+            byte[] buffer = new byte[1024 * 2]; // 2 KB buffer
+            int bytesRead;
 
-            multipartResponse.AddHeader("X-dateC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
-            multipartResponse.AddHeader("X-timeC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
-            multipartResponse.AddHeader("X-dateM", record.DateModified.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
-            multipartResponse.AddHeader("X-timeM", record.DateModified.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
-            multipartResponse.AddHeader("X-contRep", sapDoc.ContRep);
-            multipartResponse.AddHeader("X-numComps", components.Count.ToString());
-            multipartResponse.AddHeader("X-docId", sapDoc.DocId);
-            multipartResponse.AddHeader("X-docStatus", "online");
-            multipartResponse.AddHeader("X-pVersion", sapDoc.PVersion);
+            while ((bytesRead = inputStream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                memoryStream.Write(buffer, 0, bytesRead);
+            }
 
-            return multipartResponse;
+            int protectionLevel = -1;
+            if (!string.IsNullOrWhiteSpace(permissions))
+            {
+                protectionLevel = SecurityUtils.AccessModeToInt(permissions);
+            }          
+
+            await _cmArchieveLinkClient.PutArchiveCertificate(authId, protectionLevel, memoryStream.ToArray(), contRepId);
+            return _commandResponseFactory.CreateProtocolText("Certificate published");
         }
+        catch (Exception)
+        {
+
+            throw;
+        }    
+    
     }
 }

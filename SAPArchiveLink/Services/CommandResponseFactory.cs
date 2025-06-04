@@ -2,7 +2,7 @@
 {
     public class CommandResponseFactory : ICommandResponseFactory
     {
-        public ICommandResponse CreateProtocolText(string content, int statusCode = 200, string charset = "UTF-8")
+        public ICommandResponse CreateProtocolText(string content="", int statusCode = 200, string charset = "UTF-8")
             => CommandResponse.ForProtocolText(content, statusCode, charset);
 
         public ICommandResponse CreateHtmlReport(string htmlContent, int statusCode = 200, string charset = "UTF-8")
@@ -16,6 +16,7 @@
 
         public ICommandResponse CreateError(string message, int statusCode = StatusCodes.Status400BadRequest)
             => CommandResponse.ForError(message, statusCode);
+     
     }
 
 }
