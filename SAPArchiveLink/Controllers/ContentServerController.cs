@@ -14,12 +14,13 @@ namespace SAPArchiveLink.Controllers
         {
             _dispatcher = dispatcher;
             _authenticator = authenticator;
-        }        
+        }
 
-        [HttpGet("/ContentServer")]
-        [HttpPost("/ContentServer")]
-        [HttpPut("/ContentServer")]       
-        [HttpDelete("/ContentServer")]
+
+        [HttpGet]
+        [HttpPost]
+        [HttpPut]
+        [HttpDelete]
         public async Task<IActionResult> Handle()
         {
             try

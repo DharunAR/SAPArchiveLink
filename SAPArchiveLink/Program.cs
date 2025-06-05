@@ -10,6 +10,13 @@ builder.Logging.ClearProviders();
 builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
 builder.Logging.AddNLog("nlog.config");
 builder.Host.UseNLog();
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ConfigureHttpsDefaults(httpsOptions =>
+    {
+        httpsOptions.SslProtocols = System.Security.Authentication.SslProtocols.Tls12 | System.Security.Authentication.SslProtocols.Tls13;
+    });
+});
 ServiceRegistration.RegisterTrimConfig(builder.Services, builder.Configuration);
 ServiceRegistration.RegisterServices(builder.Services);
 
@@ -25,6 +32,18 @@ if (app.Environment.IsDevelopment())
 app.UseRouting();
 
 app.UseAuthorization(); // if you're using auth
+
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path == "/" || context.Request.Path == "")
+    {
+        var basePath = context.Request.PathBase.HasValue ? context.Request.PathBase.Value : "";
+        context.Response.Redirect($"{basePath}/ContentServer", permanent: false);
+        return;
+    }
+
+    await next();
+});
 
 app.MapControllers(); // map [ApiController] routes like /ContentServer
 
