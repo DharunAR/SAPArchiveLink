@@ -35,8 +35,9 @@ namespace SAPArchiveLink
 
             // Authenticate the request
             // In a real application, certificates might be retrieved from a service or configuration
-            var certificates = new List<IArchiveCertificate>(); // Populate as needed
-            var certificate = _authenticator.CheckRequest(request, command, certificates);
+           // var certificates = new List<IArchiveCertificate>(); // Populate as needed
+           //
+           //var certificate = _authenticator.CheckRequest(request, command, certificates);
 
             var response = await ExecuteRequest(context, command);
 

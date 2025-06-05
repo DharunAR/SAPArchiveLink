@@ -7,12 +7,10 @@ public class BaseServices : IBaseServices
 {   
     private readonly ILogHelper<BaseServices> _logger;
     private ICMArchieveLinkClient _archiveClient;
-    IArchiveCertificate _archiveCertificate;
     private ICommandResponseFactory _responseFactory;
 
-    public BaseServices(ILogHelper<BaseServices> helperLogger, ICMArchieveLinkClient cmArchieveLinkClient, IArchiveCertificate archiveCertificate, ICommandResponseFactory commandResponseFactory)
-    {
-        _archiveCertificate = archiveCertificate;
+    public BaseServices(ILogHelper<BaseServices> helperLogger, ICMArchieveLinkClient cmArchieveLinkClient, ICommandResponseFactory commandResponseFactory)
+    {       
         _archiveClient = cmArchieveLinkClient;
         _logger = helperLogger;
         _responseFactory = commandResponseFactory;
@@ -47,9 +45,9 @@ public class BaseServices : IBaseServices
             byte[] buffer = new byte[1024 * 2]; // 2 KB buffer
             int bytesRead;
 
-            while ((bytesRead = inputStream.Read(buffer, 0, buffer.Length)) > 0)
+            while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
             {
-                memoryStream.Write(buffer, 0, bytesRead);
+               await memoryStream.WriteAsync(buffer, 0, bytesRead);
             }
 
             int protectionLevel = -1;
