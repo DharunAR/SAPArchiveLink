@@ -64,6 +64,7 @@ namespace SAPArchiveLink
             services.AddScoped<ICommandHandler, GetContentCommandHandler>();
             services.AddScoped<ICMArchieveLinkClient,CMArchieveLinkClient>();
             services.AddScoped<IDatabaseConnection, DatabaseConnection>();
+            services.AddScoped<IArchiveCertificate, ArchiveCertificate>();
             services.AddSingleton<ICommandResponseFactory, CommandResponseFactory>();
             services.AddScoped<IBaseServices, BaseServices>();
             services.AddTransient(typeof(ILogHelper<>), typeof(LogHelper<>));

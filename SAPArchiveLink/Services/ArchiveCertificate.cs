@@ -35,7 +35,7 @@ namespace SAPArchiveLink
         {
             if (data == null || data.Length == 0)
             {
-                throw new ArgumentNullException(nameof(data), "Input data cannot be null or empty.");
+                throw new ArgumentNullException(nameof(data), "Input certificate cannot be null or empty.");
             }
 
             ArchiveCertificate? certificate = null;
