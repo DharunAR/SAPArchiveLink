@@ -37,7 +37,7 @@ namespace SAPArchiveLink.Tests
             _commandMock.Setup(c => c.GetValue(ALParameter.VarExpiration)).Returns("2025-01-01");
 
             _baseServiceMock
-                .Setup(s => s.DoGetSapDocument(It.IsAny<SapDocumentRequest>()))
+                .Setup(s => s.GetSapDocument(It.IsAny<SapDocumentRequest>()))
                 .ReturnsAsync(expectedResponse);
 
             // Act  
@@ -45,7 +45,7 @@ namespace SAPArchiveLink.Tests
 
             // Assert  
             Assert.That(result, Is.SameAs(expectedResponse));
-            _baseServiceMock.Verify(s => s.DoGetSapDocument(It.Is<SapDocumentRequest>(r =>
+            _baseServiceMock.Verify(s => s.GetSapDocument(It.Is<SapDocumentRequest>(r =>
                 r.DocId == "doc1" &&
                 r.ContRep == "rep1" &&
                 r.CompId == "comp1" &&
@@ -63,7 +63,7 @@ namespace SAPArchiveLink.Tests
             // Arrange  
             var exception = new Exception("fail!");
             _baseServiceMock
-                .Setup(s => s.DoGetSapDocument(It.IsAny<SapDocumentRequest>()))
+                .Setup(s => s.GetSapDocument(It.IsAny<SapDocumentRequest>()))
                 .ThrowsAsync(exception);
 
             var errorResponse = Mock.Of<ICommandResponse>();
