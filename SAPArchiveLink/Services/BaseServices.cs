@@ -1,6 +1,4 @@
-﻿using SAPArchiveLink;
-using System.Net.Sockets;
-using System.Security;
+﻿using TRIM.SDK;
 
 namespace SAPArchiveLink;
 public class BaseServices : IBaseServices
@@ -8,6 +6,8 @@ public class BaseServices : IBaseServices
     private readonly ILogHelper<BaseServices> _logger;
     private ICMArchieveLinkClient _archiveClient;
     private ICommandResponseFactory _responseFactory;
+    const string COMP_DATA = "data";
+    const string COMP_DATA1 = "data1";
 
     public BaseServices(ILogHelper<BaseServices> helperLogger, ICMArchieveLinkClient cmArchieveLinkClient, ICommandResponseFactory commandResponseFactory)
     {       
@@ -54,7 +54,7 @@ public class BaseServices : IBaseServices
             if (!string.IsNullOrWhiteSpace(permissions))
             {
                 protectionLevel = SecurityUtils.AccessModeToInt(permissions);
-            }          
+            }
 
             await _archiveClient.PutArchiveCertificate(authId, protectionLevel, memoryStream.ToArray(), contRepId);
 
@@ -62,40 +62,28 @@ public class BaseServices : IBaseServices
         }
         catch (Exception)
         {
-
             throw;
-        }    
-    
+        }
     }
 
     /// <summary>
     /// Retrieves either a single document component (if 'compId' is provided)
     /// or all components using multipart/form-data.
-    /// Response includes all required ArchiveLink headers and binary content 
     /// </summary>
     /// <param name="sapDoc"></param>
-    /// <returns></returns>
-    public async Task<ICommandResponse> DoGetSapDocument(SapDocumentRequest sapDoc)
+    /// <returns>Response includes all required ArchiveLink headers and binary content</returns>
+    public async Task<ICommandResponse> DocGetSapComponents(SapDocumentRequest sapDoc)
     {
-        // Validate required parameters
-        if (string.IsNullOrEmpty(sapDoc.DocId) || string.IsNullOrEmpty(sapDoc.ContRep))
-            return _responseFactory.CreateError("Missing required parameters: docId and contRep");
-
-        if (!string.IsNullOrEmpty(sapDoc.SecKey))
+        if (!string.IsNullOrWhiteSpace(sapDoc.SecKey))
         {
-            // TODO signature verification to be implemented
-            /*
-            if (string.IsNullOrEmpty(accessMode) || string.IsNullOrEmpty(authId) || string.IsNullOrEmpty(expiration))
-                return _responseFactory.CreateError("Missing security parameters for signed URL", "ICS_4002");
+            if (string.IsNullOrWhiteSpace(sapDoc.AccessMode) || string.IsNullOrWhiteSpace(sapDoc.AuthId) || string.IsNullOrWhiteSpace(sapDoc.Expiration))
+                return _responseFactory.CreateError("Missing security parameters for signed URL");
 
-            if (!accessMode.Contains("r"))
-                return _responseFactory.CreateError("Read access mode required", "ICS_4010", StatusCodes.Status401Unauthorized);
+            if (!sapDoc.AccessMode.Contains("r"))
+                return _responseFactory.CreateError("Read access mode required", StatusCodes.Status401Unauthorized);
 
-            string signedPayload = $"{contRep}{docId}{(compId ?? "")}{accessMode}{authId}{expiration}";
-            bool isValid = _archiveClient.VerifySignature(signedPayload, secKey);
-            if (!isValid)
-                return _responseFactory.CreateError("Invalid signature", "ICS_4011", StatusCodes.Status401Unauthorized);
-            */
+            //TODO to implement verification part
+            ValidateSignature(sapDoc);
         }
 
         // Connect to database and retrieve record
@@ -108,43 +96,208 @@ public class BaseServices : IBaseServices
             var components = record.ChildSapComponents;
 
             // Handle single component response
-            if (!string.IsNullOrEmpty(sapDoc.CompId))
+            if (!string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
                 if (!_archiveClient.IsRecordComponentAvailable(components, sapDoc.CompId))
                     return _responseFactory.CreateError($"Component '{sapDoc.CompId}' not found", StatusCodes.Status404NotFound);
 
                 var component = await _archiveClient.GetDocumentComponent(components, sapDoc.CompId);
-                var response = _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName);
 
-                response.AddHeader("X-compId", component.CompId);
-                response.AddHeader("X-Content-Length", component.ContentLength.ToString());
-                response.AddHeader("X-compDateC", component.CreationDate.ToUniversalTime().ToString("yyyy-MM-dd"));
-                response.AddHeader("X-compTimeC", component.CreationDate.ToUniversalTime().ToString("HH:mm:ss"));
-                response.AddHeader("X-compDateM", component.ModifiedDate.ToUniversalTime().ToString("yyyy-MM-dd"));
-                response.AddHeader("X-compTimeM", component.ModifiedDate.ToUniversalTime().ToString("HH:mm:ss"));
-                response.AddHeader("X-compStatus", component.Status);
-                response.AddHeader("X-pVersion", component.PVersion ?? sapDoc.PVersion);
-                response.AddHeader("X-docId", sapDoc.DocId);
-                response.AddHeader("X-contRep", sapDoc.ContRep);
-
-                return response;
+                return GetSingleComponentResponse(component, sapDoc);
             }
 
             // Handle multipart response (multiple components)
             var multipartComponents = await _archiveClient.GetDocumentComponents(components);
-            var multipartResponse = _responseFactory.CreateMultipartDocument(multipartComponents);
-
-            multipartResponse.AddHeader("X-dateC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
-            multipartResponse.AddHeader("X-timeC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
-            multipartResponse.AddHeader("X-dateM", record.DateModified.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
-            multipartResponse.AddHeader("X-timeM", record.DateModified.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
-            multipartResponse.AddHeader("X-contRep", sapDoc.ContRep);
-            multipartResponse.AddHeader("X-numComps", components.Count.ToString());
-            multipartResponse.AddHeader("X-docId", sapDoc.DocId);
-            multipartResponse.AddHeader("X-docStatus", "online");
-            multipartResponse.AddHeader("X-pVersion", sapDoc.PVersion);
-
-            return multipartResponse;
+            return GetMultiPartResponse(multipartComponents, record, sapDoc);
         }
     }
+
+    /// <summary>
+    /// Retrieves a document component from an SAP ArchiveLink repository using the provided request parameters.
+    /// Validates DocId and ContRep, fetches the component (or range), and returns it with appropriate headers.
+    /// </summary>
+    /// <param name="sapDoc"></param>
+    /// <returns>Returns 200 OK on success, 400 for missing parameters, 404 for missing record/component, or 500 for server errors.</returns>
+    public async Task<ICommandResponse> GetSapDocument(SapDocumentRequest sapDoc)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(sapDoc.SecKey))
+            {
+                if (string.IsNullOrWhiteSpace(sapDoc.AccessMode) || string.IsNullOrWhiteSpace(sapDoc.AuthId) || string.IsNullOrWhiteSpace(sapDoc.Expiration))
+                {
+                    return _responseFactory.CreateError("Missing security parameters for signed URL");
+                }               
+                if (!sapDoc.AccessMode.Contains("r"))
+                {
+                    return _responseFactory.CreateError("Read access mode required", StatusCodes.Status401Unauthorized);
+                }        
+                ValidateSignature(sapDoc);
+            }
+
+            using (var db = _archiveClient.GetDatabase())
+            {
+                var record = _archiveClient.GetRecord(db, sapDoc.DocId, sapDoc.ContRep);
+                if (record == null)
+                {
+                    return _responseFactory.CreateError("Record not found", StatusCodes.Status404NotFound);
+                }
+
+                var components = record.ChildSapComponents;
+
+                var compId = GetComponentId(sapDoc.CompId, components);
+
+                if (string.IsNullOrEmpty(compId))
+                {
+                    return _responseFactory.CreateError("No valid component found", StatusCodes.Status404NotFound);
+                }    
+
+                if (!_archiveClient.IsRecordComponentAvailable(components, compId))
+                {
+                    return _responseFactory.CreateError($"Component '{compId}' not found", StatusCodes.Status404NotFound);
+                }
+                   
+                var component = await _archiveClient.GetDocumentComponent(components, compId);
+                if (component == null)
+                {
+                    return _responseFactory.CreateError("Component could not be loaded", StatusCodes.Status500InternalServerError);
+                }   
+
+                var (stream, length, rangeError) = await GetRangeStream(component.Data, component.ContentLength, sapDoc.FromOffset, sapDoc.ToOffset);
+                if (rangeError != null)
+                    return rangeError;
+
+                var response = _responseFactory.CreateDocumentContent(stream, component.ContentType, StatusCodes.Status200OK, component.FileName);
+                if (!string.IsNullOrWhiteSpace(component.Charset))
+                    response.ContentType += $"; charset={component.Charset}";
+                if (!string.IsNullOrWhiteSpace(component.Version))
+                    response.ContentType += $"; version={component.Version}";
+                response.AddHeader("Content-Length", length.ToString());
+
+                return response;
+            }
+        }
+        catch (Exception ex)
+        {
+            return _responseFactory.CreateError(ex.Message, StatusCodes.Status500InternalServerError);
+        }
+    }
+
+
+    #region Helper methods
+
+    /// <summary>
+    /// Returns single component response for DocGet
+    /// </summary>
+    /// <param name="component"></param>
+    /// <param name="sapDoc"></param>
+    /// <returns></returns>
+    private ICommandResponse GetSingleComponentResponse(SAPDocumentComponent component, SapDocumentRequest sapDoc)
+    {
+        var response = _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName);
+
+        response.AddHeader("X-compId", component.CompId);
+        response.AddHeader("X-Content-Length", component.ContentLength.ToString());
+        response.AddHeader("X-compDateC", component.CreationDate.ToUniversalTime().ToString("yyyy-MM-dd"));
+        response.AddHeader("X-compTimeC", component.CreationDate.ToUniversalTime().ToString("HH:mm:ss"));
+        response.AddHeader("X-compDateM", component.ModifiedDate.ToUniversalTime().ToString("yyyy-MM-dd"));
+        response.AddHeader("X-compTimeM", component.ModifiedDate.ToUniversalTime().ToString("HH:mm:ss"));
+        response.AddHeader("X-compStatus", component.Status);
+        response.AddHeader("X-pVersion", component.PVersion ?? sapDoc.PVersion);
+        response.AddHeader("X-docId", sapDoc.DocId);
+        response.AddHeader("X-contRep", sapDoc.ContRep);
+
+        return response;
+    }
+
+    /// <summary>
+    /// Returns Multipart response for DocGet
+    /// </summary>
+    /// <param name="multipartComponents"></param>
+    /// <param name="record"></param>
+    /// <param name="sapDoc"></param>
+    /// <returns></returns>
+    private ICommandResponse GetMultiPartResponse(List<SAPDocumentComponent> multipartComponents, Record record, SapDocumentRequest sapDoc)
+    {
+        var multipartResponse = _responseFactory.CreateMultipartDocument(multipartComponents);
+
+        multipartResponse.AddHeader("X-dateC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
+        multipartResponse.AddHeader("X-timeC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
+        multipartResponse.AddHeader("X-dateM", record.DateModified.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
+        multipartResponse.AddHeader("X-timeM", record.DateModified.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
+        multipartResponse.AddHeader("X-contRep", sapDoc.ContRep);
+        multipartResponse.AddHeader("X-numComps", $"{record.ChildSapComponents.Count}");
+        multipartResponse.AddHeader("X-docId", sapDoc.DocId);
+        multipartResponse.AddHeader("X-docStatus", "online");
+        multipartResponse.AddHeader("X-pVersion", sapDoc.PVersion);
+
+        return multipartResponse;
+    }
+
+    private void ValidateSignature(SapDocumentRequest sapReq)
+    {
+        //TODO to implement verification part
+    }
+
+    /// <summary>
+    /// Fetch component ID from command request, if available.
+    /// Otherwise, defaults to the first available component named "data" or "data1", in that order.
+    /// </summary>
+    /// <param name="compId"></param>
+    /// <param name="components"></param>
+    /// <returns></returns>
+    private string GetComponentId(string compId, RecordSapComponents components)
+    {
+        if (!string.IsNullOrWhiteSpace(compId))
+            return compId;
+
+        if (_archiveClient.IsRecordComponentAvailable(components, COMP_DATA))
+            return COMP_DATA;
+        if (_archiveClient.IsRecordComponentAvailable(components, COMP_DATA1))
+            return COMP_DATA1;
+
+        return null;
+    }
+
+    /// <summary>
+    /// Retrieves a stream for the specified byte range from the component's data stream.
+    /// Returns an error response if the offset values are invalid or out of bounds.
+    /// </summary>
+    /// <param name="originalStream"></param>
+    /// <param name="contentLength"></param>
+    /// <param name="fromOffset"></param>
+    /// <param name="toOffset"></param>
+    /// <returns></returns>
+    private async Task<(Stream Stream, long Length, ICommandResponse Error)> GetRangeStream(Stream originalStream, long contentLength, long fromOffset, long toOffset)
+    {
+        if (fromOffset < 0 || toOffset < 0)
+            return (null, 0, _responseFactory.CreateError("Offsets cannot be negative"));
+
+        if (fromOffset >= contentLength)
+            return (null, 0, _responseFactory.CreateError("fromOffset is beyond component length"));
+
+        if (fromOffset < toOffset && toOffset <= contentLength)
+        {
+            var rangeLength = toOffset - fromOffset;
+            originalStream.Position = fromOffset;
+            var rangeStream = new MemoryStream();
+            byte[] buffer = new byte[4096];
+            long bytesRemaining = rangeLength;
+            int bytesRead;
+
+            while (bytesRemaining > 0 && (bytesRead = await originalStream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, bytesRemaining))) > 0)
+            {
+                await rangeStream.WriteAsync(buffer, 0, bytesRead);
+                bytesRemaining -= bytesRead;
+            }
+            rangeStream.Position = 0;
+            return (rangeStream, rangeLength, null);
+        }
+
+        originalStream.Position = 0;
+        return (originalStream, contentLength, null);
+    }
+
+    #endregion
+
 }

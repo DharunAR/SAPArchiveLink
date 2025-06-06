@@ -10,6 +10,8 @@
         public string AccessMode { get; set; }
         public string AuthId { get; set; }
         public string Expiration { get; set; }
+        public long FromOffset { get; set; }
+        public long ToOffset { get; set; }
     }
 
 }
