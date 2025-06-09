@@ -1,10 +1,5 @@
-﻿using System.Net.Mime;
-using System.Runtime.InteropServices;
-using System;
-using TRIM.SDK;
-using static System.Runtime.InteropServices.JavaScript.JSType;
-using SAPArchiveLink;
-using System.IO;
+﻿using TRIM.SDK;
+using Microsoft.Extensions.Options;
 
 namespace SAPArchiveLink
 {
@@ -15,9 +10,9 @@ namespace SAPArchiveLink
     {
         private readonly TrimConfigSettings _trimConfig;
         private readonly IDatabaseConnection _databaseConnection;
-        public CMArchieveLinkClient(TrimConfigSettings trimConfig,IDatabaseConnection databaseConnection)
+        public CMArchieveLinkClient(IOptions<TrimConfigSettings> trimConfig, IDatabaseConnection databaseConnection)
         {
-            _trimConfig = trimConfig;
+            _trimConfig = trimConfig.Value;
             _databaseConnection= databaseConnection;
         }
 
@@ -99,26 +94,7 @@ namespace SAPArchiveLink
                     fileName = _trimConfig.WorkPath;
                     extractDocument.DoExtract(fileName, true, false, string.Empty);
 
-                    using (Stream fileStream = File.OpenRead(extractDocument.FileName))
-                    {
-                        var memoryStream = new MemoryStream();
-                        await fileStream.CopyToAsync(memoryStream);
-                        memoryStream.Position = 0;
-                        return new SAPDocumentComponent
-                        {
-                            CompId = sapComponent.ComponentId,
-                            ContentType = sapComponent.ContentType ?? "application/octet-stream",
-                            Charset = sapComponent.CharacterSet ?? "UTF-8",
-                            Version = sapComponent.ApplicationVersion,
-                            ContentLength = sapComponent.Bytes,
-                            CreationDate = sapComponent.ArchiveDate,
-                            ModifiedDate = sapComponent.DateModified,
-                            Status = "online",
-                            PVersion = sapComponent.ArchiveLinkVersion,
-                            Data = memoryStream,
-                            FileName = extractDocument.FileName
-                        };
-                    }
+                    return await CreateDocumentComponent(extractDocument.FileName, sapComponent);
                 }
             }
             return null;
@@ -148,24 +124,10 @@ namespace SAPArchiveLink
                 }
                 extractDocument.DoExtract(fileName, true, false, string.Empty);
 
-                using (Stream fileStream = File.OpenRead(extractDocument.FileName))
+                var sapComponent = await CreateDocumentComponent(extractDocument.FileName, c);
+                if(sapComponent != null)
                 {
-                    var memoryStream = new MemoryStream();
-                    await fileStream.CopyToAsync(memoryStream);
-                    memoryStream.Position = 0;
-                    documentComponents.Add(new SAPDocumentComponent
-                    {
-                        CompId = c.ComponentId,
-                        ContentType = c.ContentType ?? "application/octet-stream",
-                        Charset = c.CharacterSet ?? "UTF-8",
-                        Version = c.ApplicationVersion,
-                        ContentLength = c.Bytes,
-                        CreationDate = c.ArchiveDate,
-                        ModifiedDate = c.DateModified,
-                        Status = "online",
-                        PVersion = c.ArchiveLinkVersion,
-                        Data = fileStream
-                    });
+                    documentComponents.Add(sapComponent);
                 }
             }
             return documentComponents;
@@ -187,6 +149,36 @@ namespace SAPArchiveLink
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// Create SAP document component from the extracted file.
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <param name="sapComponent"></param>
+        /// <returns></returns>
+        private async Task<SAPDocumentComponent> CreateDocumentComponent(string fileName, RecordSapComponent sapComponent)
+        {
+            using (Stream fileStream = File.OpenRead(fileName))
+            {
+                var memoryStream = new MemoryStream();
+                await fileStream.CopyToAsync(memoryStream);
+                memoryStream.Position = 0;
+                return new SAPDocumentComponent
+                {
+                    CompId = sapComponent.ComponentId,
+                    ContentType = sapComponent.ContentType ?? "application/octet-stream",
+                    Charset = sapComponent.CharacterSet ?? "UTF-8",
+                    Version = sapComponent.ApplicationVersion,
+                    ContentLength = sapComponent.Bytes,
+                    CreationDate = sapComponent.ArchiveDate,
+                    ModifiedDate = sapComponent.DateModified,
+                    Status = "online",
+                    PVersion = sapComponent.ArchiveLinkVersion,
+                    Data = memoryStream,
+                    FileName = fileName
+                };
+            }
         }
 
         /// <summary>

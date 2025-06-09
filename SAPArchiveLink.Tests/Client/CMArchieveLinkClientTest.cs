@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Moq;
 using TRIM.SDK;
 
@@ -6,14 +7,15 @@ namespace SAPArchiveLink.Tests
     public class CMArchieveLinkClientTest
     {
         private Mock<IDatabaseConnection> _dbConnectionMock;
-        private TrimConfigSettings _trimConfig;
+        private IOptions<TrimConfigSettings> _trimConfig;
         private CMArchieveLinkClient _client;
 
         [SetUp]
         public void Setup()
         {
             _dbConnectionMock = new Mock<IDatabaseConnection>();
-            _trimConfig = new TrimConfigSettings { WorkPath = Path.GetTempPath() };
+            _trimConfig = Options.Create(new MockTrimConfigProvider().GetTrimConfig());
+            TrimApplication.TrimBinariesLoadPath = _trimConfig.Value.BinariesLoadPath;
             _client = new CMArchieveLinkClient(_trimConfig, _dbConnectionMock.Object);
         }
 

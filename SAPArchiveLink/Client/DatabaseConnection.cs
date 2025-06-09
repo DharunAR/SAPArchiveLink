@@ -1,4 +1,5 @@
-﻿using TRIM.SDK;
+﻿using Microsoft.Extensions.Options;
+using TRIM.SDK;
 
 namespace SAPArchiveLink
 {
@@ -9,9 +10,9 @@ namespace SAPArchiveLink
     {       
         private readonly TrimConfigSettings _trimConfig;
 
-        public DatabaseConnection(TrimConfigSettings config)
+        public DatabaseConnection(IOptions<TrimConfigSettings> config)
         {
-            _trimConfig = config;
+            _trimConfig = config.Value;
             Database.AllowAccessFromMultipleThreads = true;
         }
 

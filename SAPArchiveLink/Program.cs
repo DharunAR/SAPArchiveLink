@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using NLog;
 using NLog.Web;
 using SAPArchiveLink;
@@ -22,6 +23,11 @@ ServiceRegistration.RegisterServices(builder.Services);
 
 var app = builder.Build();
 
+var config = app.Services.GetRequiredService<IOptions<TrimConfigSettings>>();
+var initState = app.Services.GetRequiredService<TrimInitialization>();
+ServiceRegistration.InitializeTrimService(config, initState);
+
+app.UseMiddleware<TrimApplicationMiddleware>();
 // Optional: add development exception handling
 if (app.Environment.IsDevelopment())
 {

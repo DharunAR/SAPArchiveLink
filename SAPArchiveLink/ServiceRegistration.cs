@@ -1,10 +1,14 @@
-﻿using TRIM.SDK;
+﻿using Microsoft.Extensions.Options;
+using TRIM.SDK;
 
 namespace SAPArchiveLink
 {
     public static class ServiceRegistration
     {
-        public static bool IsTrimInitialized = false;
+        /// <summary>
+        /// Register required services
+        /// </summary>
+        /// <param name="services"></param>
         public static void RegisterServices(IServiceCollection services)
         {
             services.AddControllers();
@@ -62,6 +66,8 @@ namespace SAPArchiveLink
             services.AddScoped<ICommandHandler, GetAnnotationsCommandHandler>();
             services.AddScoped<ICommandHandler, DistributeContentCommandHandler>();
             services.AddScoped<ICommandHandler, GetContentCommandHandler>();
+
+
             services.AddScoped<ICMArchieveLinkClient,CMArchieveLinkClient>();
             services.AddScoped<IDatabaseConnection, DatabaseConnection>();         
             services.AddSingleton<ICommandResponseFactory, CommandResponseFactory>();
@@ -69,39 +75,62 @@ namespace SAPArchiveLink
             services.AddTransient(typeof(ILogHelper<>), typeof(LogHelper<>));
         }
 
-        public static void RegisterTrimConfig(IServiceCollection services, ConfigurationManager configuration)
+        /// <summary>
+        /// Register Trim configuration values
+        /// </summary>
+        /// <param name="services"></param>
+        /// <param name="configuration"></param>
+        /// <exception cref="InvalidOperationException"></exception>
+        public static void RegisterTrimConfig(IServiceCollection services, IConfiguration configuration)
         {
-            var config = configuration.GetSection("TRIMConfig").Get<TrimConfigSettings>();
-            services.Configure<TrimConfigSettings>(configuration.GetSection("TRIMConfig"));               
-            if(config != null)
+            var configSection = configuration.GetSection("TRIMConfig");
+            var config = configSection.Get<TrimConfigSettings>();
+            if (config == null)
             {
-                services.AddSingleton(config);
-                InitializeTrimService(config);
+                throw new InvalidOperationException("TRIMConfig section is missing or invalid.");
             }
+            services.Configure<TrimConfigSettings>(configSection);
+            services.AddSingleton<TrimInitialization>();
         }
 
-        private static void InitializeTrimService(TrimConfigSettings trimConfig)
+        /// <summary>
+        /// Initialize Trim Application services
+        /// </summary>
+        /// <param name="trimConfigOptions"></param>
+        /// <param name="initState"></param>
+        public static void InitializeTrimService(IOptions<TrimConfigSettings> trimConfigOptions, TrimInitialization initState)
         {
             try
             {
+                var trimConfig = trimConfigOptions.Value;
                 if (!string.IsNullOrWhiteSpace(trimConfig.BinariesLoadPath))
                 {
                     TrimApplication.TrimBinariesLoadPath = trimConfig.BinariesLoadPath;
                 }
                 TrimApplication.SetAsWebService(trimConfig.WorkPath);
                 TrimApplication.Initialize();
-                IsTrimInitialized = true;
+                initState.TrimInitialized();
             }
-            catch (TrimException)
+            catch (TrimException trimEx)
             {
-                //We should probably return back the CommandResponse with Server error(500),
-                //when TrimApplication is not initialised.
-                IsTrimInitialized = false;
+                initState.FailInitialization(trimEx.Message);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                
+                initState.FailInitialization(GetFullExceptionMessage(ex));
             }
+        }
+
+        private static string GetFullExceptionMessage(Exception ex)
+        {
+            var messages = new List<string>();
+            var current = ex;
+            while (current != null)
+            {
+                messages.Add(current.Message);
+                current = current.InnerException;
+            }
+            return string.Join(", ", messages);
         }
     }
 }

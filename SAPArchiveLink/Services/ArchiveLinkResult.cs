@@ -24,24 +24,36 @@ namespace SAPArchiveLink
                 httpResponse.Headers[header.Key] = header.Value;
             }
 
-            if (_response.IsStream && _response.Components?.Count > 0)
+            if (_response.IsStream && _response.Components != null && _response.StreamContent is null)
             {
-                // Handle multipart/form-data response
                 string boundary = _response.Boundary;
 
-                var encoding = Encoding.UTF8;
-                var writer = new StreamWriter(httpResponse.Body, encoding, leaveOpen: true);
                 if (_response.Components.Count == 0)
                 {
-                    // Empty document response
-                    await writer.WriteAsync($"--{boundary}--\r\n");
-                    await writer.FlushAsync();
+                    var footer = Encoding.ASCII.GetBytes($"--{boundary}--\r\n");
+                    await httpResponse.Body.WriteAsync(footer);
                     return;
                 }
 
                 foreach (var component in _response.Components)
                 {
-                    await writer.WriteAsync($"--{boundary}\r\n");
+                    // Ensure stream is ready to read from the beginning
+                    if (component.Data.CanSeek)
+                    {
+                        component.Data.Seek(0, SeekOrigin.Begin);
+                    }
+                    else
+                    {
+                        // Buffer non-seekable stream
+                        var buffered = new MemoryStream();
+                        await component.Data.CopyToAsync(buffered);
+                        buffered.Position = 0;
+                        component.Data = buffered;
+                    }
+
+                    // Build and write headers
+                    var headers = new StringBuilder();
+                    headers.AppendLine($"--{boundary}");
 
                     string contentType = component.ContentType;
                     if (!string.IsNullOrEmpty(component.Charset))
@@ -49,30 +61,36 @@ namespace SAPArchiveLink
                     if (!string.IsNullOrEmpty(component.Version))
                         contentType += $"; version={component.Version}";
 
-                    await writer.WriteAsync($"Content-Type: {contentType}\r\n");
-                    await writer.WriteAsync($"Content-Length: {component.ContentLength}\r\n");
-                    await writer.WriteAsync($"X-Content-Length: {component.ContentLength}\r\n");
-                    await writer.WriteAsync($"X-compId: {component.CompId}\r\n");
-                    await writer.WriteAsync($"X-compDateC: {component.CreationDate:yyyy-MM-dd}\r\n");
-                    await writer.WriteAsync($"X-compTimeC: {component.CreationDate:HH:mm:ss}\r\n");
-                    await writer.WriteAsync($"X-compDateM: {component.ModifiedDate:yyyy-MM-dd}\r\n");
-                    await writer.WriteAsync($"X-compTimeM: {component.ModifiedDate:HH:mm:ss}\r\n");
-                    await writer.WriteAsync($"X-compStatus: {component.Status}\r\n");
-                    await writer.WriteAsync($"X-pVersion: {component.PVersion}\r\n");
-                    await writer.WriteAsync("\r\n"); // end of headers
-                    await writer.FlushAsync();
+                    headers.AppendLine($"Content-Type: {contentType}");
+                    headers.AppendLine($"Content-Length: {component.ContentLength}");
+                    headers.AppendLine($"X-Content-Length: {component.ContentLength}");
+                    headers.AppendLine($"X-compId: {component.CompId}");
+                    headers.AppendLine($"X-compDateC: {component.CreationDate:yyyy-MM-dd}");
+                    headers.AppendLine($"X-compTimeC: {component.CreationDate:HH:mm:ss}");
+                    headers.AppendLine($"X-compDateM: {component.ModifiedDate:yyyy-MM-dd}");
+                    headers.AppendLine($"X-compTimeM: {component.ModifiedDate:HH:mm:ss}");
+                    headers.AppendLine($"X-compStatus: {component.Status}");
+                    headers.AppendLine($"X-pVersion: {component.PVersion}");
+                    headers.AppendLine(); // End of headers
+
+                    byte[] headerBytes = Encoding.ASCII.GetBytes(headers.ToString());
+                    await httpResponse.Body.WriteAsync(headerBytes, 0, headerBytes.Length);
 
                     // Write binary content
-                    if (component.Data.CanSeek)
-                        component.Data.Position = 0;
+                    byte[] buffer = new byte[81920];
+                    int bytesRead;
+                    while ((bytesRead = await component.Data.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await httpResponse.Body.WriteAsync(buffer, 0, bytesRead);
+                    }
 
-                    await component.Data.CopyToAsync(httpResponse.Body);
-                    await writer.WriteAsync("\r\n");
-                    await writer.FlushAsync();
+                    await httpResponse.Body.WriteAsync(Encoding.ASCII.GetBytes("\r\n"));
+                    await httpResponse.Body.FlushAsync();
                 }
 
-                await writer.WriteAsync($"--{boundary}--\r\n");
-                await writer.FlushAsync();
+                // Final boundary
+                var finalBoundary = Encoding.ASCII.GetBytes($"--{boundary}--\r\n");
+                await httpResponse.Body.WriteAsync(finalBoundary);
             }
             else if (_response.IsStream && _response.StreamContent != null)
             {

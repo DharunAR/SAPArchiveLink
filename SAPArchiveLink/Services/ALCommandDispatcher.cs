@@ -53,11 +53,6 @@ namespace SAPArchiveLink
         {
             try
             {
-                if (!ServiceRegistration.IsTrimInitialized)
-                {
-                    //Trim application is not initialised, user might probably check the logs for resolving the problem.
-                    return _commandResponseFactory.CreateError("Trim application is not initialized, Please check the logs", StatusCodes.Status500InternalServerError);
-                }
                 bool doForward = Environment.GetEnvironmentVariable("FORWARD_CONTENT_TO_KNOWNSERVER")?.Trim().ToLower() == "true";
                 if (doForward && (command.IsHttpPOST() || command.IsHttpPUT()))
                 {
