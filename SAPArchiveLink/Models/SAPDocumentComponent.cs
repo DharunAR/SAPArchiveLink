@@ -1,6 +1,6 @@
 ﻿namespace SAPArchiveLink
 {
-    public class SAPDocumentComponent
+    public class SapDocumentComponent
     {
         public string CompId { get; set; }
         public string ContentType { get; set; }

@@ -18,18 +18,14 @@ namespace SAPArchiveLink
         {
             try
             {
-                var docId = command.GetValue(ALParameter.VarDocId);
-                var contRep = command.GetValue(ALParameter.VarContRep);
-                if (string.IsNullOrWhiteSpace(docId) || string.IsNullOrWhiteSpace(contRep))
-                    return _responseFactory.CreateError("Missing required parameters: docId and contRep");
-
                 long.TryParse(command.GetValue(ALParameter.VarFromOffset), out long fromOffset);
                 long.TryParse(command.GetValue(ALParameter.VarToOffset), out long toOffset);
                 var sapDocumentRequest = new SapDocumentRequest
                 {
-                    DocId = docId,
-                    ContRep = contRep,
+                    DocId = command.GetValue(ALParameter.VarDocId),
+                    ContRep = command.GetValue(ALParameter.VarContRep),
                     CompId = command.GetValue(ALParameter.VarCompId),
+                    PVersion = command.GetValue(ALParameter.VarPVersion),
                     FromOffset = fromOffset,
                     ToOffset = toOffset
                 };

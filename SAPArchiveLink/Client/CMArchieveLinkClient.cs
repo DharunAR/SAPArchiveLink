@@ -73,7 +73,7 @@ namespace SAPArchiveLink
         /// <param name="components"></param>
         /// <param name="compId"></param>
         /// <returns></returns>
-        public async Task<SAPDocumentComponent> GetDocumentComponent(RecordSapComponents components, string compId)
+        public async Task<SapDocumentComponent> GetDocumentComponent(RecordSapComponents components, string compId)
         {
             string? fileName;
             RecordSapComponent? sapComponent = null;
@@ -107,9 +107,9 @@ namespace SAPArchiveLink
         /// <param name="components"></param>
         /// <returns></returns>
 
-        public async Task<List<SAPDocumentComponent>> GetDocumentComponents(RecordSapComponents components)
+        public async Task<List<SapDocumentComponent>> GetDocumentComponents(RecordSapComponents components)
         {
-            List<SAPDocumentComponent> documentComponents = new();
+            List<SapDocumentComponent> documentComponents = new();
             foreach (RecordSapComponent c in components)
             {
                 string? fileName;
@@ -157,14 +157,14 @@ namespace SAPArchiveLink
         /// <param name="fileName"></param>
         /// <param name="sapComponent"></param>
         /// <returns></returns>
-        private async Task<SAPDocumentComponent> CreateDocumentComponent(string fileName, RecordSapComponent sapComponent)
+        private async Task<SapDocumentComponent> CreateDocumentComponent(string fileName, RecordSapComponent sapComponent)
         {
             using (Stream fileStream = File.OpenRead(fileName))
             {
                 var memoryStream = new MemoryStream();
                 await fileStream.CopyToAsync(memoryStream);
                 memoryStream.Position = 0;
-                return new SAPDocumentComponent
+                return new SapDocumentComponent
                 {
                     CompId = sapComponent.ComponentId,
                     ContentType = sapComponent.ContentType ?? "application/octet-stream",
@@ -189,7 +189,6 @@ namespace SAPArchiveLink
         {
             return _databaseConnection.GetDatabase();
         }
-
         public void CreateRecord()
         {
             // Implementation for creating a record in the database

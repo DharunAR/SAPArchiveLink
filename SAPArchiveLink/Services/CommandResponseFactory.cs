@@ -11,7 +11,7 @@
         public ICommandResponse CreateDocumentContent(Stream contentStream, string contentType = "application/octet-stream", int statusCode = 200, string fileName = null)
             => CommandResponse.ForDocumentContent(contentStream, contentType, statusCode, fileName);
 
-        public ICommandResponse CreateMultipartDocument(List<SAPDocumentComponent> components, int statusCode = 200)
+        public ICommandResponse CreateMultipartDocument(List<SapDocumentComponent> components, int statusCode = 200)
             => CommandResponse.ForMultipartDocument(components, statusCode);
 
         public ICommandResponse CreateError(string message, int statusCode = StatusCodes.Status400BadRequest)

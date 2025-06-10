@@ -7,9 +7,9 @@ namespace SAPArchiveLink
     {      
         Record GetRecord(Database db, string docId, string contRep);
 
-        Task<List<SAPDocumentComponent>> GetDocumentComponents(RecordSapComponents components);
+        Task<List<SapDocumentComponent>> GetDocumentComponents(RecordSapComponents components);
 
-        Task<SAPDocumentComponent> GetDocumentComponent(RecordSapComponents components, string compId);
+        Task<SapDocumentComponent> GetDocumentComponent(RecordSapComponents components, string compId);
 
         bool IsRecordComponentAvailable(RecordSapComponents components, string compId);
 

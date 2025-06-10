@@ -74,17 +74,16 @@ public class BaseServices : IBaseServices
     /// <returns>Response includes all required ArchiveLink headers and binary content</returns>
     public async Task<ICommandResponse> DocGetSapComponents(SapDocumentRequest sapDoc)
     {
-        if (!string.IsNullOrWhiteSpace(sapDoc.SecKey))
+        var validationResults = ModelValidator.Validate(sapDoc);
+        if (validationResults.Any())
         {
-            if (string.IsNullOrWhiteSpace(sapDoc.AccessMode) || string.IsNullOrWhiteSpace(sapDoc.AuthId) || string.IsNullOrWhiteSpace(sapDoc.Expiration))
-                return _responseFactory.CreateError("Missing security parameters for signed URL");
-
-            if (!sapDoc.AccessMode.Contains("r"))
-                return _responseFactory.CreateError("Read access mode required", StatusCodes.Status401Unauthorized);
-
-            //TODO to implement verification part
-            ValidateSignature(sapDoc);
+            var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
+            var combinedErrorMessage = string.Join("; ", allErrorMessages);
+            return _responseFactory.CreateError(combinedErrorMessage);
         }
+
+        //TODO to implement verification part
+        ValidateSignature(sapDoc);
 
         // Connect to database and retrieve record
         using (var db = _archiveClient.GetDatabase())
@@ -122,19 +121,16 @@ public class BaseServices : IBaseServices
     {
         try
         {
-            if (!string.IsNullOrWhiteSpace(sapDoc.SecKey))
+            var validationResults = ModelValidator.Validate(sapDoc);
+            if (validationResults.Any())
             {
-                if (string.IsNullOrWhiteSpace(sapDoc.AccessMode) || string.IsNullOrWhiteSpace(sapDoc.AuthId) || string.IsNullOrWhiteSpace(sapDoc.Expiration))
-                {
-                    return _responseFactory.CreateError("Missing security parameters for signed URL");
-                }               
-                if (!sapDoc.AccessMode.Contains("r"))
-                {
-                    return _responseFactory.CreateError("Read access mode required", StatusCodes.Status401Unauthorized);
-                }        
-                ValidateSignature(sapDoc);
+                var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
+                var combinedErrorMessage = string.Join("; ", allErrorMessages);
+                return _responseFactory.CreateError(combinedErrorMessage);
             }
 
+            //TODO
+            ValidateSignature(sapDoc);
             using (var db = _archiveClient.GetDatabase())
             {
                 var record = _archiveClient.GetRecord(db, sapDoc.DocId, sapDoc.ContRep);
@@ -192,7 +188,7 @@ public class BaseServices : IBaseServices
     /// <param name="component"></param>
     /// <param name="sapDoc"></param>
     /// <returns></returns>
-    private ICommandResponse GetSingleComponentResponse(SAPDocumentComponent component, SapDocumentRequest sapDoc)
+    private ICommandResponse GetSingleComponentResponse(SapDocumentComponent component, SapDocumentRequest sapDoc)
     {
         var response = _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName);
 
@@ -217,7 +213,7 @@ public class BaseServices : IBaseServices
     /// <param name="record"></param>
     /// <param name="sapDoc"></param>
     /// <returns></returns>
-    private ICommandResponse GetMultiPartResponse(List<SAPDocumentComponent> multipartComponents, Record record, SapDocumentRequest sapDoc)
+    private ICommandResponse GetMultiPartResponse(List<SapDocumentComponent> multipartComponents, Record record, SapDocumentRequest sapDoc)
     {
         var multipartResponse = _responseFactory.CreateMultipartDocument(multipartComponents);
 
@@ -301,20 +297,14 @@ public class BaseServices : IBaseServices
     public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel createSapDocumentModels)
     {
         var validationResults = ModelValidator.Validate(createSapDocumentModels);
-
-
         if (validationResults.Any())
         {
-            foreach (var result in validationResults)
-            {
-                Console.WriteLine($"Validation Error: {result.ErrorMessage}");
-                var errorMessage = result?.ErrorMessage ?? "Unknown validation error";
-                return _responseFactory.CreateError(errorMessage, 400);
-            }
+            var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
+            var combinedErrorMessage = string.Join("; ", allErrorMessages);
+            return _responseFactory.CreateError(combinedErrorMessage);
         }
 
         return _responseFactory.CreateProtocolText("Record Created");
-
     }
 
     #endregion

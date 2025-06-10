@@ -35,6 +35,9 @@ namespace SAPArchiveLink
         public string DocProt { get; set; }          // server setting
         public string ScanPerformed { get; set; }    // URL
 
+        //For multipart components
+        public List<SapDocumentComponent> Components { get; set; } = new();
+
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
 
