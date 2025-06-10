@@ -13,5 +13,6 @@
         public string? BinariesLoadPath { get; set; }
         public string? WorkPath { get; set; }
         public string? TrustedUser { get; set; }
+        public string? RecordTypeName { get; set; }
     }
 }
