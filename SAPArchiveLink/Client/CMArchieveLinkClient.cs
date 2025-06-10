@@ -189,5 +189,13 @@ namespace SAPArchiveLink
         {
             return _databaseConnection.GetDatabase();
         }
+
+        public void CreateRecord()
+        {
+            // Implementation for creating a record in the database
+            // This method should handle the logic to create a new record
+            // based on the provided parameters and return the created record.
+         
+        }
     }
 }

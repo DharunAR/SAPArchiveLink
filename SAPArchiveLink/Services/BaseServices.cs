@@ -298,6 +298,25 @@ public class BaseServices : IBaseServices
         return (originalStream, contentLength, null);
     }
 
+    public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel createSapDocumentModels)
+    {
+        var validationResults = ModelValidator.Validate(createSapDocumentModels);
+
+
+        if (validationResults.Any())
+        {
+            foreach (var result in validationResults)
+            {
+                Console.WriteLine($"Validation Error: {result.ErrorMessage}");
+                var errorMessage = result?.ErrorMessage ?? "Unknown validation error";
+                return _responseFactory.CreateError(errorMessage, 400);
+            }
+        }
+
+        return _responseFactory.CreateProtocolText("Record Created");
+
+    }
+
     #endregion
 
 }

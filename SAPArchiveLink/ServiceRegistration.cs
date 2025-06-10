@@ -24,7 +24,7 @@ namespace SAPArchiveLink
             services.AddScoped<ICommandHandler, AttrSearchCommandHandler>();
             services.AddScoped<ICommandHandler, CacheCommandHandler>();
             services.AddScoped<ICommandHandler, CreatePlaceholderCommandHandler>();
-            services.AddScoped<ICommandHandler, CreateCommandHandler>();
+            services.AddScoped<ICommandHandler, CreatePutCommandHandler>();
             services.AddScoped<ICommandHandler, CreatePostCommandHandler>();
             services.AddScoped<ICommandHandler, CsInfoCommandHandler>();
             services.AddScoped<ICommandHandler, CsrvInfoCommandHandler>();
