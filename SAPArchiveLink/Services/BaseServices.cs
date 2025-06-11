@@ -297,11 +297,20 @@ public class BaseServices : IBaseServices
     public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel createSapDocumentModels)
     {
         var validationResults = ModelValidator.Validate(createSapDocumentModels);
+      
         if (validationResults.Any())
         {
             var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
             var combinedErrorMessage = string.Join("; ", allErrorMessages);
             return _responseFactory.CreateError(combinedErrorMessage);
+        }              
+
+        using (var db = _archiveClient.GetDatabase())
+        {
+           await _archiveClient.ComponentCreate(db, createSapDocumentModels);
+            //var record = _archiveClient.GetRecord(db, createSapDocumentModels.DocId, createSapDocumentModels.ContRep);
+            //if (record != null)
+            //    return _responseFactory.CreateError("Record already exists", StatusCodes.Status403Forbidden);
         }
 
         return _responseFactory.CreateProtocolText("Record Created");

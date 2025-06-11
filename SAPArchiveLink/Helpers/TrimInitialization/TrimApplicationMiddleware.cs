@@ -19,7 +19,9 @@
         {
             if (!initState.IsInitialized)
             {
-                var response = responseFactory.CreateError(initState?.ErrorMessage,StatusCodes.Status500InternalServerError);
+                // Ensure initState.ErrorMessage is not null before passing it to CreateError
+                var errorMessage = initState?.ErrorMessage ?? "An unknown error occurred during Trim initialization.";
+                var response = responseFactory.CreateError(errorMessage, StatusCodes.Status500InternalServerError);
                 context.Response.StatusCode = response.StatusCode;
                 context.Response.ContentType = response.ContentType;
 

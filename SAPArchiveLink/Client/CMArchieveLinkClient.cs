@@ -1,5 +1,7 @@
 ﻿using TRIM.SDK;
 using Microsoft.Extensions.Options;
+using System.ComponentModel;
+using System.Data;
 
 namespace SAPArchiveLink
 {
@@ -10,10 +12,16 @@ namespace SAPArchiveLink
     {
         private readonly TrimConfigSettings _trimConfig;
         private readonly IDatabaseConnection _databaseConnection;
-        public CMArchieveLinkClient(IOptions<TrimConfigSettings> trimConfig, IDatabaseConnection databaseConnection)
+        private readonly ILogHelper<BaseServices> _logger;
+        private readonly ICommandResponseFactory _commandResponseFactory;
+
+
+        public CMArchieveLinkClient(IOptions<TrimConfigSettings> trimConfig, IDatabaseConnection databaseConnection, ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory)
         {
             _trimConfig = trimConfig.Value;
             _databaseConnection= databaseConnection;
+            _logger = helperLogger;
+            _commandResponseFactory= commandResponseFactory;
         }
 
         /// <summary>
@@ -189,12 +197,171 @@ namespace SAPArchiveLink
         {
             return _databaseConnection.GetDatabase();
         }
-        public void CreateRecord()
+
+        /// <summary>
+        /// Retrieves the SAP record type based on the content repository or record type name from the configuration.
+        /// </summary>
+        /// <param name="db"></param>
+        /// <param name="contRep"></param>
+        /// <returns></returns>
+        public RecordType GetSapRecordType(Database db, string contRep)
         {
-            // Implementation for creating a record in the database
-            // This method should handle the logic to create a new record
-            // based on the provided parameters and return the created record.
-         
+            RecordType? recordType = null; // Use nullable type to handle potential null values
+            if (!string.IsNullOrWhiteSpace(_trimConfig.RecordTypeName))
+            {
+                TrimMainObject? tmo = db.FindTrimObjectByName(BaseObjectTypes.RecordType, _trimConfig.RecordTypeName);
+                if (tmo != null)
+                {
+                   var rty = tmo as RecordType; // Safely cast to RecordType
+                    if (recordType != null && recordType.UsualBehaviour == RecordBehaviour.SapDocument) // Fix CS8602
+                    {
+                        recordType = rty;
+                    }
+                    else
+                    {
+                        _logger.LogError($"Record Type '{_trimConfig.RecordTypeName}' cannot be used. Only SAP Document behaviour types are allowed.");                       
+                    }
+                }
+                else
+                {
+                   _logger.LogError($"No valid record type found with name '{_trimConfig.RecordTypeName}'.");                   
+                }
+            }
+            else
+            {
+                TrimMainObjectSearch tmos = new TrimMainObjectSearch(db, BaseObjectTypes.RecordType);
+                TrimSearchClause contRepClause = new TrimSearchClause(db, BaseObjectTypes.RecordType, SearchClauseIds.RecordTypeSaprepository);
+                contRepClause.SetCriteriaFromString(contRep);
+                tmos.AddSearchClause(contRepClause);
+                if (tmos.Count > 0)
+                {
+                    var uris = tmos.GetResultAsUriArray(1);
+                    recordType = new RecordType(db, uris[0]);
+                }
+                else
+                {
+                    _logger.LogError($"No valid record type found for content repository '{contRep}'.");    
+                }
+            }
+
+            return recordType;
+        }
+
+        public RecordSapComponent FindComponent(Record record, string compId)
+        {          
+            RecordSapComponents recordSapComponents = record.ChildSapComponents;
+
+            foreach (RecordSapComponent component in recordSapComponents)
+            {
+                if (component.GetPropertyAsString(PropertyIds.RecordSapComponentComponentId, StringDisplayType.Default, false) == compId)
+                {
+                    return component; ;
+                }              
+
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Creates a new SAP document component in the specified content repository.
+        /// </summary>
+        /// <param name="db"></param>
+        /// <param name="sAPDocumentComponent"></param>
+        /// <returns></returns>
+        public Task<ICommandResponse> ComponentCreate(Database db, CreateSapDocumentModel sAPDocumentComponent)
+        {
+            string alVersion = sAPDocumentComponent.PVersion;
+            string contRep = sAPDocumentComponent.ContRep;
+            string docId = sAPDocumentComponent.DocId;
+            string compId = sAPDocumentComponent.CompId;
+            string version = sAPDocumentComponent.Version;
+            string contentType = sAPDocumentComponent.ContentType;
+            string charSet = sAPDocumentComponent.Charset;
+            string docProt = sAPDocumentComponent.DocProt;
+            string compFile = null;
+
+            var now = DateTime.Now;
+
+            // Validate content repository
+            if (string.IsNullOrWhiteSpace(contRep))
+            {
+                _logger.LogError("Content repository is not specified.");
+                return Task.FromResult(_commandResponseFactory.CreateError("Content repository is not specified.", StatusCodes.Status404NotFound));
+            }
+            // Get or create document
+            var myDoc = GetRecord(db, contRep, docId);
+
+            if (myDoc != null)
+            {
+                // Document exists
+                if (string.IsNullOrWhiteSpace(compId))
+                {
+                    _logger.LogError($"No component was specified and a document with ID '{docId}' already exists.");
+                    return Task.FromResult(_commandResponseFactory.CreateError($"No component was specified and a document with ID '{docId}' already exists.", StatusCodes.Status400BadRequest));
+                }
+
+                if (FindComponent(myDoc, compId) != null)
+                {
+                    _logger.LogError($"A component with ID '{compId}' already exists in document '{docId}'.");
+                    return Task.FromResult(_commandResponseFactory.CreateError($"A component with ID '{compId}' already exists in document '{docId}'.", StatusCodes.Status400BadRequest));
+                }
+            }
+            else
+            {
+                // Document doesn't exist, create new
+                if (string.IsNullOrWhiteSpace(docId))
+                {
+                    docId = Guid.NewGuid().ToString("N");
+                }
+
+                var recType = GetSapRecordType(db, contRep);
+                if (recType == null)
+                {
+                    _logger.LogError($"No valid record type found for content repository '{contRep}'.");
+                    return Task.FromResult(_commandResponseFactory.CreateError($"No valid record type found for content repository '{contRep}'.", StatusCodes.Status404NotFound));
+                }
+
+                myDoc = new Record(db, recType)
+                {
+                    SapReposId = contRep,
+                    SapDocumentId = docId,
+                    SapArchiveLinkVsn = alVersion,
+                    SapDocumentProtection = docProt,
+                    SapArchiveDate = now,
+                    SapModifiedDate = now
+                };
+
+                // Set document title using template
+                string docTitle = recType.SapTitleTemplate;
+                docTitle = docTitle.Replace("%docid%", docId)
+                                   .Replace("%date%", now.ToShortTimeString())
+                                   .Replace("%prot%", docProt)
+                                   .Replace("%alvsn%", alVersion)
+                                   .Replace("%contrep%", contRep);
+                myDoc.TypedTitle = docTitle;
+            }
+
+            // Step 3: Add component if specified
+            if (!string.IsNullOrWhiteSpace(compId))
+            {
+                var recordSapComponents = myDoc.ChildSapComponents;
+                var recordSapComponent = recordSapComponents.New();
+                recordSapComponent.ComponentId = compId;
+                recordSapComponent.ApplicationVersion = version;
+                recordSapComponent.ContentType = contentType;
+                recordSapComponent.CharacterSet = charSet;
+                recordSapComponent.ArchiveDate = now;
+                recordSapComponent.DateModified = now;
+                recordSapComponent.SetDocument(compFile);
+
+                myDoc.SapModifiedDate = now;
+            }
+
+            // Step 4: Save the document
+            myDoc.Save();
+
+            // Return success response
+            return Task.FromResult(_commandResponseFactory.CreateProtocolText("Component created successfully.", StatusCodes.Status201Created));
         }
     }
 }

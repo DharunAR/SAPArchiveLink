@@ -9,15 +9,25 @@ namespace SAPArchiveLink.Tests
         private Mock<IDatabaseConnection> _dbConnectionMock;
         private IOptions<TrimConfigSettings> _trimConfig;
         private CMArchieveLinkClient _client;
+        private Mock<ILogHelper<BaseServices>> _helperLoggerMock;
+        private Mock<ICommandResponseFactory> _commandResponseFactoryMock;       
 
         [SetUp]
         public void Setup()
         {
             _dbConnectionMock = new Mock<IDatabaseConnection>();
             _trimConfig = Options.Create(new MockTrimConfigProvider().GetTrimConfig());
+            _helperLoggerMock = new Mock<ILogHelper<BaseServices>>();
+            _commandResponseFactoryMock = new Mock<ICommandResponseFactory>();
+
             TrimApplication.TrimBinariesLoadPath = _trimConfig.Value.BinariesLoadPath;
-            _client = new CMArchieveLinkClient(_trimConfig, _dbConnectionMock.Object);
-        }
+            _client = new CMArchieveLinkClient(
+                _trimConfig,
+                _dbConnectionMock.Object,
+                _helperLoggerMock.Object,
+                _commandResponseFactoryMock.Object
+            );
+        }        
 
         [Test]
         public void IsRecordComponentAvailable_ReturnsTrue_WhenComponentExists()

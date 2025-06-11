@@ -4,7 +4,7 @@ using TRIM.SDK;
 namespace SAPArchiveLink
 {
     public interface ICMArchieveLinkClient
-    {      
+    {
         Record GetRecord(Database db, string docId, string contRep);
 
         Task<List<SapDocumentComponent>> GetDocumentComponents(RecordSapComponents components);
@@ -16,5 +16,7 @@ namespace SAPArchiveLink
         Database GetDatabase();
 
         Task PutArchiveCertificate(string authId, int protectionLevel, byte[] certificate, string contRep);
+
+        Task<ICommandResponse> ComponentCreate(Database db, CreateSapDocumentModel sAPDocumentComponent);
     }
 }
