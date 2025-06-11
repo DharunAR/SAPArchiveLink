@@ -2,6 +2,8 @@
 using Microsoft.Extensions.Options;
 using System.ComponentModel;
 using System.Data;
+using System.Net;
+using System.Net.Mime;
 
 namespace SAPArchiveLink
 {
@@ -261,6 +263,61 @@ namespace SAPArchiveLink
             }
             return null;
         }
+        public static string GetFileExtensionFromContentType(string contentType)
+        {
+
+            var t = new ContentType(contentType);
+            if (string.IsNullOrWhiteSpace(contentType))
+                return ".bin"; // default fallback
+
+            return contentType.ToLowerInvariant() switch
+            {
+                "application/pdf" => ".pdf",
+                "application/msword" => ".doc",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => ".docx",
+                "application/vnd.ms-excel" => ".xls",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => ".xlsx",
+                "application/zip" => ".zip",
+                "application/json" => ".json",
+                "application/xml" => ".xml",
+                "text/plain" => ".txt",
+                "text/html" => ".html",
+                "image/jpeg" => ".jpg",
+                "image/png" => ".png",
+                "image/gif" => ".gif",
+                "image/bmp" => ".bmp",
+                "image/webp" => ".webp",
+                "audio/mpeg" => ".mp3",
+                "video/mp4" => ".mp4",
+                _ => ".bin" // fallback
+            };
+        }
+        public void SaveInputStreamToFile(Stream streamInput, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(_trimConfig.WorkPath))
+            {
+                _logger.LogError("WorkPath is not configured.");
+                throw new InvalidOperationException("WorkPath is not configured.");
+            }
+
+            var baseDirectory = Path.Combine(_trimConfig.WorkPath, "Downloads");
+            Directory.CreateDirectory(baseDirectory); // ensures folder exists  
+            var safeFileName = Path.GetFileName(fileName); // avoids directory traversal  
+            var fullPath = Path.Combine(baseDirectory, safeFileName);
+            var normalizedPath = Path.GetFullPath(fullPath);
+
+            if (!normalizedPath.StartsWith(baseDirectory))
+            {
+                _logger.LogError("Invalid file path.");
+                throw new UnauthorizedAccessException("Invalid file path.");
+            }
+
+            using (var inputStream = streamInput)
+            using (var fileStream = File.Create(normalizedPath))
+            {
+                inputStream.CopyTo(fileStream);
+            }
+        }
 
         /// <summary>
         /// Creates a new SAP document component in the specified content repository.
@@ -339,6 +396,8 @@ namespace SAPArchiveLink
                                    .Replace("%alvsn%", alVersion)
                                    .Replace("%contrep%", contRep);
                 myDoc.TypedTitle = docTitle;
+                compFile = Path.ChangeExtension(docTitle, GetFileExtensionFromContentType(contentType));              
+                SaveInputStreamToFile(sAPDocumentComponent.Stream, compFile); // Save the input stream to a file
             }
 
             // Step 3: Add component if specified

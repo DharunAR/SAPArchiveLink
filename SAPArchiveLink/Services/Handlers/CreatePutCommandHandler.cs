@@ -36,6 +36,7 @@ namespace SAPArchiveLink
                     AccessMode = command.GetValue(ALParameter.VarAccessMode),
                     AuthId = command.GetValue(ALParameter.VarAuthId),
                     Expiration = command.GetValue(ALParameter.VarExpiration),
+                    Stream = context.GetInputStream(),
                 };
 
 
