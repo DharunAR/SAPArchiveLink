@@ -307,13 +307,11 @@ public class BaseServices : IBaseServices
 
         using (var db = _archiveClient.GetDatabase())
         {
-           await _archiveClient.ComponentCreate(db, createSapDocumentModels);
+           return await _archiveClient.ComponentCreate(db, createSapDocumentModels);
             //var record = _archiveClient.GetRecord(db, createSapDocumentModels.DocId, createSapDocumentModels.ContRep);
             //if (record != null)
             //    return _responseFactory.CreateError("Record already exists", StatusCodes.Status403Forbidden);
-        }
-
-        return _responseFactory.CreateProtocolText("Record Created");
+        }      
     }
 
     #endregion

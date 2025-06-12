@@ -396,7 +396,7 @@ namespace SAPArchiveLink
                                    .Replace("%alvsn%", alVersion)
                                    .Replace("%contrep%", contRep);
                 myDoc.TypedTitle = docTitle;
-                compFile = Path.ChangeExtension(docTitle, GetFileExtensionFromContentType(contentType));              
+                compFile = Path.ChangeExtension(docId, GetFileExtensionFromContentType(contentType));              
                 SaveInputStreamToFile(sAPDocumentComponent.Stream, compFile); // Save the input stream to a file
             }
 
