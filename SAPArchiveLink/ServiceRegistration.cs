@@ -85,12 +85,13 @@ namespace SAPArchiveLink
         {
             var configSection = configuration.GetSection("TRIMConfig");
             var config = configSection.Get<TrimConfigSettings>();
-            if (config == null)
+            if (config == null || string.IsNullOrWhiteSpace(config.WorkPath))
             {
-                throw new InvalidOperationException("TRIMConfig section is missing or invalid.");
+                throw new InvalidOperationException("TRIMConfig section is missing, invalid, or WorkPath is not set.");
             }
             services.Configure<TrimConfigSettings>(configSection);
             services.AddSingleton<TrimInitialization>();
+            services.AddScoped<DownloadFileHandler>(sp => new DownloadFileHandler(config.WorkPath));
         }
 
         /// <summary>

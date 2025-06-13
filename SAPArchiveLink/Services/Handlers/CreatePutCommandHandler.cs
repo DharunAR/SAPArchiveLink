@@ -1,8 +1,12 @@
 ﻿
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Net.Http.Headers;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Windows.Input;
+using TRIM.SDK;
 
 namespace SAPArchiveLink
 {
@@ -12,11 +16,13 @@ namespace SAPArchiveLink
 
         private ICommandResponseFactory _responseFactory;
         private IBaseServices _baseService;
+        private DownloadFileHandler _downloadFileHandler;
 
-        public CreatePutCommandHandler(ICommandResponseFactory responseFactory, IBaseServices baseService)
+        public CreatePutCommandHandler(ICommandResponseFactory responseFactory, IBaseServices baseService, DownloadFileHandler fileHandleRequest )
         {
             _responseFactory = responseFactory;
             _baseService = baseService;
+            _downloadFileHandler = fileHandleRequest;
         }
 
         public async Task<ICommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
@@ -24,6 +30,15 @@ namespace SAPArchiveLink
             try
             {
                 var request = context.GetRequest();
+                List<SapDocumentComponent> _sapDocumentComponent = await _downloadFileHandler.HandleRequestAsync(request);
+
+                //var form = await request.ReadFormAsync();
+
+                //var boundary = HeaderUtilities.RemoveQuotes(
+                //    MediaTypeHeaderValue.Parse(request.ContentType).Boundary).Value;
+
+                //var reader = new MultipartReader(boundary, request.Body);
+                //MultipartSection section;
 
                 var sapDocumentCreateRequest = new CreateSapDocumentModel
                 {
@@ -36,16 +51,17 @@ namespace SAPArchiveLink
                     AccessMode = command.GetValue(ALParameter.VarAccessMode),
                     AuthId = command.GetValue(ALParameter.VarAuthId),
                     Expiration = command.GetValue(ALParameter.VarExpiration),
-                    Stream = context.GetInputStream(),
-                    ContentType= request.ContentType
+                    Stream = context.GetInputStream(),                    
+                    Charset = request.Headers["charset"].ToString(),
+                    Version = request.Headers["version"].ToString(),
+                    DocProt = request.Headers["docprot"].ToString(),
+                    Components = _sapDocumentComponent,                    
                 };
-
 
                 return await _baseService.CreateRecord(sapDocumentCreateRequest);
             }
             catch (Exception ex)
             {
-
                 return _responseFactory.CreateError($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
             }
         }

@@ -263,6 +263,17 @@ namespace SAPArchiveLink
             }
             return null;
         }
+
+
+        public string? GetExtensionFromContentType(string contentType)
+        {
+            var provider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+            return provider.Mappings
+                .FirstOrDefault(kvp => kvp.Value.Equals(contentType, StringComparison.OrdinalIgnoreCase))
+                .Key;
+        }
+
+
         public static string GetFileExtensionFromContentType(string contentType)
         {
 
@@ -292,7 +303,7 @@ namespace SAPArchiveLink
                 _ => ".bin" // fallback
             };
         }
-        public void SaveInputStreamToFile(Stream streamInput, string fileName)
+        public async Task<string> SaveInputStreamToFile(Stream streamInput, string fileName)
         {
             if (string.IsNullOrWhiteSpace(_trimConfig.WorkPath))
             {
@@ -315,8 +326,9 @@ namespace SAPArchiveLink
             using (var inputStream = streamInput)
             using (var fileStream = File.Create(normalizedPath))
             {
-                inputStream.CopyTo(fileStream);
+               await inputStream.CopyToAsync(fileStream);
             }
+            return normalizedPath;
         }
 
         /// <summary>
@@ -325,7 +337,7 @@ namespace SAPArchiveLink
         /// <param name="db"></param>
         /// <param name="sAPDocumentComponent"></param>
         /// <returns></returns>
-        public Task<ICommandResponse> ComponentCreate(Database db, CreateSapDocumentModel sAPDocumentComponent)
+        public async Task<ICommandResponse> ComponentCreate(Database db, CreateSapDocumentModel sAPDocumentComponent)
         {
             string alVersion = sAPDocumentComponent.PVersion;
             string contRep = sAPDocumentComponent.ContRep;
@@ -343,10 +355,10 @@ namespace SAPArchiveLink
             if (string.IsNullOrWhiteSpace(contRep))
             {
                 _logger.LogError("Content repository is not specified.");
-                return Task.FromResult(_commandResponseFactory.CreateError("Content repository is not specified.", StatusCodes.Status404NotFound));
+                return await Task.FromResult(_commandResponseFactory.CreateError("Content repository is not specified.", StatusCodes.Status404NotFound));
             }
             // Get or create document
-            var myDoc = GetRecord(db, contRep, docId);
+            var myDoc = GetRecord(db, docId,contRep);
 
             if (myDoc != null)
             {
@@ -354,13 +366,13 @@ namespace SAPArchiveLink
                 if (string.IsNullOrWhiteSpace(compId))
                 {
                     _logger.LogError($"No component was specified and a document with ID '{docId}' already exists.");
-                    return Task.FromResult(_commandResponseFactory.CreateError($"No component was specified and a document with ID '{docId}' already exists.", StatusCodes.Status400BadRequest));
+                    return await Task.FromResult(_commandResponseFactory.CreateError($"No component was specified and a document with ID '{docId}' already exists.", StatusCodes.Status400BadRequest));
                 }
 
                 if (FindComponent(myDoc, compId) != null)
                 {
                     _logger.LogError($"A component with ID '{compId}' already exists in document '{docId}'.");
-                    return Task.FromResult(_commandResponseFactory.CreateError($"A component with ID '{compId}' already exists in document '{docId}'.", StatusCodes.Status400BadRequest));
+                    return await Task.FromResult(_commandResponseFactory.CreateError($"A component with ID '{compId}' already exists in document '{docId}'.", StatusCodes.Status400BadRequest));
                 }
             }
             else
@@ -375,8 +387,9 @@ namespace SAPArchiveLink
                 if (recType == null)
                 {
                     _logger.LogError($"No valid record type found for content repository '{contRep}'.");
-                    return Task.FromResult(_commandResponseFactory.CreateError($"No valid record type found for content repository '{contRep}'.", StatusCodes.Status404NotFound));
-                }
+                    return await Task.FromResult(_commandResponseFactory.CreateError($"No valid record type found for content repository '{contRep}'.", StatusCodes.Status404NotFound));
+                }            
+
 
                 myDoc = new Record(db, recType)
                 {
@@ -389,6 +402,8 @@ namespace SAPArchiveLink
                 };
 
                 // Set document title using template
+
+                compFile = sAPDocumentComponent.Components.FirstOrDefault()?.FileName ?? string.Empty;
                 string docTitle = recType.SapTitleTemplate;
                 docTitle = docTitle.Replace("%docid%", docId)
                                    .Replace("%date%", now.ToShortTimeString())
@@ -396,8 +411,9 @@ namespace SAPArchiveLink
                                    .Replace("%alvsn%", alVersion)
                                    .Replace("%contrep%", contRep);
                 myDoc.TypedTitle = docTitle;
-                compFile = Path.ChangeExtension(docId, GetFileExtensionFromContentType(contentType));              
-                SaveInputStreamToFile(sAPDocumentComponent.Stream, compFile); // Save the input stream to a file
+                compFile = sAPDocumentComponent.Components.FirstOrDefault()?.FileName ?? string.Empty;
+                // var path = Path.ChangeExtension(docId, GetExtensionFromContentType(contentType));
+                // compFile= await SaveInputStreamToFile(sAPDocumentComponent.Stream, path); // Save the input stream to a file
             }
 
             // Step 3: Add component if specified
@@ -406,21 +422,29 @@ namespace SAPArchiveLink
                 var recordSapComponents = myDoc.ChildSapComponents;
                 var recordSapComponent = recordSapComponents.New();
                 recordSapComponent.ComponentId = compId;
-                recordSapComponent.ApplicationVersion = version;
+                recordSapComponent.ApplicationVersion = alVersion;
                 recordSapComponent.ContentType = contentType;
                 recordSapComponent.CharacterSet = charSet;
                 recordSapComponent.ArchiveDate = now;
-                recordSapComponent.DateModified = now;
+                recordSapComponent.DateModified = now;               
                 recordSapComponent.SetDocument(compFile);
-
                 myDoc.SapModifiedDate = now;
             }
 
+            try
+            {
+                myDoc.Save();
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
             // Step 4: Save the document
-            myDoc.Save();
+         
 
             // Return success response
-            return Task.FromResult(_commandResponseFactory.CreateProtocolText("Component created successfully.", StatusCodes.Status201Created));
+            return await Task.FromResult(_commandResponseFactory.CreateProtocolText("Component created successfully.", StatusCodes.Status201Created));
         }
     }
 }
