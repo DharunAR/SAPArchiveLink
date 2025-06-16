@@ -188,46 +188,58 @@ public class BaseServices : IBaseServices
     /// <returns></returns>
     public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel model, bool isMultipart = false)
     {
-        var validationResults = ModelValidator.Validate(model);
-
-        if (validationResults.Any())
+        SapDocumentComponent[] components = [];
+        try
         {
-            var combinedMessage = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
-            return _responseFactory.CreateError(combinedMessage);
-        }
+            var validationResults = ModelValidator.Validate(model);
 
-        using(ITrimRepository trimRepo = _databaseConnection.GetDatabase())
-        {
-            // Get existing record if it exists
-            var archiveRecord = trimRepo.GetRecord(model.DocId, model.ContRep);
-            if (archiveRecord is null)
+            if (validationResults.Any())
             {
-                archiveRecord = trimRepo.CreateRecord(model);
-                if (archiveRecord == null)
-                    return _responseFactory.CreateError("Failed to create archive record.");
+                var combinedMessage = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
+                return _responseFactory.CreateError(combinedMessage);
             }
 
-            // Handle single/multiple components
-            if (model.Components != null)
+            using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
             {
-                var components = isMultipart ? model.Components.ToArray() : new[] { model.Components.First() };
-                foreach (SapDocumentComponent comp in components)
+                // Get existing record if it exists
+                var archiveRecord = trimRepo.GetRecord(model.DocId, model.ContRep);
+                if (archiveRecord is null)
                 {
-                    if (string.IsNullOrWhiteSpace(comp.CompId))
-                        return _responseFactory.CreateError("Component ID is missing.", StatusCodes.Status400BadRequest);
-
-                    if (archiveRecord.HasComponent(comp.CompId))
-                        return _responseFactory.CreateError($"A component with ID '{comp.CompId}' already exists in document '{comp.CompId}'.", StatusCodes.Status400BadRequest);
-
-                    var filePath = await _downloadFileHandler.DownloadDocument(comp.Data, comp.FileName);
-                    if (string.IsNullOrWhiteSpace(filePath))
-                        return _responseFactory.CreateError("Failed to save component file.", StatusCodes.Status400BadRequest);
-
-                    archiveRecord.AddComponent(comp.CompId, filePath, comp.ContentType, comp.Charset, comp.PVersion);
+                    archiveRecord = trimRepo.CreateRecord(model);
+                    if (archiveRecord == null)
+                        return _responseFactory.CreateError("Failed to create archive record.");
                 }
-            }
 
-            archiveRecord.Save();
+                // Handle single/multiple components
+                if (model.Components != null)
+                {
+                    components = isMultipart ? model.Components.ToArray() : new[] { model.Components.First() };
+                    foreach (SapDocumentComponent comp in components)
+                    {
+                        if (string.IsNullOrWhiteSpace(comp.CompId))
+                            return _responseFactory.CreateError("Component ID is missing.", StatusCodes.Status400BadRequest);
+
+                        if (archiveRecord.HasComponent(comp.CompId))
+                            return _responseFactory.CreateError($"A component with ID '{comp.CompId}' already exists in document '{comp.CompId}'.", StatusCodes.Status400BadRequest);
+
+                        var filePath = await _downloadFileHandler.DownloadDocument(comp.Data, comp.FileName);
+                        if (string.IsNullOrWhiteSpace(filePath))
+                            return _responseFactory.CreateError("Failed to save component file.", StatusCodes.Status400BadRequest);
+
+                        archiveRecord.AddComponent(comp.CompId, filePath, comp.ContentType, comp.Charset, comp.PVersion);
+                    }
+                }
+
+                archiveRecord.Save();
+            }
+        }
+        finally
+        {
+            foreach (var item in components)
+            {
+                if (!string.IsNullOrWhiteSpace(item.FileName))
+                    _downloadFileHandler.DeleteFile(item.FileName);
+            }
         }
         
         return _responseFactory.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created);

@@ -178,7 +178,7 @@ namespace SAPArchiveLink
             return filePath;
         }
 
-        public void ClearFiles(string? filePath = null)
+        public void ClearAllFiles(string? filePath = null)
         {
             string filesToClear = filePath ?? $"{_saveDirectory}\\Uploads";
             if (Directory.Exists(filesToClear))
@@ -198,5 +198,19 @@ namespace SAPArchiveLink
             }
         }
 
-    }
+        public void DeleteFile(string filePath)
+        {
+            if (File.Exists(filePath))
+            {
+                try
+                {
+                    File.Delete(filePath);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error deleting file {filePath}: {ex.Message}");
+                }
+            }
+
+        }
 }
