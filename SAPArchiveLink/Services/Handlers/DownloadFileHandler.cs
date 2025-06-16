@@ -30,34 +30,12 @@ namespace SAPArchiveLink
                 }
                 else
                 {
-                    uploadedFiles = await ParseMultipartManuallyAsync(contentType, body, docId);
-                }
-                
-                //else
-                //{
-                //    foreach (var file in form.Files)
-                //    {
-                //        var fileName = Path.GetFileName(file.FileName);
-                //        var filePath = Path.Combine(_saveDirectory, fileName);
-
-                //        Directory.CreateDirectory(_saveDirectory);
-                //        using var stream = new FileStream(filePath, FileMode.Create);
-                //        await file.CopyToAsync(stream);
-
-                //        var compId = form.TryGetValue("X-compId", out var compIdValue) ? compIdValue.ToString() : string.Empty;
-
-                //        uploadedFiles.Add(new SapDocumentComponent
-                //        {
-                //            FileName = filePath,
-                //            CompId = compId,
-                //            ContentType = file.ContentType
-                //        });
-                //    }
-                //}
+                    uploadedFiles = await ParseMultipartManuallyAsync(contentType, body);
+                }               
+              
             }
             catch
-            {
-               // Console.WriteLine("ReadFormAsync failed: " + ex.Message);
+            {            
                
             }
 
@@ -67,8 +45,24 @@ namespace SAPArchiveLink
         public string? GetExtensionFromContentType(string contentType)
         {
             var provider = new FileExtensionContentTypeProvider();
-            var mapping = provider.Mappings.FirstOrDefault(m => m.Value.Equals(contentType, StringComparison.OrdinalIgnoreCase));
-            return mapping.Key;
+
+            var customMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        { "application/x-note", ".note" },
+                        { "text/plain", ".txt" },
+                        { "application/json", ".json" },
+                        { "application/pdf", ".pdf" }
+                        // Add more as needed
+                    };
+            if (customMappings.TryGetValue(contentType, out var ext))
+            {
+                return ext;
+            }
+
+            var mapping = provider.Mappings
+                .FirstOrDefault(kvp => kvp.Value.Equals(contentType, StringComparison.OrdinalIgnoreCase));
+
+            return !string.IsNullOrEmpty(mapping.Key) ? mapping.Key : ".bin";
         }
 
         private Task<List<SapDocumentComponent>> ParseSinglepartManuallyAsync(string contentType, Stream body, string docId)
@@ -81,6 +75,7 @@ namespace SAPArchiveLink
                 {
                     FileName = filePath,
                     Data = body,
+                    ContentType= contentType,
                 });
             }
             catch
@@ -90,9 +85,9 @@ namespace SAPArchiveLink
             return Task.FromResult(uploadedFiles);
         }
 
-        private string getFilePath(string docId,string contentType)
+        private string getFilePath(string compId,string contentType)
         {
-            var fileName = $"{docId}{GetExtensionFromContentType(contentType)}";
+            var fileName = $"{compId}{GetExtensionFromContentType(contentType)}";
             return Path.Combine(_saveDirectory, fileName);
         }
 
@@ -114,10 +109,10 @@ namespace SAPArchiveLink
 
             return null; // no charset found
         }
-        private async Task<List<SapDocumentComponent>> ParseMultipartManuallyAsync(string contentType, Stream body,string docId)
+        private async Task<List<SapDocumentComponent>> ParseMultipartManuallyAsync(string contentType, Stream body)
         {
             var uploadedFiles = new List<SapDocumentComponent>();
-            string filePath = null;
+           
             var boundary = GetBoundaryFromContentType(contentType);
             if (string.IsNullOrEmpty(boundary))
                 throw new InvalidOperationException("Boundary not found in Content-Type.");
@@ -127,17 +122,14 @@ namespace SAPArchiveLink
 
             while ((section = await reader.ReadNextSectionAsync()) != null)
             {
+                string filePath = null;
                 if (ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var contentDisposition) &&
                     contentDisposition.DispositionType.Equals("form-data") &&
                     !string.IsNullOrEmpty(contentDisposition.FileName.Value))
                 {
                     var fileName = Path.GetFileName(contentDisposition.FileName.Value.Trim('"'));
                     filePath = Path.Combine(_saveDirectory, fileName);
-                }
-                else
-                {
-                    filePath = getFilePath(docId, contentType);
-                }                             
+                }                                          
 
                 if (section.Headers != null)
                 {
@@ -145,6 +137,10 @@ namespace SAPArchiveLink
                     section.Headers.TryGetValue("Content-Type", out var contentTypeHeader);
                     section.Headers.TryGetValue("X-pVersion", out var pVersion);
                     section.Headers.TryGetValue("X-Content-Length", out var contentLength);
+                    if(filePath==null)
+                    {
+                        filePath = getFilePath(compId, contentTypeHeader.ToString());
+                    }
 
                     uploadedFiles.Add(new SapDocumentComponent
                     {

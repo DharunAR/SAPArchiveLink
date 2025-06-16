@@ -371,6 +371,17 @@ namespace SAPArchiveLink
                 _logger.LogError($"Failed to save document '{docId}': {ex.Message}");
                 return _commandResponseFactory.CreateProtocolText("Failed to save document.");
             }
+            finally
+            {
+                // Clean up temporary files if necessary
+                foreach (var comp in components)
+                {
+                    if (File.Exists(comp.FileName))
+                    {
+                        File.Delete(comp.FileName);
+                    }
+                }
+            }
 
             return _commandResponseFactory.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created);
         }

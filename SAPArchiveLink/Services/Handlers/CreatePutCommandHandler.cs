@@ -52,9 +52,7 @@ namespace SAPArchiveLink
                 };               
                 if(sapDocumentComponent!=null)
                 {
-                    sapDocumentComponent.First().CompId = sapDocumentCreateRequest.CompId;
-                    sapDocumentComponent.First().PVersion = sapDocumentCreateRequest.PVersion;
-                    sapDocumentComponent.First().ContentType = sapDocumentCreateRequest.ContentType;
+                    sapDocumentComponent.First().CompId = sapDocumentCreateRequest.CompId;              
                     sapDocumentComponent.First().Charset = sapDocumentCreateRequest.Charset;
                     sapDocumentCreateRequest.Components = sapDocumentComponent;
                 }
