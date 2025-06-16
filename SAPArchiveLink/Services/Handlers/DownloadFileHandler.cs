@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
 using System;
 using System.Net.Mime;
+using System.Security.Cryptography;
 using static System.Net.Mime.MediaTypeNames;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
@@ -29,7 +30,7 @@ namespace SAPArchiveLink
                 }
                 else
                 {
-                    uploadedFiles = await ParseMultipartManuallyAsync(contentType, body);
+                    uploadedFiles = await ParseMultipartManuallyAsync(contentType, body, docId);
                 }
                 
                 //else
@@ -74,9 +75,8 @@ namespace SAPArchiveLink
         {
             var uploadedFiles = new List<SapDocumentComponent>();
             try
-            {
-                var fileName = $"{docId}{GetExtensionFromContentType(contentType)}";
-                var filePath = Path.Combine(_saveDirectory, fileName);
+            {               
+                var filePath = getFilePath(docId, contentType);
                 uploadedFiles.Add(new SapDocumentComponent
                 {
                     FileName = filePath,
@@ -88,6 +88,12 @@ namespace SAPArchiveLink
             }
 
             return Task.FromResult(uploadedFiles);
+        }
+
+        private string getFilePath(string docId,string contentType)
+        {
+            var fileName = $"{docId}{GetExtensionFromContentType(contentType)}";
+            return Path.Combine(_saveDirectory, fileName);
         }
 
         private string ExtractCharset(string xContentType)
@@ -108,10 +114,10 @@ namespace SAPArchiveLink
 
             return null; // no charset found
         }
-        private async Task<List<SapDocumentComponent>> ParseMultipartManuallyAsync(string contentType, Stream body)
+        private async Task<List<SapDocumentComponent>> ParseMultipartManuallyAsync(string contentType, Stream body,string docId)
         {
             var uploadedFiles = new List<SapDocumentComponent>();
-
+            string filePath = null;
             var boundary = GetBoundaryFromContentType(contentType);
             if (string.IsNullOrEmpty(boundary))
                 throw new InvalidOperationException("Boundary not found in Content-Type.");
@@ -126,28 +132,30 @@ namespace SAPArchiveLink
                     !string.IsNullOrEmpty(contentDisposition.FileName.Value))
                 {
                     var fileName = Path.GetFileName(contentDisposition.FileName.Value.Trim('"'));
-                    var filePath = Path.Combine(_saveDirectory, fileName);
+                    filePath = Path.Combine(_saveDirectory, fileName);
+                }
+                else
+                {
+                    filePath = getFilePath(docId, contentType);
+                }                             
 
-                    Directory.CreateDirectory(_saveDirectory);
+                if (section.Headers != null)
+                {
+                    section.Headers.TryGetValue("X-compId", out var compId);
+                    section.Headers.TryGetValue("Content-Type", out var contentTypeHeader);
+                    section.Headers.TryGetValue("X-pVersion", out var pVersion);
+                    section.Headers.TryGetValue("X-Content-Length", out var contentLength);
 
-                    if (section.Headers != null)
+                    uploadedFiles.Add(new SapDocumentComponent
                     {
-                        section.Headers.TryGetValue("X-compId", out var compId);
-                        section.Headers.TryGetValue("Content-Type", out var contentTypeHeader);
-                        section.Headers.TryGetValue("X-pVersion", out var pVersion);
-                        section.Headers.TryGetValue("X-Content-Length", out var contentLength);
-
-                        uploadedFiles.Add(new SapDocumentComponent
-                        {
-                            CompId = compId.FirstOrDefault() ?? string.Empty,
-                            Data = section.Body,
-                            FileName = filePath,
-                            ContentType = contentTypeHeader.ToString(),
-                            Charset = ExtractCharset(contentTypeHeader.ToString()),
-                            PVersion = pVersion.FirstOrDefault() ?? string.Empty,
-                            ContentLength = long.TryParse(contentLength.FirstOrDefault(), out var parsedLength) ? parsedLength : 0
-                        });
-                    }
+                        CompId = compId.FirstOrDefault() ?? string.Empty,
+                        Data = section.Body,
+                        FileName = filePath,
+                        ContentType = contentTypeHeader.ToString(),
+                        Charset = ExtractCharset(contentTypeHeader.ToString()),
+                        PVersion = pVersion.FirstOrDefault() ?? string.Empty,
+                        ContentLength = long.TryParse(contentLength.FirstOrDefault(), out var parsedLength) ? parsedLength : 0
+                    });
                 }
             }
 

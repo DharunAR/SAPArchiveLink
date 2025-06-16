@@ -377,58 +377,15 @@ namespace SAPArchiveLink
 
         private async Task<string> DownlaodDocument(Stream stream, string filePath)
         {
+            var directory = Path.GetDirectoryName(filePath);
+
+            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);               
+            }          
             using var fileStream = new FileStream(filePath, FileMode.Create);
             await stream.CopyToAsync(fileStream);
             return filePath;
-        }
-
-        private async Task<ICommandResponse> CreateDocumentComponent(CreateSapDocumentModel createSapDocumentModel,
-            List<SapDocumentComponent> sapDocumentComponents, Record record, string fileName)
-        {
-            if (!string.IsNullOrWhiteSpace(createSapDocumentModel.CompId))
-            {
-                var now = DateTime.Now;
-                var recordSapComponents = record.ChildSapComponents;
-                var recordSapComponent = recordSapComponents.New();
-                recordSapComponent.ComponentId = createSapDocumentModel.CompId;
-                recordSapComponent.ApplicationVersion = createSapDocumentModel.PVersion;
-                recordSapComponent.ContentType = createSapDocumentModel.ContentType;
-                recordSapComponent.CharacterSet = createSapDocumentModel.Charset;
-                recordSapComponent.ArchiveDate = now;
-                recordSapComponent.DateModified = now;
-                recordSapComponent.SetDocument(fileName);
-                record.SapModifiedDate = now;
-            }
-            else
-            {
-                foreach (var item in sapDocumentComponents)
-                {
-                    if (!string.IsNullOrWhiteSpace(item.CompId))
-                    {
-                        var now = DateTime.Now;
-                        var recordSapComponents = record.ChildSapComponents;
-                        var recordSapComponent = recordSapComponents.New();
-                        recordSapComponent.ComponentId = item.CompId;
-                        recordSapComponent.ApplicationVersion = createSapDocumentModel.PVersion;
-                        recordSapComponent.ContentType = item.ContentType;
-                        recordSapComponent.CharacterSet = item.Charset;
-                        recordSapComponent.ArchiveDate = now;
-                        recordSapComponent.DateModified = now;
-                        recordSapComponent.SetDocument(item.FileName);
-                        record.SapModifiedDate = now;
-                    }
-                }
-            }
-            try
-            {
-                record.Save();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Failed to save document '{record.SapDocumentId}': {ex.Message}");
-                return await Task.FromResult(_commandResponseFactory.CreateProtocolText("Failed to save document."));
-            }
-            return await Task.FromResult(_commandResponseFactory.CreateProtocolText("Component created successfully.", StatusCodes.Status201Created));
         }
     }
 }
