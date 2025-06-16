@@ -6,21 +6,19 @@ namespace SAPArchiveLink
     /// <summary>
     /// Implementation of the IDatabaseConnection interface for handling database connections.
     /// </summary>
-    public class DatabaseConnection: IDatabaseConnection
-    {       
+    public class DatabaseConnection : IDatabaseConnection
+    {
         private readonly TrimConfigSettings _trimConfig;
+        private readonly ILoggerFactory _loggerFactory;
 
-        public DatabaseConnection(IOptions<TrimConfigSettings> config)
+        public DatabaseConnection(IOptions<TrimConfigSettings> config, ILoggerFactory loggerFactory)
         {
             _trimConfig = config.Value;
+            _loggerFactory = loggerFactory;
             Database.AllowAccessFromMultipleThreads = true;
         }
 
-        /// <summary>
-        /// Creates and returns a database connection based on the configuration settings.
-        /// </summary>
-        /// <returns></returns>
-        public Database GetDatabase()
+        public ITrimRepository GetDatabase()
         {
             var db = new Database
             {
@@ -30,9 +28,7 @@ namespace SAPArchiveLink
             };
 
             if (!string.IsNullOrWhiteSpace(_trimConfig.TrustedUser))
-            {
                 db.TrustedUser = _trimConfig.TrustedUser;
-            }
 
             if (!string.IsNullOrWhiteSpace(_trimConfig.WGSAlternateName))
             {
@@ -41,12 +37,10 @@ namespace SAPArchiveLink
             }
 
             if (db.IsValid)
-            {
                 db.Connect();
-            }
 
-            return db;
+            return new TrimRepository(db, _trimConfig, _loggerFactory);
         }
-              
     }
+
 }

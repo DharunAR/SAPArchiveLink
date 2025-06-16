@@ -68,7 +68,7 @@ namespace SAPArchiveLink
             services.AddScoped<ICommandHandler, GetContentCommandHandler>();
 
 
-            services.AddScoped<ICMArchieveLinkClient,CMArchieveLinkClient>();
+            //services.AddScoped<ICMArchieveLinkClient,CMArchieveLinkClient>();
             services.AddScoped<IDatabaseConnection, DatabaseConnection>();         
             services.AddSingleton<ICommandResponseFactory, CommandResponseFactory>();
             services.AddScoped<IBaseServices, BaseServices>();

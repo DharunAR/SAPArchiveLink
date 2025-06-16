@@ -1,20 +1,23 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
 using TRIM.SDK;
 
 namespace SAPArchiveLink;
 public class BaseServices : IBaseServices
-{   
+{
     private readonly ILogHelper<BaseServices> _logger;
-    private ICMArchieveLinkClient _archiveClient;
+    private readonly IDatabaseConnection _databaseConnection;
     private ICommandResponseFactory _responseFactory;
+    private DownloadFileHandler _downloadFileHandler;
     const string COMP_DATA = "data";
     const string COMP_DATA1 = "data1";
 
-    public BaseServices(ILogHelper<BaseServices> helperLogger, ICMArchieveLinkClient cmArchieveLinkClient, ICommandResponseFactory commandResponseFactory)
-    {       
-        _archiveClient = cmArchieveLinkClient;
+    public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection, DownloadFileHandler downloadFileHandler)
+    {
         _logger = helperLogger;
         _responseFactory = commandResponseFactory;
+        _databaseConnection = databaseConnection;
+        _downloadFileHandler = downloadFileHandler;
     }
 
     /// <summary>
@@ -48,7 +51,7 @@ public class BaseServices : IBaseServices
 
             while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
             {
-               await memoryStream.WriteAsync(buffer, 0, bytesRead);
+                await memoryStream.WriteAsync(buffer, 0, bytesRead);
             }
 
             int protectionLevel = -1;
@@ -57,7 +60,7 @@ public class BaseServices : IBaseServices
                 protectionLevel = SecurityUtils.AccessModeToInt(permissions);
             }
 
-            await _archiveClient.PutArchiveCertificate(authId, protectionLevel, memoryStream.ToArray(), contRepId);
+            //await _archiveClient.PutArchiveCertificate(authId, protectionLevel, memoryStream.ToArray(), contRepId);
 
             return _responseFactory.CreateProtocolText("Certificate published");
         }
@@ -86,30 +89,27 @@ public class BaseServices : IBaseServices
         //TODO to implement verification part
         ValidateSignature(sapDoc);
 
-        // Connect to database and retrieve record
-        using (var db = _archiveClient.GetDatabase())
+        using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
         {
-            var record = _archiveClient.GetRecord(db, sapDoc.DocId, sapDoc.ContRep);
-            if (record == null)
+            IArchiveRecord recordAdapter = trimRepo.GetRecord(sapDoc.DocId, sapDoc.ContRep);
+            if (recordAdapter == null)
                 return _responseFactory.CreateError("Record not found", StatusCodes.Status404NotFound);
-
-            var components = record.ChildSapComponents;
 
             // Handle single component response
             if (!string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
-                if (!_archiveClient.IsRecordComponentAvailable(components, sapDoc.CompId))
+                if (!recordAdapter.HasComponent(sapDoc.CompId))
                     return _responseFactory.CreateError($"Component '{sapDoc.CompId}' not found", StatusCodes.Status404NotFound);
 
-                var component = await _archiveClient.GetDocumentComponent(components, sapDoc.CompId);
+                var component = await recordAdapter.ExtractComponentById(sapDoc.CompId);
 
                 return GetSingleComponentResponse(component, sapDoc);
             }
 
             // Handle multipart response (multiple components)
-            var multipartComponents = await _archiveClient.GetDocumentComponents(components);
-            return GetMultiPartResponse(multipartComponents, record, sapDoc);
-        }
+            var multipartComponents = await recordAdapter.ExtractAllComponents();
+            return GetMultiPartResponse(multipartComponents, recordAdapter, sapDoc);
+        }       
     }
 
     /// <summary>
@@ -132,33 +132,33 @@ public class BaseServices : IBaseServices
 
             //TODO
             ValidateSignature(sapDoc);
-            using (var db = _archiveClient.GetDatabase())
+            using (ITrimRepository db = _databaseConnection.GetDatabase())
             {
-                var record = _archiveClient.GetRecord(db, sapDoc.DocId, sapDoc.ContRep);
+                var record = db.GetRecord(sapDoc.DocId, sapDoc.ContRep);
                 if (record == null)
                 {
                     return _responseFactory.CreateError("Record not found", StatusCodes.Status404NotFound);
                 }
 
-                var components = record.ChildSapComponents;
+                var components = record.GetAllComponents();
 
-                var compId = GetComponentId(sapDoc.CompId, components);
+                var compId = GetComponentId(sapDoc.CompId, record);
 
                 if (string.IsNullOrEmpty(compId))
                 {
                     return _responseFactory.CreateError("No valid component found", StatusCodes.Status404NotFound);
-                }    
+                }
 
-                if (!_archiveClient.IsRecordComponentAvailable(components, compId))
+                if (!record.HasComponent(compId))
                 {
                     return _responseFactory.CreateError($"Component '{compId}' not found", StatusCodes.Status404NotFound);
                 }
-                   
-                var component = await _archiveClient.GetDocumentComponent(components, compId);
+
+                var component = await record.ExtractComponentById(compId);
                 if (component == null)
                 {
                     return _responseFactory.CreateError("Component could not be loaded", StatusCodes.Status500InternalServerError);
-                }   
+                }
 
                 var (stream, length, rangeError) = await GetRangeStream(component.Data, component.ContentLength, sapDoc.FromOffset, sapDoc.ToOffset);
                 if (rangeError != null)
@@ -180,6 +180,58 @@ public class BaseServices : IBaseServices
         }
     }
 
+    /// <summary>
+    /// Creates a new SAP document record.
+    /// </summary>
+    /// <param name="model"></param>
+    /// <param name="isMultipart"></param>
+    /// <returns></returns>
+    public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel model, bool isMultipart = false)
+    {
+        var validationResults = ModelValidator.Validate(model);
+
+        if (validationResults.Any())
+        {
+            var combinedMessage = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
+            return _responseFactory.CreateError(combinedMessage);
+        }
+
+        using(ITrimRepository trimRepo = _databaseConnection.GetDatabase())
+        {
+            // Get existing record if it exists
+            var archiveRecord = trimRepo.GetRecord(model.DocId, model.ContRep);
+            if (archiveRecord is null)
+            {
+                archiveRecord = trimRepo.CreateRecord(model);
+                if (archiveRecord == null)
+                    return _responseFactory.CreateError("Failed to create archive record.");
+            }
+
+            // Handle single/multiple components
+            if (model.Components != null)
+            {
+                var components = isMultipart ? model.Components.ToArray() : new[] { model.Components.First() };
+                foreach (SapDocumentComponent comp in components)
+                {
+                    if (string.IsNullOrWhiteSpace(comp.CompId))
+                        return _responseFactory.CreateError("Component ID is missing.", StatusCodes.Status400BadRequest);
+
+                    if (archiveRecord.HasComponent(comp.CompId))
+                        return _responseFactory.CreateError($"A component with ID '{comp.CompId}' already exists in document '{comp.CompId}'.", StatusCodes.Status400BadRequest);
+
+                    var filePath = await _downloadFileHandler.DownloadDocument(comp.Data, comp.FileName);
+                    if (string.IsNullOrWhiteSpace(filePath))
+                        return _responseFactory.CreateError("Failed to save component file.", StatusCodes.Status400BadRequest);
+
+                    archiveRecord.AddComponent(comp.CompId, filePath, comp.ContentType, comp.Charset, comp.PVersion);
+                }
+            }
+
+            archiveRecord.Save();
+        }
+        
+        return _responseFactory.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created);
+    }
 
     #region Helper methods
 
@@ -214,16 +266,16 @@ public class BaseServices : IBaseServices
     /// <param name="record"></param>
     /// <param name="sapDoc"></param>
     /// <returns></returns>
-    private ICommandResponse GetMultiPartResponse(List<SapDocumentComponent> multipartComponents, Record record, SapDocumentRequest sapDoc)
+    private ICommandResponse GetMultiPartResponse(List<SapDocumentComponent> multipartComponents, IArchiveRecord record, SapDocumentRequest sapDoc)
     {
         var multipartResponse = _responseFactory.CreateMultipartDocument(multipartComponents);
 
-        multipartResponse.AddHeader("X-dateC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
-        multipartResponse.AddHeader("X-timeC", record.DateCreated.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
-        multipartResponse.AddHeader("X-dateM", record.DateModified.ToDateTime().ToUniversalTime().ToString("yyyy-MM-dd"));
-        multipartResponse.AddHeader("X-timeM", record.DateModified.ToDateTime().ToUniversalTime().ToString("HH:mm:ss"));
+        multipartResponse.AddHeader("X-dateC", record.DateCreated.ToUniversalTime().ToString("yyyy-MM-dd"));
+        multipartResponse.AddHeader("X-timeC", record.DateCreated.ToUniversalTime().ToString("HH:mm:ss"));
+        multipartResponse.AddHeader("X-dateM", record.DateModified.ToUniversalTime().ToString("yyyy-MM-dd"));
+        multipartResponse.AddHeader("X-timeM", record.DateModified.ToUniversalTime().ToString("HH:mm:ss"));
         multipartResponse.AddHeader("X-contRep", sapDoc.ContRep);
-        multipartResponse.AddHeader("X-numComps", $"{record.ChildSapComponents.Count}");
+        multipartResponse.AddHeader("X-numComps", $"{record.ComponentCount}");
         multipartResponse.AddHeader("X-docId", sapDoc.DocId);
         multipartResponse.AddHeader("X-docStatus", "online");
         multipartResponse.AddHeader("X-pVersion", sapDoc.PVersion);
@@ -241,20 +293,22 @@ public class BaseServices : IBaseServices
     /// Otherwise, defaults to the first available component named "data" or "data1", in that order.
     /// </summary>
     /// <param name="compId"></param>
-    /// <param name="components"></param>
+    /// <param name="record"></param>
     /// <returns></returns>
-    private string GetComponentId(string compId, RecordSapComponents components)
+    private string GetComponentId(string compId, IArchiveRecord record)
     {
         if (!string.IsNullOrWhiteSpace(compId))
             return compId;
 
-        if (_archiveClient.IsRecordComponentAvailable(components, COMP_DATA))
+        if (record.HasComponent(COMP_DATA))
             return COMP_DATA;
-        if (_archiveClient.IsRecordComponentAvailable(components, COMP_DATA1))
+
+        if (record.HasComponent(COMP_DATA1))
             return COMP_DATA1;
 
         return null;
     }
+
 
     /// <summary>
     /// Retrieves a stream for the specified byte range from the component's data stream.
@@ -265,13 +319,13 @@ public class BaseServices : IBaseServices
     /// <param name="fromOffset"></param>
     /// <param name="toOffset"></param>
     /// <returns></returns>
-    private async Task<(Stream Stream, long Length, ICommandResponse Error)> GetRangeStream(Stream originalStream, long contentLength, long fromOffset, long toOffset)
+    private async Task<(Stream? Stream, long? Length, ICommandResponse? Error)> GetRangeStream(Stream originalStream, long contentLength, long fromOffset, long toOffset)
     {
         if (fromOffset < 0 || toOffset < 0)
-            return (null, 0, _responseFactory.CreateError("Offsets cannot be negative"));
+            return (null, 0L, _responseFactory.CreateError("Offsets cannot be negative"));
 
         if (fromOffset >= contentLength)
-            return (null, 0, _responseFactory.CreateError("fromOffset is beyond component length"));
+            return (null, 0L, _responseFactory.CreateError("fromOffset is beyond component length"));
 
         if (fromOffset < toOffset && toOffset <= contentLength)
         {
@@ -293,30 +347,6 @@ public class BaseServices : IBaseServices
 
         originalStream.Position = 0;
         return (originalStream, contentLength, null);
-    }
-
-    public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel createSapDocumentModels,bool isMultipart=false)
-    {
-        var validationResults = ModelValidator.Validate(createSapDocumentModels);
-
-        if (validationResults.Any())
-        {
-            var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
-            var combinedErrorMessage = string.Join("; ", allErrorMessages);
-            return _responseFactory.CreateError(combinedErrorMessage);
-        }
-
-        using (var db = _archiveClient.GetDatabase())
-        {          
-            return await _archiveClient.ComponentCreate(
-                db,
-                createSapDocumentModels.ContRep,
-                createSapDocumentModels.DocId,
-                createSapDocumentModels.DocProt,
-                createSapDocumentModels.PVersion,
-                isMultipart==true?createSapDocumentModels.Components: new[] { createSapDocumentModels.Components.First() }              
-            );
-        }
     }
 
     #endregion

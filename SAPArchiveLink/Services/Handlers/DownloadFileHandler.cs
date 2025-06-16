@@ -1,11 +1,6 @@
 ﻿using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
-using System;
-using System.Net.Mime;
-using System.Security.Cryptography;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SAPArchiveLink
 {
@@ -173,5 +168,39 @@ namespace SAPArchiveLink
             var boundaryElement = Array.Find(elements, e => e.Trim().StartsWith("boundary=", StringComparison.OrdinalIgnoreCase));
             return boundaryElement?.Split('=')[1].Trim('"') ?? throw new InvalidOperationException("Boundary not found in Content-Type.");
         }
+
+        public async Task<string> DownloadDocument(Stream stream, string filePath)
+        {
+            var directory = Path.GetDirectoryName(filePath);
+
+            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            using var fileStream = new FileStream(filePath, FileMode.Create);
+            await stream.CopyToAsync(fileStream);
+            return filePath;
+        }
+
+        public void ClearFiles(string? filePath = null)
+        {
+            string filesToClear = filePath ?? $"{_saveDirectory}\\Uploads";
+            if (Directory.Exists(filesToClear))
+            {
+                var files = Directory.GetFiles(filesToClear);
+                foreach (var file in files)
+                {
+                    try
+                    {
+                        File.Delete(file);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error deleting file {file}: {ex.Message}");
+                    }
+                }
+            }
+        }
+
     }
 }

@@ -4,6 +4,7 @@ namespace SAPArchiveLink
 {
     public interface IDatabaseConnection
     {
-        Database GetDatabase();
+        ITrimRepository GetDatabase();
     }
+
 }

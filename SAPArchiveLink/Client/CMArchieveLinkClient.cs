@@ -203,7 +203,7 @@ namespace SAPArchiveLink
         /// Gets the database connection for the archive link client.
         /// </summary>
         /// <returns></returns>
-        public Database GetDatabase()
+        public ITrimRepository GetDatabase()
         {
             return _databaseConnection.GetDatabase();
         }

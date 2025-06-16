@@ -13,7 +13,7 @@ namespace SAPArchiveLink
 
         bool IsRecordComponentAvailable(RecordSapComponents components, string compId);
 
-        Database GetDatabase();
+        ITrimRepository GetDatabase();
 
         Task PutArchiveCertificate(string authId, int protectionLevel, byte[] certificate, string contRep);
       
