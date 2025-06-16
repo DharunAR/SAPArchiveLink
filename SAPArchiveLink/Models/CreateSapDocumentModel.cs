@@ -35,7 +35,6 @@ namespace SAPArchiveLink
         public string DocProt { get; set; }          // server setting
         public string ScanPerformed { get; set; }    // URL
         public Stream Stream { get; set; }
-
         //For multipart components
         public List<SapDocumentComponent> Components { get; set; } = new();
 

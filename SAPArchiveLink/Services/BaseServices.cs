@@ -1,4 +1,5 @@
-﻿using TRIM.SDK;
+﻿using System.Reflection;
+using TRIM.SDK;
 
 namespace SAPArchiveLink;
 public class BaseServices : IBaseServices
@@ -294,24 +295,28 @@ public class BaseServices : IBaseServices
         return (originalStream, contentLength, null);
     }
 
-    public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel createSapDocumentModels)
+    public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel createSapDocumentModels,bool isMultipart=false)
     {
         var validationResults = ModelValidator.Validate(createSapDocumentModels);
-      
+
         if (validationResults.Any())
         {
             var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
             var combinedErrorMessage = string.Join("; ", allErrorMessages);
             return _responseFactory.CreateError(combinedErrorMessage);
-        }              
+        }
 
         using (var db = _archiveClient.GetDatabase())
-        {
-           return await _archiveClient.ComponentCreate(db, createSapDocumentModels);
-            //var record = _archiveClient.GetRecord(db, createSapDocumentModels.DocId, createSapDocumentModels.ContRep);
-            //if (record != null)
-            //    return _responseFactory.CreateError("Record already exists", StatusCodes.Status403Forbidden);
-        }      
+        {          
+            return await _archiveClient.ComponentCreate(
+                db,
+                createSapDocumentModels.ContRep,
+                createSapDocumentModels.DocId,
+                createSapDocumentModels.DocProt,
+                createSapDocumentModels.PVersion,
+                isMultipart==true?createSapDocumentModels.Components: new[] { createSapDocumentModels.Components.First() }              
+            );
+        }
     }
 
     #endregion

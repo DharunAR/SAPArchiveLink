@@ -18,7 +18,7 @@ namespace SAPArchiveLink
         private IBaseServices _baseService;
         private DownloadFileHandler _downloadFileHandler;
 
-        public CreatePutCommandHandler(ICommandResponseFactory responseFactory, IBaseServices baseService, DownloadFileHandler fileHandleRequest )
+        public CreatePutCommandHandler(ICommandResponseFactory responseFactory, IBaseServices baseService, DownloadFileHandler fileHandleRequest)
         {
             _responseFactory = responseFactory;
             _baseService = baseService;
@@ -29,20 +29,13 @@ namespace SAPArchiveLink
         {
             try
             {
-                var request = context.GetRequest();
-                List<SapDocumentComponent> _sapDocumentComponent = await _downloadFileHandler.HandleRequestAsync(request);
-
-                //var form = await request.ReadFormAsync();
-
-                //var boundary = HeaderUtilities.RemoveQuotes(
-                //    MediaTypeHeaderValue.Parse(request.ContentType).Boundary).Value;
-
-                //var reader = new MultipartReader(boundary, request.Body);
-                //MultipartSection section;
-
+                var request = context.GetRequest();               
+               string docId = command.GetValue(ALParameter.VarDocId);
+             
+                List<SapDocumentComponent> sapDocumentComponent = await _downloadFileHandler.HandleRequestAsync(request.ContentType, request.Body, docId);
                 var sapDocumentCreateRequest = new CreateSapDocumentModel
                 {
-                    DocId = command.GetValue(ALParameter.VarDocId),
+                    DocId = docId,
                     ContRep = command.GetValue(ALParameter.VarContRep),
                     CompId = command.GetValue(ALParameter.VarCompId),
                     PVersion = command.GetValue(ALParameter.VarPVersion),
@@ -51,13 +44,21 @@ namespace SAPArchiveLink
                     AccessMode = command.GetValue(ALParameter.VarAccessMode),
                     AuthId = command.GetValue(ALParameter.VarAuthId),
                     Expiration = command.GetValue(ALParameter.VarExpiration),
-                    Stream = context.GetInputStream(),                    
+                    Stream = request.Body,
                     Charset = request.Headers["charset"].ToString(),
                     Version = request.Headers["version"].ToString(),
-                    DocProt = request.Headers["docprot"].ToString(),
-                    Components = _sapDocumentComponent,                    
-                };
-
+                    DocProt = request.Headers["docprot"].ToString(),                  
+                    ContentType = request.ContentType,
+                };               
+                if(sapDocumentComponent!=null)
+                {
+                    sapDocumentComponent.First().CompId = sapDocumentCreateRequest.CompId;
+                    sapDocumentComponent.First().PVersion = sapDocumentCreateRequest.PVersion;
+                    sapDocumentComponent.First().ContentType = sapDocumentCreateRequest.ContentType;
+                    sapDocumentComponent.First().Charset = sapDocumentCreateRequest.Charset;
+                    sapDocumentCreateRequest.Components = sapDocumentComponent;
+                }
+              
                 return await _baseService.CreateRecord(sapDocumentCreateRequest);
             }
             catch (Exception ex)

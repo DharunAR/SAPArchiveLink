@@ -16,7 +16,13 @@ namespace SAPArchiveLink
         Database GetDatabase();
 
         Task PutArchiveCertificate(string authId, int protectionLevel, byte[] certificate, string contRep);
-
-        Task<ICommandResponse> ComponentCreate(Database db, CreateSapDocumentModel sAPDocumentComponent);
+      
+        Task<ICommandResponse> ComponentCreate(
+                                                Database db,
+                                                string contRep,
+                                                string docId,
+                                                string docProt,
+                                                string alVersion,
+                                                IEnumerable<SapDocumentComponent> components);
     }
 }

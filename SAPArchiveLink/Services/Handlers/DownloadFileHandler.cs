@@ -1,5 +1,10 @@
-﻿using Microsoft.AspNetCore.WebUtilities;
+﻿using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
+using System;
+using System.Net.Mime;
+using static System.Net.Mime.MediaTypeNames;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SAPArchiveLink
 {
@@ -12,51 +17,106 @@ namespace SAPArchiveLink
             _saveDirectory = saveDirectory;
         }
 
-        public async Task<List<SapDocumentComponent>> HandleRequestAsync(HttpRequest request)
+        public async Task<List<SapDocumentComponent>> HandleRequestAsync(string contentType, Stream body, string docId) 
         {
-            var uploadedFiles = new List<SapDocumentComponent>();
+            var uploadedFiles = new List<SapDocumentComponent>();           
 
             try
             {
-                // ✅ Try ReadFormAsync (standard)
-                var form = await request.ReadFormAsync();
-
-                foreach (var file in form.Files)
+                if (string.IsNullOrEmpty(contentType) || !contentType.Contains("multipart/form-data"))
                 {
-                    var fileName = Path.GetFileName(file.FileName);
-                    var filePath = Path.Combine(_saveDirectory, fileName);
-
-                    Directory.CreateDirectory(_saveDirectory);
-                    using var stream = new FileStream(filePath, FileMode.Create);
-                    await file.CopyToAsync(stream);
-                  
-                    var compId = form.TryGetValue("X-compId", out var compIdValue) ? compIdValue.ToString() : string.Empty;
-
-                    uploadedFiles.Add(new SapDocumentComponent
-                    {
-                        FileName = filePath,
-                        CompId = compId,
-                        ContentType = file.ContentType
-                    });
+                    uploadedFiles = await ParseSinglepartManuallyAsync(contentType, body, docId);
                 }
+                else
+                {
+                    uploadedFiles = await ParseMultipartManuallyAsync(contentType, body);
+                }
+                
+                //else
+                //{
+                //    foreach (var file in form.Files)
+                //    {
+                //        var fileName = Path.GetFileName(file.FileName);
+                //        var filePath = Path.Combine(_saveDirectory, fileName);
+
+                //        Directory.CreateDirectory(_saveDirectory);
+                //        using var stream = new FileStream(filePath, FileMode.Create);
+                //        await file.CopyToAsync(stream);
+
+                //        var compId = form.TryGetValue("X-compId", out var compIdValue) ? compIdValue.ToString() : string.Empty;
+
+                //        uploadedFiles.Add(new SapDocumentComponent
+                //        {
+                //            FileName = filePath,
+                //            CompId = compId,
+                //            ContentType = file.ContentType
+                //        });
+                //    }
+                //}
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine("ReadFormAsync failed: " + ex.Message);
-                uploadedFiles = await ParseMultipartManuallyAsync(request);
+               // Console.WriteLine("ReadFormAsync failed: " + ex.Message);
+               
             }
 
             return uploadedFiles;
         }
 
-        private async Task<List<SapDocumentComponent>> ParseMultipartManuallyAsync(HttpRequest request)
+        public string? GetExtensionFromContentType(string contentType)
+        {
+            var provider = new FileExtensionContentTypeProvider();
+            var mapping = provider.Mappings.FirstOrDefault(m => m.Value.Equals(contentType, StringComparison.OrdinalIgnoreCase));
+            return mapping.Key;
+        }
+
+        private Task<List<SapDocumentComponent>> ParseSinglepartManuallyAsync(string contentType, Stream body, string docId)
         {
             var uploadedFiles = new List<SapDocumentComponent>();
-            var boundary = GetBoundaryFromContentType(request.ContentType);
+            try
+            {
+                var fileName = $"{docId}{GetExtensionFromContentType(contentType)}";
+                var filePath = Path.Combine(_saveDirectory, fileName);
+                uploadedFiles.Add(new SapDocumentComponent
+                {
+                    FileName = filePath,
+                    Data = body,
+                });
+            }
+            catch
+            {
+            }
+
+            return Task.FromResult(uploadedFiles);
+        }
+
+        private string ExtractCharset(string xContentType)
+        {
+            if (string.IsNullOrEmpty(xContentType))
+                return null;
+
+            var parts = xContentType.Split(';', StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+                if (trimmed.StartsWith("charset=", StringComparison.OrdinalIgnoreCase))
+                {
+                    return trimmed.Substring("charset=".Length).Trim();
+                }
+            }
+
+            return null; // no charset found
+        }
+        private async Task<List<SapDocumentComponent>> ParseMultipartManuallyAsync(string contentType, Stream body)
+        {
+            var uploadedFiles = new List<SapDocumentComponent>();
+
+            var boundary = GetBoundaryFromContentType(contentType);
             if (string.IsNullOrEmpty(boundary))
                 throw new InvalidOperationException("Boundary not found in Content-Type.");
 
-            var reader = new MultipartReader(boundary, request.Body);
+            var reader = new MultipartReader(boundary, body);
             MultipartSection? section;
 
             while ((section = await reader.ReadNextSectionAsync()) != null)
@@ -69,19 +129,23 @@ namespace SAPArchiveLink
                     var filePath = Path.Combine(_saveDirectory, fileName);
 
                     Directory.CreateDirectory(_saveDirectory);
-                    using var fileStream = new FileStream(filePath, FileMode.Create);
-                    await section.Body.CopyToAsync(fileStream);
 
-                    // Fix for CS8602: Ensure section.Headers is not null before accessing it
                     if (section.Headers != null)
                     {
                         section.Headers.TryGetValue("X-compId", out var compId);
-                        section.Headers.TryGetValue("X-Content-Type", out var xContentType);
+                        section.Headers.TryGetValue("Content-Type", out var contentTypeHeader);
+                        section.Headers.TryGetValue("X-pVersion", out var pVersion);
+                        section.Headers.TryGetValue("X-Content-Length", out var contentLength);
 
                         uploadedFiles.Add(new SapDocumentComponent
                         {
-                            FileName = fileName,
-                            ContentType = xContentType.ToString()
+                            CompId = compId.FirstOrDefault() ?? string.Empty,
+                            Data = section.Body,
+                            FileName = filePath,
+                            ContentType = contentTypeHeader.ToString(),
+                            Charset = ExtractCharset(contentTypeHeader.ToString()),
+                            PVersion = pVersion.FirstOrDefault() ?? string.Empty,
+                            ContentLength = long.TryParse(contentLength.FirstOrDefault(), out var parsedLength) ? parsedLength : 0
                         });
                     }
                 }
