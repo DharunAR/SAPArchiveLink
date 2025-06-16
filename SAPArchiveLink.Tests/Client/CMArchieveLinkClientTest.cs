@@ -21,15 +21,6 @@ namespace SAPArchiveLink.Tests
             _helperLoggerMock = new Mock<ILogHelper<BaseServices>>();
             _commandResponseFactoryMock = new Mock<ICommandResponseFactory>();
             _downloadFileHandlerMock = new Mock<DownloadFileHandler>(); // Initialize the mock
-
-            TrimApplication.TrimBinariesLoadPath = _trimConfig.Value.BinariesLoadPath;
-            _client = new CMArchieveLinkClient(
-                _trimConfig,
-                _dbConnectionMock.Object,
-                _helperLoggerMock.Object,
-                _commandResponseFactoryMock.Object,
-                _downloadFileHandlerMock.Object // Pass the mock object
-            );
         }
         [Test]
         public void IsRecordComponentAvailable_ReturnsTrue_WhenComponentExists()

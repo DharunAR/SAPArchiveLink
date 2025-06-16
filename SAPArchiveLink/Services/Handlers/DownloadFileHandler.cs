@@ -13,9 +13,9 @@ namespace SAPArchiveLink
             _saveDirectory = saveDirectory;
         }
 
-        public async Task<List<SapDocumentComponent>> HandleRequestAsync(string contentType, Stream body, string docId) 
+        public async Task<List<SapDocumentComponent>> HandleRequestAsync(string contentType, Stream body, string docId)
         {
-            var uploadedFiles = new List<SapDocumentComponent>();           
+            var uploadedFiles = new List<SapDocumentComponent>();
 
             try
             {
@@ -26,12 +26,12 @@ namespace SAPArchiveLink
                 else
                 {
                     uploadedFiles = await ParseMultipartManuallyAsync(contentType, body);
-                }               
-              
+                }
+
             }
             catch
-            {            
-               
+            {
+
             }
 
             return uploadedFiles;
@@ -64,13 +64,13 @@ namespace SAPArchiveLink
         {
             var uploadedFiles = new List<SapDocumentComponent>();
             try
-            {               
+            {
                 var filePath = getFilePath(docId, contentType);
                 uploadedFiles.Add(new SapDocumentComponent
                 {
                     FileName = filePath,
                     Data = body,
-                    ContentType= contentType,
+                    ContentType = contentType,
                 });
             }
             catch
@@ -80,7 +80,7 @@ namespace SAPArchiveLink
             return Task.FromResult(uploadedFiles);
         }
 
-        private string getFilePath(string compId,string contentType)
+        private string getFilePath(string compId, string contentType)
         {
             var fileName = $"{compId}{GetExtensionFromContentType(contentType)}";
             return Path.Combine(_saveDirectory, fileName);
@@ -107,7 +107,7 @@ namespace SAPArchiveLink
         private async Task<List<SapDocumentComponent>> ParseMultipartManuallyAsync(string contentType, Stream body)
         {
             var uploadedFiles = new List<SapDocumentComponent>();
-           
+
             var boundary = GetBoundaryFromContentType(contentType);
             if (string.IsNullOrEmpty(boundary))
                 throw new InvalidOperationException("Boundary not found in Content-Type.");
@@ -124,7 +124,7 @@ namespace SAPArchiveLink
                 {
                     var fileName = Path.GetFileName(contentDisposition.FileName.Value.Trim('"'));
                     filePath = Path.Combine(_saveDirectory, fileName);
-                }                                          
+                }
 
                 if (section.Headers != null)
                 {
@@ -132,7 +132,7 @@ namespace SAPArchiveLink
                     section.Headers.TryGetValue("Content-Type", out var contentTypeHeader);
                     section.Headers.TryGetValue("X-pVersion", out var pVersion);
                     section.Headers.TryGetValue("X-Content-Length", out var contentLength);
-                    if(filePath==null)
+                    if (filePath == null)
                     {
                         filePath = getFilePath(compId, contentTypeHeader.ToString());
                     }
@@ -213,4 +213,5 @@ namespace SAPArchiveLink
             }
 
         }
+    }
 }
