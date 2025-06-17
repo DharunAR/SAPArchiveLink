@@ -4,7 +4,7 @@ using Microsoft.Net.Http.Headers;
 
 namespace SAPArchiveLink
 {
-    public class DownloadFileHandler
+    public class DownloadFileHandler: IDownloadFileHandler
     {
         private readonly string _saveDirectory;
 
@@ -37,7 +37,46 @@ namespace SAPArchiveLink
             return uploadedFiles;
         }
 
-        public string? GetExtensionFromContentType(string contentType)
+        /// <summary>
+        /// Downloads a document from the provided stream and saves it to the specified file path.
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public async Task<string> DownloadDocument(Stream stream, string filePath)
+        {
+            var directory = Path.GetDirectoryName(filePath);
+
+            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            using var fileStream = new FileStream(filePath, FileMode.Create);
+            await stream.CopyToAsync(fileStream);
+            return filePath;
+        }
+
+        /// <summary>
+        /// Deletes a file at the specified file path if it exists.
+        /// </summary>
+        /// <param name="filePath"></param>
+        public void DeleteFile(string filePath)
+        {
+            if (File.Exists(filePath))
+            {
+                try
+                {
+                    File.Delete(filePath);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error deleting file {filePath}: {ex.Message}");
+                }
+            }
+
+        }
+
+        private string? GetExtensionFromContentType(string contentType)
         {
             var provider = new FileExtensionContentTypeProvider();
 
@@ -163,20 +202,7 @@ namespace SAPArchiveLink
             var elements = contentType.Split(';', StringSplitOptions.RemoveEmptyEntries);
             var boundaryElement = Array.Find(elements, e => e.Trim().StartsWith("boundary=", StringComparison.OrdinalIgnoreCase));
             return boundaryElement?.Split('=')[1].Trim('"') ?? throw new InvalidOperationException("Boundary not found in Content-Type.");
-        }
-
-        public async Task<string> DownloadDocument(Stream stream, string filePath)
-        {
-            var directory = Path.GetDirectoryName(filePath);
-
-            if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-            using var fileStream = new FileStream(filePath, FileMode.Create);
-            await stream.CopyToAsync(fileStream);
-            return filePath;
-        }
+        }      
 
         public void ClearAllFiles(string? filePath = null)
         {
@@ -198,20 +224,6 @@ namespace SAPArchiveLink
             }
         }
 
-        public void DeleteFile(string filePath)
-        {
-            if (File.Exists(filePath))
-            {
-                try
-                {
-                    File.Delete(filePath);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error deleting file {filePath}: {ex.Message}");
-                }
-            }
-
-        }
+       
     }
 }

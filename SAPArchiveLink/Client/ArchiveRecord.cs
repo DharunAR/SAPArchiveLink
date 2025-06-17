@@ -98,10 +98,18 @@ namespace SAPArchiveLink
             if (!string.IsNullOrWhiteSpace(config.RecordTypeName))
             {
                 var tmo = db.FindTrimObjectByName(BaseObjectTypes.RecordType, config.RecordTypeName);
-                if (tmo is RecordType rt && rt.UsualBehaviour == RecordBehaviour.SapDocument)
-                    return rt;
+                if (tmo is RecordType rt)
+                {
+                    if (rt.UsualBehaviour == RecordBehaviour.SapDocument)
+                    {
+                        return rt;
+                    }
 
-                logger.LogError($"Invalid record type: '{config.RecordTypeName}'. Must be SAP Document behavior.");
+                    logger.LogError($"Record Type '{config.RecordTypeName}' cannot be used. Only SAP Document behaviour types are allowed.");
+                    return null;
+                }
+
+                logger.LogError($"No valid record type found with name '{config.RecordTypeName}'.");
                 return null;
             }
 

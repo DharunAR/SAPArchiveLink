@@ -16,9 +16,9 @@ namespace SAPArchiveLink
 
         private ICommandResponseFactory _responseFactory;
         private IBaseServices _baseService;
-        private DownloadFileHandler _downloadFileHandler;
+        private IDownloadFileHandler _downloadFileHandler;
 
-        public CreatePutCommandHandler(ICommandResponseFactory responseFactory, IBaseServices baseService, DownloadFileHandler fileHandleRequest)
+        public CreatePutCommandHandler(ICommandResponseFactory responseFactory, IBaseServices baseService, IDownloadFileHandler fileHandleRequest)
         {
             _responseFactory = responseFactory;
             _baseService = baseService;
@@ -29,9 +29,15 @@ namespace SAPArchiveLink
         {
             try
             {
-                var request = context.GetRequest();               
-               string docId = command.GetValue(ALParameter.VarDocId);
-             
+                var request = context.GetRequest();
+                string docId = command.GetValue(ALParameter.VarDocId);
+
+                // Ensure contentType is not null or empty
+                if (string.IsNullOrEmpty(request.ContentType))
+                {
+                    return _responseFactory.CreateError("Content-Type header is missing or invalid.", StatusCodes.Status400BadRequest);
+                }
+
                 List<SapDocumentComponent> sapDocumentComponent = await _downloadFileHandler.HandleRequestAsync(request.ContentType, request.Body, docId);
                 var sapDocumentCreateRequest = new CreateSapDocumentModel
                 {
@@ -47,16 +53,16 @@ namespace SAPArchiveLink
                     Stream = request.Body,
                     Charset = request.Headers["charset"].ToString(),
                     Version = request.Headers["version"].ToString(),
-                    DocProt = request.Headers["docprot"].ToString(),                  
+                    DocProt = request.Headers["docprot"].ToString(),
                     ContentType = request.ContentType,
-                };               
-                if(sapDocumentComponent!=null)
+                };
+                if (sapDocumentComponent != null)
                 {
-                    sapDocumentComponent.First().CompId = sapDocumentCreateRequest.CompId;              
+                    sapDocumentComponent.First().CompId = sapDocumentCreateRequest.CompId;
                     sapDocumentComponent.First().Charset = sapDocumentCreateRequest.Charset;
                     sapDocumentCreateRequest.Components = sapDocumentComponent;
                 }
-              
+
                 return await _baseService.CreateRecord(sapDocumentCreateRequest);
             }
             catch (Exception ex)
@@ -64,28 +70,7 @@ namespace SAPArchiveLink
                 return _responseFactory.CreateError($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
             }
         }
-
-        private Task<bool> DocumentExists(string contRep, string docId)
-        {
-            string path = Path.Combine("Repo", contRep, docId);
-            return Task.FromResult(Directory.Exists(path));
-        }
-
-        private async Task SaveComponent(string contRep, string docId, string compId, Stream stream)
-        {
-            string dir = Path.Combine("Repo", contRep, docId);
-            Directory.CreateDirectory(dir);
-            string filePath = Path.Combine(dir, compId);
-
-            using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
-            await stream.CopyToAsync(fs);
-        }
-
-        private Task SaveMetadata(string contRep, string docId)
-        {
-            // Save timestamps or other document metadata here
-            return Task.CompletedTask;
-        }
+      
     }
 
 }

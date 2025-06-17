@@ -8,11 +8,11 @@ public class BaseServices : IBaseServices
     private readonly ILogHelper<BaseServices> _logger;
     private readonly IDatabaseConnection _databaseConnection;
     private ICommandResponseFactory _responseFactory;
-    private DownloadFileHandler _downloadFileHandler;
+    private IDownloadFileHandler _downloadFileHandler;
     const string COMP_DATA = "data";
     const string COMP_DATA1 = "data1";
 
-    public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection, DownloadFileHandler downloadFileHandler)
+    public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection, IDownloadFileHandler downloadFileHandler)
     {
         _logger = helperLogger;
         _responseFactory = commandResponseFactory;
@@ -229,23 +229,33 @@ public class BaseServices : IBaseServices
                         archiveRecord.AddComponent(comp.CompId, filePath, comp.ContentType, comp.Charset, comp.PVersion);
                     }
                 }
-
                 archiveRecord.Save();
             }
         }
         finally
         {
-            foreach (var item in components)
-            {
-                if (!string.IsNullOrWhiteSpace(item.FileName))
-                    _downloadFileHandler.DeleteFile(item.FileName);
-            }
+            CleanUpFiles(components);
         }
         
         return _responseFactory.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created);
     }
 
     #region Helper methods
+
+    /// <summary>
+    /// Cleans up temporary files created during the document processing.
+    /// </summary>
+    /// <param name="components"></param>
+    private void CleanUpFiles(SapDocumentComponent[] components)
+    {
+        foreach (var comp in components)
+        {
+            if (!string.IsNullOrWhiteSpace(comp.FileName))
+            {
+                _downloadFileHandler.DeleteFile(comp.FileName);
+            }
+        }
+    }
 
     /// <summary>
     /// Returns single component response for DocGet

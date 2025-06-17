@@ -1,8 +1,10 @@
-﻿namespace SAPArchiveLink
+﻿using TRIM.SDK;
+
+namespace SAPArchiveLink
 {
     public interface ITrimRepository : IDisposable
     {
-        IArchiveRecord GetRecord(string docId, string contRep);
+        IArchiveRecord? GetRecord(string docId, string contRep);
         IArchiveRecord? CreateRecord(CreateSapDocumentModel model);
     }
 

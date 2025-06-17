@@ -91,7 +91,7 @@ namespace SAPArchiveLink
             }
             services.Configure<TrimConfigSettings>(configSection);
             services.AddSingleton<TrimInitialization>();
-            services.AddScoped<DownloadFileHandler>(sp => new DownloadFileHandler(config.WorkPath));
+            services.AddScoped<IDownloadFileHandler>(sp => new DownloadFileHandler(config.WorkPath));
         }
 
         /// <summary>
