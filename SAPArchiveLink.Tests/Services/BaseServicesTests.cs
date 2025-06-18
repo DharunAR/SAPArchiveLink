@@ -38,7 +38,7 @@ namespace SAPArchiveLink.Tests
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
                 .Returns(Mock.Of<ICommandResponse>());
 
-            var result = await _service.PutCert(null, new MemoryStream(), "contRep", "perm");
+            var result = await _service.PutCert(null, new MemoryStream(), "contRep", "crud");
 
             _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains("authId")), StatusCodes.Status404NotFound), Times.Once);
             Assert.IsNotNull(result);
@@ -50,7 +50,7 @@ namespace SAPArchiveLink.Tests
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
                 .Returns(Mock.Of<ICommandResponse>());
 
-            var result = await _service.PutCert("auth", new MemoryStream(), null, "perm");
+            var result = await _service.PutCert("auth", new MemoryStream(), null, "crud");
 
             _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains("contRep")), StatusCodes.Status404NotFound), Times.Once);
             Assert.IsNotNull(result);
