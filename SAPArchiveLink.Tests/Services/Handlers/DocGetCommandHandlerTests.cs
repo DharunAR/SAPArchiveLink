@@ -23,9 +23,14 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
-        public async Task HandleAsync_ReturnsBaseServiceResponse_OnSuccess()
+        public void CommandTemplate_Returns_DOCGET()
         {
-            // Arrange  
+            Assert.That(_handler.CommandTemplate, Is.EqualTo(ALCommandTemplate.DOCGET));
+        }
+
+        [Test]
+        public async Task HandleAsync_MapsParametersAndDelegatesToBaseService()
+        {
             var expectedResponse = Mock.Of<ICommandResponse>();
             _commandMock.Setup(c => c.GetValue(ALParameter.VarDocId)).Returns("doc1");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarContRep)).Returns("rep1");
@@ -37,15 +42,11 @@ namespace SAPArchiveLink.Tests
             _commandMock.Setup(c => c.GetValue(ALParameter.VarExpiration)).Returns("2025-01-01");
 
             _baseServiceMock
-                .Setup(s => s.GetSapDocument(It.IsAny<SapDocumentRequest>()))
+                .Setup(s => s.DocGetSapComponents(It.IsAny<SapDocumentRequest>()))
                 .ReturnsAsync(expectedResponse);
-
-            // Act  
             var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
-
-            // Assert  
             Assert.That(result, Is.SameAs(expectedResponse));
-            _baseServiceMock.Verify(s => s.GetSapDocument(It.Is<SapDocumentRequest>(r =>
+            _baseServiceMock.Verify(s => s.DocGetSapComponents(It.Is<SapDocumentRequest>(r =>
                 r.DocId == "doc1" &&
                 r.ContRep == "rep1" &&
                 r.CompId == "comp1" &&
@@ -60,23 +61,43 @@ namespace SAPArchiveLink.Tests
         [Test]
         public async Task HandleAsync_ReturnsErrorResponse_OnException()
         {
-            // Arrange  
             var exception = new Exception("fail!");
             _baseServiceMock
-                .Setup(s => s.GetSapDocument(It.IsAny<SapDocumentRequest>()))
+                .Setup(s => s.DocGetSapComponents(It.IsAny<SapDocumentRequest>()))
                 .ThrowsAsync(exception);
 
             var errorResponse = Mock.Of<ICommandResponse>();
             _responseFactoryMock
                 .Setup(f => f.CreateError(It.Is<string>(msg => msg.Contains("fail!")), StatusCodes.Status500InternalServerError))
                 .Returns(errorResponse);
-
-            // Act  
             var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
 
-            // Assert  
             Assert.That(result, Is.SameAs(errorResponse));
             _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("fail!")), StatusCodes.Status500InternalServerError), Times.Once);
+        }
+
+        [Test]
+        public async Task HandleAsync_MapsNullParameters()
+        {
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _commandMock.Setup(c => c.GetValue(It.IsAny<string>())).Returns((string)null);
+
+            _baseServiceMock
+                .Setup(s => s.DocGetSapComponents(It.IsAny<SapDocumentRequest>()))
+                .ReturnsAsync(expectedResponse);
+            var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
+
+            Assert.That(result, Is.SameAs(expectedResponse));
+            _baseServiceMock.Verify(s => s.DocGetSapComponents(It.Is<SapDocumentRequest>(r =>
+                r.DocId == null &&
+                r.ContRep == null &&
+                r.CompId == null &&
+                r.PVersion == null &&
+                r.SecKey == null &&
+                r.AccessMode == null &&
+                r.AuthId == null &&
+                r.Expiration == null
+            )), Times.Once);
         }
     }
 }

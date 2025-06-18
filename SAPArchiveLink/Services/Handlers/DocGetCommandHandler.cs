@@ -1,9 +1,4 @@
-﻿
-
-using System.Text;
-using TRIM.SDK;
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public class DocGetCommandHandler : ICommandHandler
     {
