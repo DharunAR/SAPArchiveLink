@@ -98,10 +98,9 @@ public class BaseServices : IBaseServices
             // Handle single component response
             if (!string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
-                if (!recordAdapter.HasComponent(sapDoc.CompId))
-                    return _responseFactory.CreateError($"Component '{sapDoc.CompId}' not found", StatusCodes.Status404NotFound);
-
                 var component = await recordAdapter.ExtractComponentById(sapDoc.CompId);
+                if (component == null)
+                    return _responseFactory.CreateError($"Component '{sapDoc.CompId}' not found", StatusCodes.Status404NotFound);
 
                 return GetSingleComponentResponse(component, sapDoc);
             }
@@ -139,25 +138,18 @@ public class BaseServices : IBaseServices
                 {
                     return _responseFactory.CreateError("Record not found", StatusCodes.Status404NotFound);
                 }
-
-                var components = record.GetAllComponents();
-
-                var compId = GetComponentId(sapDoc.CompId, record);
-
-                if (string.IsNullOrEmpty(compId))
+                if (string.IsNullOrWhiteSpace(sapDoc.CompId))
                 {
-                    return _responseFactory.CreateError("No valid component found", StatusCodes.Status404NotFound);
+                    sapDoc.CompId = GetComponentId(sapDoc.CompId, record);
+                    if (string.IsNullOrWhiteSpace(sapDoc.CompId))
+                    {
+                        return _responseFactory.CreateError("No valid component found", StatusCodes.Status404NotFound);
+                    }
                 }
-
-                if (!record.HasComponent(compId))
-                {
-                    return _responseFactory.CreateError($"Component '{compId}' not found", StatusCodes.Status404NotFound);
-                }
-
-                var component = await record.ExtractComponentById(compId);
+                var component = await record.ExtractComponentById(sapDoc.CompId);
                 if (component == null)
                 {
-                    return _responseFactory.CreateError("Component could not be loaded", StatusCodes.Status500InternalServerError);
+                    return _responseFactory.CreateError($"Component '{sapDoc.CompId}' not found", StatusCodes.Status404NotFound);
                 }
 
                 var (stream, length, rangeError) = await GetRangeStream(component.Data, component.ContentLength, sapDoc.FromOffset, sapDoc.ToOffset);
@@ -291,7 +283,6 @@ public class BaseServices : IBaseServices
 
                                 archiveRecord.UpdateComponent(recComp, model);
                             }
-
                         }
                     }
                     archiveRecord.SetRecordMetadata();

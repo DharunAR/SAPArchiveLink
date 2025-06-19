@@ -71,5 +71,19 @@ namespace SAPArchiveLink
             updatedComponent.SetDocument(model.FileName);          
            // return updatedComponent;            
         }
+
+        public void AddComponent(string compId, string version, string contentType, string charSet, string filePath)
+        {
+            var now = TrimDateTime.Now;
+            var sapComponent = _sdkComponents.New();
+
+            sapComponent.ComponentId = compId;
+            sapComponent.ApplicationVersion = version;
+            sapComponent.ContentType = contentType;
+            sapComponent.CharacterSet = charSet;
+            sapComponent.ArchiveDate = now;
+            sapComponent.DateModified = now;
+            sapComponent.SetDocument(filePath);
+        }
     }
 }

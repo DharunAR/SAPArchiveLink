@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Options;
-using TRIM.SDK;
+﻿using TRIM.SDK;
 
 namespace SAPArchiveLink
 {
@@ -7,7 +6,6 @@ namespace SAPArchiveLink
     {
         private Record _record;
         private readonly TrimConfigSettings _trimConfig;
-        private List<SapDocumentComponentModel>? _cachedComponents;
         private RecordSapComponentsAdapter? _componentsAdapter;
         private readonly ILogHelper<ArchiveRecord> _log;
 
@@ -22,12 +20,11 @@ namespace SAPArchiveLink
         public DateTime DateModified => _record.DateModified.ToDateTime();
         public int ComponentCount => (int)_record.ChildSapComponents.Count;
 
-        private RecordSapComponentsAdapter ComponentsAdapter => 
-            _componentsAdapter ??= new RecordSapComponentsAdapter(_record.ChildSapComponents);
+        private RecordSapComponentsAdapter ComponentsAdapter => _componentsAdapter ??= new RecordSapComponentsAdapter(_record.ChildSapComponents);
 
         public List<SapDocumentComponentModel> GetAllComponents()
         {
-            return _cachedComponents ??= ComponentsAdapter.GetAllComponents();
+            return ComponentsAdapter.GetAllComponents();
         }
 
         public SapDocumentComponentModel? GetComponentById(string compId)
@@ -42,8 +39,7 @@ namespace SAPArchiveLink
 
         public bool HasComponent(string compId)
         {
-            var components = GetAllComponents();
-            return components.Any(c => c.CompId == compId);
+            return FindComponentById(compId) != null;
         }
 
         public async Task<List<SapDocumentComponentModel>> ExtractAllComponents()
@@ -185,19 +181,7 @@ namespace SAPArchiveLink
             {
                 if (string.IsNullOrWhiteSpace(compId))
                     return;
-
-                var now =TrimDateTime.Now;
-
-                var compList = _record.ChildSapComponents;
-                var sapComponent = compList.New();
-
-                sapComponent.ComponentId = compId;
-                sapComponent.ApplicationVersion = version;
-                sapComponent.ContentType = contentType;
-                sapComponent.CharacterSet = charSet;
-                sapComponent.ArchiveDate = now;
-                sapComponent.DateModified = now;
-                sapComponent.SetDocument(filePath);              
+                ComponentsAdapter.AddComponent(compId, version, contentType, charSet, filePath);
             }
             catch (Exception ex)
             {
@@ -209,6 +193,7 @@ namespace SAPArchiveLink
         {          
             ComponentsAdapter.UpdateComponent(component, model);
         }
+        
         public void SetRecordMetadata()
         {
             _record.SapModifiedDate = TrimDateTime.Now;
