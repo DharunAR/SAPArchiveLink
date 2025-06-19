@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Moq;
+using System.ComponentModel;
 
 namespace SAPArchiveLink.Tests
 {
@@ -11,6 +12,8 @@ namespace SAPArchiveLink.Tests
         private Mock<IDatabaseConnection> _dbConnectionMock;
         private Mock<IDownloadFileHandler> _downloadFileHandlerMock;
         private Mock<ITrimRepository> _trimRepoMock;
+        private Mock<IArchiveRecord> _archiveRecordMock;
+        private Mock<IRecordSapComponent> _recordSapComponentMock;
         //private Mock<IBaseServices> _service;
         private BaseServices _service;
 
@@ -22,6 +25,8 @@ namespace SAPArchiveLink.Tests
             _dbConnectionMock = new Mock<IDatabaseConnection>();
             _trimRepoMock = new Mock<ITrimRepository>();
             _downloadFileHandlerMock = new Mock<IDownloadFileHandler>();
+            _archiveRecordMock = new Mock<IArchiveRecord>(); // Initialize _archiveRecordMock
+            _recordSapComponentMock = new Mock<IRecordSapComponent>(); // Initialize _recordSapComponentMock
 
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(_trimRepoMock.Object);
 
@@ -440,6 +445,8 @@ namespace SAPArchiveLink.Tests
 
         #endregion
 
+        #region CreateRecord ServiceTests
+
         [Test]
         public async Task CreateRecord_ReturnsError_WhenValidationFails()
         {
@@ -483,5 +490,184 @@ namespace SAPArchiveLink.Tests
             _responseFactoryMock.Verify(f => f.CreateProtocolText(It.Is<string>(s => s.Contains("Component(s) created successfully.")), StatusCodes.Status201Created, "UTF-8"), Times.Once);
             Assert.IsNotNull(result);
         }
+
+        #endregion
+
+        #region UpdateRecord ServiceTests
+
+        [Test]
+        public async Task UpdateRecord_SuccessfulUpdate_ReturnsSuccessResponse()
+        {
+            // Arrange
+            var compId = "comp1";
+            var docId = "doc1";
+            var contRep = "rep1";
+            var fileName = "file1.txt";
+            var filePath = "temp/file1.txt";
+            var component = new SapDocumentComponentModel
+            {
+                CompId = compId,
+                FileName = fileName,
+                Data = new MemoryStream()
+            };
+            var model = new CreateSapDocumentModel
+            {
+                DocId = docId,
+                ContRep = contRep,
+                CompId = compId,
+                PVersion = "001",
+                ContentLength = "100",
+                Components = new List<SapDocumentComponentModel> { component }
+            };
+
+            _trimRepoMock.Setup(x => x.GetRecord(docId, contRep)).Returns(_archiveRecordMock.Object);
+            _archiveRecordMock.Setup(x => x.FindComponentById(compId)).Returns(_recordSapComponentMock.Object);
+            _downloadFileHandlerMock.Setup(x => x.DownloadDocument(component.Data, fileName)).ReturnsAsync(filePath);
+            _responseFactoryMock.Setup(x => x.CreateProtocolText(It.IsAny<string>(), 200, It.IsAny<string>()))
+                .Returns(Mock.Of<ICommandResponse>());
+
+            // Act
+            var result = await _service.UpdateRecord(model, false);
+
+            // Assert
+            Assert.IsNotNull(result);
+            _archiveRecordMock.Verify(x => x.UpdateComponent(_recordSapComponentMock.Object, component), Times.Once);
+            _archiveRecordMock.Verify(x => x.SetRecordMetadata(), Times.Once);
+            _archiveRecordMock.Verify(x => x.Save(), Times.Once);
+            _downloadFileHandlerMock.Verify(x => x.DeleteFile(fileName), Times.Once);
+        }
+
+        [Test]
+        public async Task UpdateRecord_RecordNotFound_ReturnsError()
+        {
+            // Arrange
+            var model = new CreateSapDocumentModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "001",
+                ContentLength = "100",
+                Components = new List<SapDocumentComponentModel>()
+            };
+            _trimRepoMock.Setup(x => x.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
+            _responseFactoryMock.Setup(x => x.CreateError(It.IsAny<string>(), It.IsAny<int>()))
+                .Returns(Mock.Of<ICommandResponse>());
+
+            // Act
+            var result = await _service.UpdateRecord(model, false);
+
+            // Assert
+            Assert.IsNotNull(result);
+            _responseFactoryMock.Verify(x => x.CreateError(It.Is<string>(s => s.Contains("No document with ID")), It.IsAny<int>()), Times.Once);
+        }
+
+        [Test]
+        public async Task UpdateRecord_ComponentNotFound_ReturnsError()
+        {
+            // Arrange
+            var compId = "comp1";
+            var docId = "doc1";
+            var contRep = "rep1";
+            var component = new SapDocumentComponentModel
+            {
+                CompId = compId,
+                FileName = "file1.txt",
+                Data = new MemoryStream()
+            };
+            var model = new CreateSapDocumentModel
+            {
+                DocId = docId,
+                ContRep = contRep,
+                CompId = compId,
+                PVersion = "001",
+                ContentLength = "100",
+                Components = new List<SapDocumentComponentModel> { component }
+            };
+
+            _trimRepoMock.Setup(x => x.GetRecord(docId, contRep)).Returns(_archiveRecordMock.Object);
+            _archiveRecordMock.Setup(x => x.FindComponentById(compId)).Returns((IRecordSapComponent)null);
+            _responseFactoryMock.Setup(x => x.CreateError(It.IsAny<string>(), It.IsAny<int>()))
+                .Returns(Mock.Of<ICommandResponse>());
+
+            // Act
+            var result = await _service.UpdateRecord(model, false);
+
+            // Assert
+            Assert.IsNotNull(result);
+            _responseFactoryMock.Verify(x => x.CreateError(It.Is<string>(s => s.Contains("No Component with ID")), It.IsAny<int>()), Times.Once);
+        }
+
+        [Test]
+        public async Task UpdateRecord_MissingComponentId_ReturnsError()
+        {
+            // Arrange
+            var component = new SapDocumentComponentModel
+            {
+                CompId = null,
+                FileName = "file1.txt",
+                Data = new MemoryStream()
+            };
+            var model = new CreateSapDocumentModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = null,
+                PVersion = "001",
+                ContentLength = "100",
+                Components = new List<SapDocumentComponentModel> { component }
+            };
+
+            _trimRepoMock.Setup(x => x.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(_archiveRecordMock.Object);
+            _responseFactoryMock.Setup(x => x.CreateError(It.IsAny<string>(), It.IsAny<int>()))
+                .Returns(Mock.Of<ICommandResponse>());
+
+            // Act
+            var result = await _service.UpdateRecord(model, false);
+
+            // Assert
+            Assert.IsNotNull(result);
+            _responseFactoryMock.Verify(x => x.CreateError(It.Is<string>(s => s.Contains("compId is required.")), It.IsAny<int>()), Times.Once);
+        }
+
+        [Test]
+        public async Task UpdateRecord_FailedToSaveComponentFile_ReturnsError()
+        {
+            // Arrange
+            var compId = "comp1";
+            var docId = "doc1";
+            var contRep = "rep1";
+            var fileName = "file1.txt";
+            var component = new SapDocumentComponentModel
+            {
+                CompId = compId,
+                FileName = fileName,
+                Data = new MemoryStream()
+            };
+            var model = new CreateSapDocumentModel
+            {
+                DocId = docId,
+                ContRep = contRep,
+                CompId = compId,
+                PVersion = "001",
+                ContentLength = "100",
+                Components = new List<SapDocumentComponentModel> { component }
+            };
+
+            _trimRepoMock.Setup(x => x.GetRecord(docId, contRep)).Returns(_archiveRecordMock.Object);
+            _archiveRecordMock.Setup(x => x.FindComponentById(compId)).Returns(_recordSapComponentMock.Object);
+            _downloadFileHandlerMock.Setup(x => x.DownloadDocument(component.Data, fileName)).ReturnsAsync((string)null);
+            _responseFactoryMock.Setup(x => x.CreateError(It.IsAny<string>(), It.IsAny<int>()))
+                .Returns(Mock.Of<ICommandResponse>());
+
+            // Act
+            var result = await _service.UpdateRecord(model, false);
+
+            // Assert
+            Assert.IsNotNull(result);
+            _responseFactoryMock.Verify(x => x.CreateError(It.Is<string>(s => s.Contains("Failed to save component file")), It.IsAny<int>()), Times.Once);
+        }
+
+        #endregion
     }
 }
