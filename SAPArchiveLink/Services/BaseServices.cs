@@ -188,7 +188,7 @@ public class BaseServices : IBaseServices
     /// <returns></returns>
     public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel model, bool isMultipart = false)
     {
-        SapDocumentComponent[] components = [];
+        SapDocumentComponentModel[] components = [];
         try
         {
             var validationResults = ModelValidator.Validate(model);
@@ -214,7 +214,7 @@ public class BaseServices : IBaseServices
                 if (model.Components != null)
                 {
                     components = isMultipart ? model.Components.ToArray() : new[] { model.Components.First() };
-                    foreach (SapDocumentComponent comp in components)
+                    foreach (SapDocumentComponentModel comp in components)
                     {
                         if (string.IsNullOrWhiteSpace(comp.CompId))
                             return _responseFactory.CreateError("Component ID is missing.", StatusCodes.Status400BadRequest);
@@ -229,6 +229,7 @@ public class BaseServices : IBaseServices
                         archiveRecord.AddComponent(comp.CompId, filePath, comp.ContentType, comp.Charset, comp.PVersion);
                     }
                 }
+                archiveRecord.SetRecordMetadata();
                 archiveRecord.Save();
             }
         }
@@ -240,13 +241,79 @@ public class BaseServices : IBaseServices
         return _responseFactory.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created);
     }
 
+    /// <summary>
+    /// Updates an existing SAP document record with new components.
+    /// </summary>
+    /// <param name="createSapDocumentModels"></param>
+    /// <param name="isMultipart"></param>
+    /// <returns></returns>
+    public async Task<ICommandResponse> UpdateRecord(CreateSapDocumentModel createSapDocumentModels, bool isMultipart = false)
+    {
+        SapDocumentComponentModel[] components = [];
+        try
+        {
+            var validationResults = ModelValidator.Validate(createSapDocumentModels);
+
+            if (validationResults.Any())
+            {
+                var combinedMessage = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
+                return _responseFactory.CreateError(combinedMessage);
+            }
+            using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
+            {
+                // Get existing record if it exists
+                var archiveRecord = trimRepo.GetRecord(createSapDocumentModels.DocId, createSapDocumentModels.ContRep);
+                if (archiveRecord is null)
+                {
+                    return _responseFactory.CreateError("No document with ID '%1%' was found");
+                }
+                else
+                {
+                    // Handle single/multiple components
+                    if (createSapDocumentModels.Components != null)
+                    {
+                        components = isMultipart ? createSapDocumentModels.Components.ToArray() : new[] { createSapDocumentModels.Components.First() };
+                        foreach (SapDocumentComponentModel model in components)
+                        {
+                            if (string.IsNullOrWhiteSpace(model.CompId))
+                                return _responseFactory.CreateError("Component ID is missing.", StatusCodes.Status400BadRequest);
+
+                            IRecordSapComponent? recComp = archiveRecord.FindComponentById(model.CompId);
+                            if (recComp == null)
+                            {
+                                return _responseFactory.CreateError($"No Component with ID'{model.CompId}' was found in document '{createSapDocumentModels.DocId}'.", StatusCodes.Status404NotFound);
+                            }
+                            else
+                            {
+                                var filePath = await _downloadFileHandler.DownloadDocument(model.Data, model.FileName);
+                                if (string.IsNullOrWhiteSpace(filePath))
+                                    return _responseFactory.CreateError("Failed to save component file.", StatusCodes.Status400BadRequest);
+
+                                archiveRecord.UpdateComponent(recComp, model);
+                            }
+
+                        }
+                    }
+                    archiveRecord.SetRecordMetadata();
+                    archiveRecord.Save();
+                }
+            }
+        }
+
+        finally
+        {
+            CleanUpFiles(components);
+        }
+        return _responseFactory.CreateProtocolText("Component(s) updated successfully.", StatusCodes.Status200OK);
+    }
+
     #region Helper methods
 
     /// <summary>
     /// Cleans up temporary files created during the document processing.
     /// </summary>
     /// <param name="components"></param>
-    private void CleanUpFiles(SapDocumentComponent[] components)
+    private void CleanUpFiles(SapDocumentComponentModel[] components)
     {
         foreach (var comp in components)
         {
@@ -263,7 +330,7 @@ public class BaseServices : IBaseServices
     /// <param name="component"></param>
     /// <param name="sapDoc"></param>
     /// <returns></returns>
-    private ICommandResponse GetSingleComponentResponse(SapDocumentComponent component, SapDocumentRequest sapDoc)
+    private ICommandResponse GetSingleComponentResponse(SapDocumentComponentModel component, SapDocumentRequest sapDoc)
     {
         var response = _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName);
 
@@ -288,7 +355,7 @@ public class BaseServices : IBaseServices
     /// <param name="record"></param>
     /// <param name="sapDoc"></param>
     /// <returns></returns>
-    private ICommandResponse GetMultiPartResponse(List<SapDocumentComponent> multipartComponents, IArchiveRecord record, SapDocumentRequest sapDoc)
+    private ICommandResponse GetMultiPartResponse(List<SapDocumentComponentModel> multipartComponents, IArchiveRecord record, SapDocumentRequest sapDoc)
     {
         var multipartResponse = _responseFactory.CreateMultipartDocument(multipartComponents);
 
@@ -370,7 +437,7 @@ public class BaseServices : IBaseServices
         originalStream.Position = 0;
         return (originalStream, contentLength, null);
     }
-
+        
     #endregion
 
 }

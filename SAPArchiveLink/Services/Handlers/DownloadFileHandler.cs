@@ -13,9 +13,9 @@ namespace SAPArchiveLink
             _saveDirectory = saveDirectory;
         }
 
-        public async Task<List<SapDocumentComponent>> HandleRequestAsync(string contentType, Stream body, string docId)
+        public async Task<List<SapDocumentComponentModel>> HandleRequestAsync(string contentType, Stream body, string docId)
         {
-            var uploadedFiles = new List<SapDocumentComponent>();
+            var uploadedFiles = new List<SapDocumentComponentModel>();
 
             try
             {
@@ -99,13 +99,13 @@ namespace SAPArchiveLink
             return !string.IsNullOrEmpty(mapping.Key) ? mapping.Key : ".bin";
         }
 
-        private Task<List<SapDocumentComponent>> ParseSinglepartManuallyAsync(string contentType, Stream body, string docId)
+        private Task<List<SapDocumentComponentModel>> ParseSinglepartManuallyAsync(string contentType, Stream body, string docId)
         {
-            var uploadedFiles = new List<SapDocumentComponent>();
+            var uploadedFiles = new List<SapDocumentComponentModel>();
             try
             {
                 var filePath = getFilePath(docId, contentType);
-                uploadedFiles.Add(new SapDocumentComponent
+                uploadedFiles.Add(new SapDocumentComponentModel
                 {
                     FileName = filePath,
                     Data = body,
@@ -143,9 +143,9 @@ namespace SAPArchiveLink
 
             return null; // no charset found
         }
-        private async Task<List<SapDocumentComponent>> ParseMultipartManuallyAsync(string contentType, Stream body)
+        private async Task<List<SapDocumentComponentModel>> ParseMultipartManuallyAsync(string contentType, Stream body)
         {
-            var uploadedFiles = new List<SapDocumentComponent>();
+            var uploadedFiles = new List<SapDocumentComponentModel>();
 
             var boundary = GetBoundaryFromContentType(contentType);
             if (string.IsNullOrEmpty(boundary))
@@ -176,7 +176,7 @@ namespace SAPArchiveLink
                         filePath = getFilePath(compId, contentTypeHeader.ToString());
                     }
 
-                    uploadedFiles.Add(new SapDocumentComponent
+                    uploadedFiles.Add(new SapDocumentComponentModel
                     {
                         CompId = compId.FirstOrDefault() ?? string.Empty,
                         Data = section.Body,

@@ -7,9 +7,9 @@ namespace SAPArchiveLink
     {
         Record GetRecord(Database db, string docId, string contRep);
 
-        Task<List<SapDocumentComponent>> GetDocumentComponents(RecordSapComponents components);
+        Task<List<SapDocumentComponentModel>> GetDocumentComponents(RecordSapComponents components);
 
-        Task<SapDocumentComponent> GetDocumentComponent(RecordSapComponents components, string compId);
+        Task<SapDocumentComponentModel> GetDocumentComponent(RecordSapComponents components, string compId);
 
         bool IsRecordComponentAvailable(RecordSapComponents components, string compId);
 
@@ -23,6 +23,6 @@ namespace SAPArchiveLink
                                                 string docId,
                                                 string docProt,
                                                 string alVersion,
-                                                IEnumerable<SapDocumentComponent> components);
+                                                IEnumerable<SapDocumentComponentModel> components);
     }
 }

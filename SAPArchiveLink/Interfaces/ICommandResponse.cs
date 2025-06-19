@@ -5,7 +5,7 @@
         Stream StreamContent { get; }
         string TextContent { get; }
         bool IsStream { get; }
-        List<SapDocumentComponent> Components { get; }
+        List<SapDocumentComponentModel> Components { get; }
         string Boundary { get; }
         int StatusCode { get; set; }
         string ContentType { get; set; }

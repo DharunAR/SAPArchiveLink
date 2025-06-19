@@ -18,7 +18,6 @@ namespace SAPArchiveLink
         public IArchiveRecord? GetRecord(string docId, string contRep)
         {
             var tmos = new TrimMainObjectSearch(_db, BaseObjectTypes.Record);
-
             var docClause = new TrimSearchClause(_db, BaseObjectTypes.Record, SearchClauseIds.RecordSapdoc);
             docClause.SetCriteriaFromString(docId);
             tmos.AddSearchClause(docClause);

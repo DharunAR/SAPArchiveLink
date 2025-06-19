@@ -8,7 +8,7 @@ namespace SAPArchiveLink
         public Stream StreamContent { get; private set; }
         public string TextContent { get; private set; }
         public bool IsStream { get; private set; }
-        public List<SapDocumentComponent> Components { get; private set; } = new();
+        public List<SapDocumentComponentModel> Components { get; private set; } = new();
         public string Boundary { get; private set; }
 
         public int StatusCode { get; set; } = StatusCodes.Status200OK;
@@ -81,7 +81,7 @@ namespace SAPArchiveLink
         /// <param name="components"></param>
         /// <param name="statusCode"></param>
         /// <returns></returns>
-        public static CommandResponse ForMultipartDocument(List<SapDocumentComponent> components, int statusCode = StatusCodes.Status200OK)
+        public static CommandResponse ForMultipartDocument(List<SapDocumentComponentModel> components, int statusCode = StatusCodes.Status200OK)
         {
             string boundary = $"docGet_{Guid.NewGuid():N}";
             var response =  new CommandResponse

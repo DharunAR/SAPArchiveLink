@@ -91,7 +91,7 @@ namespace SAPArchiveLink
         /// <param name="components"></param>
         /// <param name="compId"></param>
         /// <returns></returns>
-        public async Task<SapDocumentComponent> GetDocumentComponent(RecordSapComponents components, string compId)
+        public async Task<SapDocumentComponentModel> GetDocumentComponent(RecordSapComponents components, string compId)
         {
             string? fileName;
             RecordSapComponent? sapComponent = null;
@@ -125,9 +125,9 @@ namespace SAPArchiveLink
         /// <param name="components"></param>
         /// <returns></returns>
 
-        public async Task<List<SapDocumentComponent>> GetDocumentComponents(RecordSapComponents components)
+        public async Task<List<SapDocumentComponentModel>> GetDocumentComponents(RecordSapComponents components)
         {
-            List<SapDocumentComponent> documentComponents = new();
+            List<SapDocumentComponentModel> documentComponents = new();
             foreach (RecordSapComponent c in components)
             {
                 string? fileName;
@@ -175,14 +175,14 @@ namespace SAPArchiveLink
         /// <param name="fileName"></param>
         /// <param name="sapComponent"></param>
         /// <returns></returns>
-        private async Task<SapDocumentComponent> CreateDocumentComponent(string fileName, RecordSapComponent sapComponent)
+        private async Task<SapDocumentComponentModel> CreateDocumentComponent(string fileName, RecordSapComponent sapComponent)
         {
             using (Stream fileStream = File.OpenRead(fileName))
             {
                 var memoryStream = new MemoryStream();
                 await fileStream.CopyToAsync(memoryStream);
                 memoryStream.Position = 0;
-                return new SapDocumentComponent
+                return new SapDocumentComponentModel
                 {
                     CompId = sapComponent.ComponentId,
                     ContentType = sapComponent.ContentType ?? "application/octet-stream",
@@ -276,7 +276,7 @@ namespace SAPArchiveLink
         /// Creates a new SAP document component in the specified content repository.
         /// </summary>
         /// <param name="db"></param>
-        /// <param name="sAPDocumentComponent"></param>
+        /// <param name="SapDocumentComponentModel"></param>
         /// <returns></returns>
         public async Task<ICommandResponse> ComponentCreate(
         Database db,
@@ -284,7 +284,7 @@ namespace SAPArchiveLink
         string docId,
         string docProt,
         string alVersion,
-        IEnumerable<SapDocumentComponent> components)
+        IEnumerable<SapDocumentComponentModel> components)
         {
             var now = DateTime.Now;
 

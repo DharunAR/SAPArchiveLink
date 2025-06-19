@@ -11,31 +11,43 @@ namespace SAPArchiveLink
             _sdkComponents = sdkComponents;
         }
 
-        public List<SapDocumentComponent> GetAllComponents()
+        public List<SapDocumentComponentModel> GetAllComponents()
         {
-            var components = new List<SapDocumentComponent>();
+            var components = new List<SapDocumentComponentModel>();
             foreach (RecordSapComponent sdkComponent in _sdkComponents)
             {
-                components.Add(MapToSapDocumentComponent(sdkComponent));
+                components.Add(MapToSapDocumentComponentModel(sdkComponent));
             }
             return components;
         }
 
-        public SapDocumentComponent? GetComponentById(string compId)
+        public SapDocumentComponentModel? GetComponentById(string compId)
         {
             foreach (RecordSapComponent sdkComponent in _sdkComponents)
             {
                 if (sdkComponent.ComponentId == compId)
                 {
-                    return MapToSapDocumentComponent(sdkComponent);
+                    return MapToSapDocumentComponentModel(sdkComponent);
                 }
             }
             return null;
         }
 
-        private SapDocumentComponent MapToSapDocumentComponent(RecordSapComponent sdkComponent)
+        public IRecordSapComponent? FindComponentById(string compId)
         {
-            return new SapDocumentComponent
+            foreach (RecordSapComponent sdkComponent in _sdkComponents)
+            {
+                if (sdkComponent.ComponentId == compId)
+                {
+                    return new RecordSapComponentWrapper(sdkComponent);
+                }
+            }
+            return null;
+        }
+
+        private SapDocumentComponentModel MapToSapDocumentComponentModel(RecordSapComponent sdkComponent)
+        {
+            return new SapDocumentComponentModel
             {
                 CompId = sdkComponent.ComponentId,
                 ContentType = sdkComponent.ContentType,
@@ -48,6 +60,16 @@ namespace SAPArchiveLink
                 PVersion = sdkComponent.ArchiveLinkVersion,
                 FileName = sdkComponent.FileName
             };
+        }
+        public void UpdateComponent(IRecordSapComponent updatedComponent, SapDocumentComponentModel model)
+        {
+            updatedComponent.ContentType = model.ContentType;
+            updatedComponent.Charset = model.Charset;
+            updatedComponent.ApplicationVersion = model.Version;
+            updatedComponent.ArchiveLinkVersion = model.PVersion;           
+            updatedComponent.DateModified = TrimDateTime.Now;
+            updatedComponent.SetDocument(model.FileName);          
+           // return updatedComponent;            
         }
     }
 }

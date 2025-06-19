@@ -124,7 +124,7 @@ namespace SAPArchiveLink.Tests
         public async Task DocGet_ReturnsSingleComponentResponse_WhenCompIdProvidedAndExists()
         {
             var sapDoc = new SapDocumentRequest { DocId = "doc1", ContRep = "rep1", PVersion = "v1", CompId = "comp1" };
-            var component = new SapDocumentComponent
+            var component = new SapDocumentComponentModel
             {
                 CompId = "comp1",
                 ContentType = "application/pdf",
@@ -156,9 +156,9 @@ namespace SAPArchiveLink.Tests
         public async Task DocGet_ReturnsMultipartResponse_WhenNoCompIdProvided()
         {
             var sapDoc = new SapDocumentRequest { DocId = "doc1", ContRep = "rep1", PVersion = "v1" };
-            var components = new List<SapDocumentComponent>
+            var components = new List<SapDocumentComponentModel>
             {
-                new SapDocumentComponent { CompId = "comp1", ContentType = "application/pdf", Data = new MemoryStream() }
+                new SapDocumentComponentModel { CompId = "comp1", ContentType = "application/pdf", Data = new MemoryStream() }
             };
 
             var recordMock = new Mock<IArchiveRecord>();
@@ -249,7 +249,7 @@ namespace SAPArchiveLink.Tests
             var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = "comp1" };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("comp1")).Returns(true);
-            recordMock.Setup(r => r.ExtractComponentById("comp1")).ReturnsAsync((SapDocumentComponent)null);
+            recordMock.Setup(r => r.ExtractComponentById("comp1")).ReturnsAsync((SapDocumentComponentModel)null);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
@@ -266,7 +266,7 @@ namespace SAPArchiveLink.Tests
         public async Task GetSapDocument_ReturnsDocumentContent_OnSuccess()
         {
             var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = "comp1", FromOffset = 0, ToOffset = 0 };
-            var component = new SapDocumentComponent
+            var component = new SapDocumentComponentModel
             {
                 CompId = "comp1",
                 ContentType = "application/pdf",
@@ -304,7 +304,7 @@ namespace SAPArchiveLink.Tests
                 FromOffset = 200,
                 ToOffset = 210
             };
-            var component = new SapDocumentComponent
+            var component = new SapDocumentComponentModel
             {
                 CompId = "comp1",
                 ContentType = "application/pdf",
@@ -340,7 +340,7 @@ namespace SAPArchiveLink.Tests
                 ToOffset = 4
             };
             var data = new byte[] { 10, 20, 30, 40, 50 };
-            var component = new SapDocumentComponent
+            var component = new SapDocumentComponentModel
             {
                 CompId = "comp1",
                 ContentType = "application/pdf",
@@ -376,7 +376,7 @@ namespace SAPArchiveLink.Tests
                 FromOffset = -1,
                 ToOffset = 10
             };
-            var component = new SapDocumentComponent
+            var component = new SapDocumentComponentModel
             {
                 CompId = "comp1",
                 ContentType = "application/pdf",
@@ -413,7 +413,7 @@ namespace SAPArchiveLink.Tests
                 ToOffset = 0
             };
             var data = new byte[] { 100, 101, 102 };
-            var component = new SapDocumentComponent
+            var component = new SapDocumentComponentModel
             {
                 CompId = "comp1",
                 ContentType = "application/pdf",
@@ -463,9 +463,9 @@ namespace SAPArchiveLink.Tests
                 CompId = "comp",
                 PVersion = "1",
                 ContentLength = "10",
-                Components = new List<SapDocumentComponent>
+                Components = new List<SapDocumentComponentModel>
                     {
-                        new SapDocumentComponent { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+                        new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
                     }
             };
             var repoMock = new Mock<ITrimRepository>();

@@ -13,19 +13,19 @@ namespace SAPArchiveLink.Tests
     // 3. Use Moq's .As<T>() for interfaces if DownloadFileHandler implements one.
 
     // Example fix: Make HandleRequestAsync virtual in DownloadFileHandler
-    // public virtual async Task<List<SapDocumentComponent>> HandleRequestAsync(string contentType, Stream body, string docId);
+    // public virtual async Task<List<SapDocumentComponentModel>> HandleRequestAsync(string contentType, Stream body, string docId);
 
     // OR: Use a stub class for testing
     //public class TestDownloadFileHandler : DownloadFileHandler
     //{
-    //    private readonly List<SapDocumentComponent> _componentsToReturn;
-    //    public TestDownloadFileHandler(string saveDirectory, List<SapDocumentComponent> componentsToReturn)
+    //    private readonly List<SapDocumentComponentModel> _componentsToReturn;
+    //    public TestDownloadFileHandler(string saveDirectory, List<SapDocumentComponentModel> componentsToReturn)
     //        : base(saveDirectory)
     //    {
     //        _componentsToReturn = componentsToReturn;
     //    }
 
-    //    public override async Task<List<SapDocumentComponent>> HandleRequestAsync(string contentType, Stream body, string docId)
+    //    public override async Task<List<SapDocumentComponentModel>> HandleRequestAsync(string contentType, Stream body, string docId)
     //    {
     //        return await Task.FromResult(_componentsToReturn);
     //    }
@@ -80,7 +80,7 @@ namespace SAPArchiveLink.Tests
             var version = "1.0";
             var docprot = "prot";
             var stream = new MemoryStream(new byte[] { 1, 2, 3 });
-            var sapComponent = new SapDocumentComponent();
+            var sapComponent = new SapDocumentComponentModel();
 
             _contextMock.Setup(c => c.GetRequest()).Returns(_httpContext.Request);
             _httpContext.Request.ContentType = contentType;
@@ -101,7 +101,7 @@ namespace SAPArchiveLink.Tests
 
             _downloadFileHandlerMock
     .Setup(d => d.HandleRequestAsync(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))
-    .ReturnsAsync(new List<SapDocumentComponent> { sapComponent });
+    .ReturnsAsync(new List<SapDocumentComponentModel> { sapComponent });
 
             _baseServiceMock.Setup(b => b.CreateRecord(It.IsAny<CreateSapDocumentModel>(), false))
                 .ReturnsAsync(_commandResponseMock.Object);

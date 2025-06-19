@@ -7,9 +7,9 @@ namespace SAPArchiveLink
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.CREATEPOST;
         private ICommandResponseFactory _responseFactory;
         private IBaseServices _baseService;
-        private DownloadFileHandler _downloadFileHandler;
+        private IDownloadFileHandler _downloadFileHandler;
 
-        public CreatePostCommandHandler(ICommandResponseFactory responseFactory, IBaseServices baseService, DownloadFileHandler fileHandleRequest)
+        public CreatePostCommandHandler(ICommandResponseFactory responseFactory, IBaseServices baseService, IDownloadFileHandler fileHandleRequest)
         {
             _responseFactory = responseFactory;
             _baseService = baseService;
@@ -22,7 +22,7 @@ namespace SAPArchiveLink
                 var request = context.GetRequest();
                 string docId = command.GetValue(ALParameter.VarDocId);
 
-                List<SapDocumentComponent> sapDocumentComponent = await _downloadFileHandler.HandleRequestAsync(request.ContentType, request.Body, docId);
+                List<SapDocumentComponentModel> SapDocumentComponentModel = await _downloadFileHandler.HandleRequestAsync(request.ContentType, request.Body, docId);
                 var sapDocumentCreateRequest = new CreateSapDocumentModel
                 {
                     DocId = docId,
@@ -38,7 +38,7 @@ namespace SAPArchiveLink
                     Charset = request.Headers["charset"].ToString(),
                     Version = request.Headers["version"].ToString(),
                     DocProt = request.Headers["docprot"].ToString(),
-                    Components = sapDocumentComponent,
+                    Components = SapDocumentComponentModel,
                     ContentType = request.ContentType,
                 };
 

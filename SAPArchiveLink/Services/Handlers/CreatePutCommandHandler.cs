@@ -38,7 +38,7 @@ namespace SAPArchiveLink
                     return _responseFactory.CreateError("Content-Type header is missing or invalid.", StatusCodes.Status400BadRequest);
                 }
 
-                List<SapDocumentComponent> sapDocumentComponent = await _downloadFileHandler.HandleRequestAsync(request.ContentType, request.Body, docId);
+                List<SapDocumentComponentModel> SapDocumentComponentModel = await _downloadFileHandler.HandleRequestAsync(request.ContentType, request.Body, docId);
                 var sapDocumentCreateRequest = new CreateSapDocumentModel
                 {
                     DocId = docId,
@@ -56,11 +56,11 @@ namespace SAPArchiveLink
                     DocProt = request.Headers["docprot"].ToString(),
                     ContentType = request.ContentType,
                 };
-                if (sapDocumentComponent != null)
+                if (SapDocumentComponentModel != null)
                 {
-                    sapDocumentComponent.First().CompId = sapDocumentCreateRequest.CompId;
-                    sapDocumentComponent.First().Charset = sapDocumentCreateRequest.Charset;
-                    sapDocumentCreateRequest.Components = sapDocumentComponent;
+                    SapDocumentComponentModel.First().CompId = sapDocumentCreateRequest.CompId;
+                    SapDocumentComponentModel.First().Charset = sapDocumentCreateRequest.Charset;
+                    sapDocumentCreateRequest.Components = SapDocumentComponentModel;
                 }
 
                 return await _baseService.CreateRecord(sapDocumentCreateRequest);

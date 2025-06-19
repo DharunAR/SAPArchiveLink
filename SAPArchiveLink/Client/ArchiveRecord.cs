@@ -7,7 +7,7 @@ namespace SAPArchiveLink
     {
         private Record _record;
         private readonly TrimConfigSettings _trimConfig;
-        private List<SapDocumentComponent>? _cachedComponents;
+        private List<SapDocumentComponentModel>? _cachedComponents;
         private RecordSapComponentsAdapter? _componentsAdapter;
         private readonly ILogHelper<ArchiveRecord> _log;
 
@@ -25,14 +25,19 @@ namespace SAPArchiveLink
         private RecordSapComponentsAdapter ComponentsAdapter => 
             _componentsAdapter ??= new RecordSapComponentsAdapter(_record.ChildSapComponents);
 
-        public List<SapDocumentComponent> GetAllComponents()
+        public List<SapDocumentComponentModel> GetAllComponents()
         {
             return _cachedComponents ??= ComponentsAdapter.GetAllComponents();
         }
 
-        public SapDocumentComponent? GetComponentById(string compId)
+        public SapDocumentComponentModel? GetComponentById(string compId)
         {
             return ComponentsAdapter.GetComponentById(compId);
+        }
+
+        public IRecordSapComponent? FindComponentById(string compId)
+        {
+            return ComponentsAdapter.FindComponentById(compId);
         }
 
         public bool HasComponent(string compId)
@@ -41,9 +46,9 @@ namespace SAPArchiveLink
             return components.Any(c => c.CompId == compId);
         }
 
-        public async Task<List<SapDocumentComponent>> ExtractAllComponents()
+        public async Task<List<SapDocumentComponentModel>> ExtractAllComponents()
         {
-            var result = new List<SapDocumentComponent>();
+            var result = new List<SapDocumentComponentModel>();
 
             foreach (RecordSapComponent sdkComponent in _record.ChildSapComponents)
             {
@@ -55,7 +60,7 @@ namespace SAPArchiveLink
             return result;
         }
 
-        public async Task<SapDocumentComponent?> ExtractComponentById(string compId)
+        public async Task<SapDocumentComponentModel?> ExtractComponentById(string compId)
         {
             foreach (RecordSapComponent sdkComponent in _record.ChildSapComponents)
             {
@@ -138,7 +143,7 @@ namespace SAPArchiveLink
                 .Replace("%contrep%", model.ContRep);
         }
 
-        private async Task<SapDocumentComponent> ExtractToSapComponent(RecordSapComponent sdkComponent)
+        private async Task<SapDocumentComponentModel> ExtractToSapComponent(RecordSapComponent sdkComponent)
         {
             var extractDocument = sdkComponent.GetExtractDocument();
             if(extractDocument != null)
@@ -156,7 +161,7 @@ namespace SAPArchiveLink
                 await fileStream.CopyToAsync(memoryStream);
                 memoryStream.Position = 0;
 
-                return new SapDocumentComponent
+                return new SapDocumentComponentModel
                 {
                     CompId = sdkComponent.ComponentId,
                     ContentType = sdkComponent.ContentType ?? "application/octet-stream",
@@ -181,7 +186,7 @@ namespace SAPArchiveLink
                 if (string.IsNullOrWhiteSpace(compId))
                     return;
 
-                var now = DateTime.UtcNow;
+                var now =TrimDateTime.Now;
 
                 var compList = _record.ChildSapComponents;
                 var sapComponent = compList.New();
@@ -192,15 +197,21 @@ namespace SAPArchiveLink
                 sapComponent.CharacterSet = charSet;
                 sapComponent.ArchiveDate = now;
                 sapComponent.DateModified = now;
-                sapComponent.SetDocument(filePath);
-
-                _record.SapModifiedDate = now;
+                sapComponent.SetDocument(filePath);              
             }
             catch (Exception ex)
             {
                 _log.LogError($"Failed to add component '{compId}' to record {_record.SapDocumentId}", ex);
                 throw;
             }
+        }
+        public void UpdateComponent(IRecordSapComponent component, SapDocumentComponentModel model)
+        {          
+            ComponentsAdapter.UpdateComponent(component, model);
+        }
+        public void SetRecordMetadata()
+        {
+            _record.SapModifiedDate = TrimDateTime.Now;
         }
 
         public void Save()
