@@ -12,7 +12,6 @@ namespace SAPArchiveLink
         [Required(ErrorMessage = "contRep is required.")]
         public required string ContRep { get; set; }
 
-       // [Required(ErrorMessage = "compId is required.")]
         public string CompId { get; set; }
 
         [Required(ErrorMessage = "pVersion is required.")]

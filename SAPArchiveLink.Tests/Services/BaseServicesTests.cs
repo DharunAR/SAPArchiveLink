@@ -534,13 +534,13 @@ namespace SAPArchiveLink.Tests
         public async Task CreateRecord_ReturnsError_WhenValidationFails()
         {
             var model = new CreateSapDocumentModel { DocId = null, ContRep = null, CompId = null, PVersion = null, ContentLength = null };
-            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
-                .Returns(Mock.Of<ICommandResponse>());
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
 
             var result = await _service.CreateRecord(model);
 
             _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
-            Assert.IsNotNull(result);
+            Assert.That(result, Is.EqualTo(errorResponse));
         }
 
         [Test]
@@ -554,9 +554,9 @@ namespace SAPArchiveLink.Tests
                 PVersion = "1",
                 ContentLength = "10",
                 Components = new List<SapDocumentComponentModel>
-                    {
-                        new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-                    }
+        {
+            new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+        }
             };
             var repoMock = new Mock<ITrimRepository>();
             var recordMock = new Mock<IArchiveRecord>();
@@ -565,14 +565,16 @@ namespace SAPArchiveLink.Tests
             repoMock.Setup(r => r.CreateRecord(It.IsAny<CreateSapDocumentModel>())).Returns(recordMock.Object);
             _downloadFileHandlerMock.Setup(h => h.DownloadDocument(It.IsAny<Stream>(), It.IsAny<string>()))
                 .ReturnsAsync("file.txt");
-            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
-                .Returns(Mock.Of<ICommandResponse>());
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created, "UTF-8"))
+                .Returns(expectedResponse);
 
             var result = await _service.CreateRecord(model);
 
-            _responseFactoryMock.Verify(f => f.CreateProtocolText(It.Is<string>(s => s.Contains("Component(s) created successfully.")), StatusCodes.Status201Created, "UTF-8"), Times.Once);
-            Assert.IsNotNull(result);
+            _responseFactoryMock.Verify(f => f.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created, "UTF-8"), Times.Once);
+            Assert.That(result, Is.EqualTo(expectedResponse));
         }
+
         [Test]
         public async Task CreateRecord_ReturnsError_WhenRecordisNull()
         {
@@ -584,24 +586,25 @@ namespace SAPArchiveLink.Tests
                 PVersion = "1",
                 ContentLength = "10",
                 Components = new List<SapDocumentComponentModel>
-                    {
-                        new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-                    }
+        {
+            new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+        }
             };
             var repoMock = new Mock<ITrimRepository>();
-            var recordMock = new Mock<IArchiveRecord>();
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
-            repoMock.Setup(r => r.CreateRecord(It.IsAny<CreateSapDocumentModel>())).Returns((IArchiveRecord)null); 
+            repoMock.Setup(r => r.CreateRecord(It.IsAny<CreateSapDocumentModel>())).Returns((IArchiveRecord)null);
+
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError("Failed to create archive record in rep.", It.IsAny<int>()))
+                .Returns(errorResponse);
 
             var result = await _service.CreateRecord(model);
-            var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError("Failed to create archive record.", It.IsAny<int>()))
-           .Returns(Mock.Of<ICommandResponse>());         
 
-            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains("Failed to create archive record.")), StatusCodes.Status400BadRequest), Times.Once);
-          
+            _responseFactoryMock.Verify(f => f.CreateError("Failed to create archive record in rep.", It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
         }
+
         [Test]
         public async Task CreateRecord_ReturnsError_WhenModelComponentIdisNull()
         {
@@ -613,9 +616,9 @@ namespace SAPArchiveLink.Tests
                 PVersion = "1",
                 ContentLength = "10",
                 Components = new List<SapDocumentComponentModel>
-                    {
-                        new SapDocumentComponentModel { CompId = null, FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-                    }
+        {
+            new SapDocumentComponentModel { CompId = null, FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+        }
             };
             var repoMock = new Mock<ITrimRepository>();
             var recordMock = new Mock<IArchiveRecord>();
@@ -623,17 +626,20 @@ namespace SAPArchiveLink.Tests
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
             repoMock.Setup(r => r.CreateRecord(It.IsAny<CreateSapDocumentModel>())).Returns(recordMock.Object);
 
-            var result = await _service.CreateRecord(model);
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError("Component ID is missing.", It.IsAny<int>()))
-           .Returns(Mock.Of<ICommandResponse>());
+            _responseFactoryMock.Setup(f => f.CreateError("Component ID was not specified", StatusCodes.Status400BadRequest))
+                .Returns(errorResponse);
 
-            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains("Component ID is missing.")), StatusCodes.Status400BadRequest), Times.Once);
+            var result = await _service.CreateRecord(model);
 
+            _responseFactoryMock.Verify(f => f.CreateError("Component ID was not specified", StatusCodes.Status400BadRequest), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
         }
+
         [Test]
         public async Task CreateRecord_ReturnsError_WhenComponentIdisNull()
         {
+            // This is a duplicate of the previous test, so you may remove or merge it.
             var model = new CreateSapDocumentModel
             {
                 DocId = "doc",
@@ -642,9 +648,9 @@ namespace SAPArchiveLink.Tests
                 PVersion = "1",
                 ContentLength = "10",
                 Components = new List<SapDocumentComponentModel>
-                    {
-                        new SapDocumentComponentModel { CompId = null, FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-                    }
+        {
+            new SapDocumentComponentModel { CompId = null, FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+        }
             };
             var repoMock = new Mock<ITrimRepository>();
             var recordMock = new Mock<IArchiveRecord>();
@@ -652,13 +658,14 @@ namespace SAPArchiveLink.Tests
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
             repoMock.Setup(r => r.CreateRecord(It.IsAny<CreateSapDocumentModel>())).Returns(recordMock.Object);
 
-            var result = await _service.CreateRecord(model);
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError("CompId is required.", It.IsAny<int>()))
-           .Returns(Mock.Of<ICommandResponse>());
+            _responseFactoryMock.Setup(f => f.CreateError("CompId is required.", StatusCodes.Status400BadRequest))
+                .Returns(errorResponse);
 
-            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains("CompId is required.")), StatusCodes.Status400BadRequest), Times.Once);
+            var result = await _service.CreateRecord(model);
 
+            _responseFactoryMock.Verify(f => f.CreateError("CompId is required.", StatusCodes.Status400BadRequest), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
         }
 
         [Test]
@@ -672,24 +679,30 @@ namespace SAPArchiveLink.Tests
                 PVersion = "1",
                 ContentLength = "10",
                 Components = new List<SapDocumentComponentModel>
-                    {
-                        new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-                    }
+        {
+            new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+        }
             };
             var repoMock = new Mock<ITrimRepository>();
             var recordMock = new Mock<IArchiveRecord>();
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
             repoMock.Setup(r => r.CreateRecord(It.IsAny<CreateSapDocumentModel>())).Returns(recordMock.Object);
-            recordMock.Setup(r => r.HasComponent(model.CompId)).Returns(true);
-            var result = await _service.CreateRecord(model);
+            recordMock.Setup(r => r.HasComponent("comp")).Returns(true);
+
+            var errorMessage = "Component comp already exists in doc";
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_componentExists, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError($"A component with ID '{model.Components.FirstOrDefault().CompId}' already exists in document '{model.DocId}'.", It.IsAny<int>()))
-           .Returns(Mock.Of<ICommandResponse>());
+            _responseFactoryMock.Setup(f => f.CreateError(errorMessage, StatusCodes.Status403Forbidden)).Returns(errorResponse);
 
-            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains($"A component with ID '{model.Components.FirstOrDefault().CompId}' already exists in document '{model.DocId}'.")), StatusCodes.Status400BadRequest), Times.Once);
+            var result = await _service.CreateRecord(model);
 
+            _responseFactoryMock.Verify(f => f.CreateError(errorMessage, StatusCodes.Status403Forbidden), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
         }
+
 
         [Test]
         public async Task CreateRecord_ReturnsError_WhenFilePathIsNull()
@@ -702,9 +715,9 @@ namespace SAPArchiveLink.Tests
                 PVersion = "1",
                 ContentLength = "10",
                 Components = new List<SapDocumentComponentModel>
-                    {
-                        new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-                    }
+        {
+            new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+        }
             };
             var repoMock = new Mock<ITrimRepository>();
             var recordMock = new Mock<IArchiveRecord>();
@@ -715,28 +728,30 @@ namespace SAPArchiveLink.Tests
                 .ReturnsAsync("");
 
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError($"A component with ID '{model.Components.FirstOrDefault().CompId}' already exists in document '{model.DocId}'.", It.IsAny<int>()))
-           .Returns(Mock.Of<ICommandResponse>());
+            _responseFactoryMock.Setup(f => f.CreateError("Failed to save component file.", StatusCodes.Status400BadRequest))
+                .Returns(errorResponse);
 
             var result = await _service.CreateRecord(model);
 
-            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains("Failed to save component file.")), StatusCodes.Status400BadRequest), Times.Once);
-
+            _responseFactoryMock.Verify(f => f.CreateError("Failed to save component file.", StatusCodes.Status400BadRequest), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
         }
+
         [Test]
         public async Task CreateRecord_ReturnsProtocolText_WithMultiPart_OnSuccess()
         {
             var model = new CreateSapDocumentModel
             {
+                CompId = "comp",
                 DocId = "doc",
-                ContRep = "rep",             
+                ContRep = "rep",
                 PVersion = "1",
                 ContentLength = "10",
                 Components = new List<SapDocumentComponentModel>
-                    {
-                        new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) },
-                         new SapDocumentComponentModel { CompId = "comp1", FileName = "file1.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-                    }
+        {
+            new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) },
+            new SapDocumentComponentModel { CompId = "comp1", FileName = "file1.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+        }
             };
             var repoMock = new Mock<ITrimRepository>();
             var recordMock = new Mock<IArchiveRecord>();
@@ -745,13 +760,14 @@ namespace SAPArchiveLink.Tests
             repoMock.Setup(r => r.CreateRecord(It.IsAny<CreateSapDocumentModel>())).Returns(recordMock.Object);
             _downloadFileHandlerMock.Setup(h => h.DownloadDocument(It.IsAny<Stream>(), It.IsAny<string>()))
                 .ReturnsAsync("file.txt");
-            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
-                .Returns(Mock.Of<ICommandResponse>());
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created, "UTF-8"))
+                .Returns(expectedResponse);
 
-            var result = await _service.CreateRecord(model,true);
+            var result = await _service.CreateRecord(model, true);
 
-            _responseFactoryMock.Verify(f => f.CreateProtocolText(It.Is<string>(s => s.Contains("Component(s) created successfully.")), StatusCodes.Status201Created, "UTF-8"), Times.Once);
-            Assert.IsNotNull(result);
+            _responseFactoryMock.Verify(f => f.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created, "UTF-8"), Times.Once);
+            Assert.That(result, Is.EqualTo(expectedResponse));
         }
 
         [Test]
@@ -764,10 +780,10 @@ namespace SAPArchiveLink.Tests
                 PVersion = "1",
                 ContentLength = "10",
                 Components = new List<SapDocumentComponentModel>
-                    {
-                        new SapDocumentComponentModel { CompId = null, FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) },
-                         new SapDocumentComponentModel { CompId = "comp1", FileName = "file1.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-                    }
+        {
+            new SapDocumentComponentModel { CompId = null, FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) },
+            new SapDocumentComponentModel { CompId = "comp1", FileName = "file1.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+        }
             };
             var repoMock = new Mock<ITrimRepository>();
             var recordMock = new Mock<IArchiveRecord>();
@@ -775,16 +791,15 @@ namespace SAPArchiveLink.Tests
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
             repoMock.Setup(r => r.CreateRecord(It.IsAny<CreateSapDocumentModel>())).Returns(recordMock.Object);
 
-            var result = await _service.CreateRecord(model,true);
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError("Component ID is missing.", It.IsAny<int>()))
-           .Returns(Mock.Of<ICommandResponse>());
+            _responseFactoryMock.Setup(f => f.CreateError("CompId is required.", StatusCodes.Status400BadRequest))
+                .Returns(errorResponse);
 
-            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains("Component ID is missing.")), StatusCodes.Status400BadRequest), Times.Once);
+            var result = await _service.CreateRecord(model, true);
 
+            _responseFactoryMock.Verify(f => f.CreateError("CompId is required.", StatusCodes.Status400BadRequest), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
         }
-
-
 
         [Test]
         public async Task CreateRecord_ReturnsError_WhenComponentExists()
@@ -797,9 +812,9 @@ namespace SAPArchiveLink.Tests
                 PVersion = "1",
                 ContentLength = "10",
                 Components = new List<SapDocumentComponentModel>
-            {
-                new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-            }
+        {
+            new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+        }
             };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("comp")).Returns(true);
@@ -814,10 +829,12 @@ namespace SAPArchiveLink.Tests
 
             var result = await _service.CreateRecord(model);
 
+            _responseFactoryMock.Verify(f => f.CreateError(errorMessage, StatusCodes.Status403Forbidden), Times.Once);
             Assert.That(result, Is.EqualTo(errorResponse));
         }
 
         #endregion
+
 
         #region UpdateRecord ServiceTests
 
@@ -967,8 +984,40 @@ namespace SAPArchiveLink.Tests
 
             // Assert
             Assert.IsNotNull(result);
-            _responseFactoryMock.Verify(x => x.CreateError(It.Is<string>(s => s.Contains("compId is required.")), It.IsAny<int>()), Times.Once);
+            _responseFactoryMock.Verify(x => x.CreateError(It.Is<string>(s => s.Contains("CompId is required.")), It.IsAny<int>()), Times.Once);
         }
+
+        [Test]
+        public async Task UpdateRecord_ReturnsError_WhenComponentCompIdIsNull()
+        {
+            // Arrange
+            var component = new SapDocumentComponentModel
+            {
+                CompId = null,
+                FileName = "file1.txt",
+                Data = new MemoryStream()
+            };
+            var model = new CreateSapDocumentModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "001",
+                ContentLength = "100",
+                Components = new List<SapDocumentComponentModel> { component }
+            };
+
+            _trimRepoMock.Setup(x => x.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(_archiveRecordMock.Object);
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(x => x.CreateError("Component ID was not specified", StatusCodes.Status400BadRequest))
+                .Returns(errorResponse);
+
+            var result = await _service.UpdateRecord(model, false);
+
+            Assert.That(result, Is.EqualTo(errorResponse));
+            _responseFactoryMock.Verify(x => x.CreateError("Component ID was not specified", StatusCodes.Status400BadRequest), Times.Once);
+        }
+
 
         [Test]
         public async Task UpdateRecord_FailedToSaveComponentFile_ReturnsError()
