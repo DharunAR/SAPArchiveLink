@@ -7,7 +7,7 @@ using Moq;
 using NUnit.Framework;
 using SAPArchiveLink.Controllers;
 
-namespace SAPArchiveLink.Tests.Controllers
+namespace SAPArchiveLink.Tests
 {
     [TestFixture]
     public class ContentServerControllerTests
@@ -82,7 +82,7 @@ namespace SAPArchiveLink.Tests.Controllers
             var result = await _controller.Handle();
             Assert.That(result, Is.InstanceOf<ObjectResult>());
             var objectResult = (ObjectResult)result;
-            Assert.That(objectResult.StatusCode, Is.EqualTo(400));
+            Assert.That(objectResult.StatusCode, Is.EqualTo(500));
             Assert.That(objectResult.Value.ToString(), Does.Contain("Test error"));
         }
 
@@ -103,7 +103,6 @@ namespace SAPArchiveLink.Tests.Controllers
         }
     }
 
-    // Dummy ALException for test compilation
     public class ALException : Exception
     {
         public ALException(string message) : base(message) { }

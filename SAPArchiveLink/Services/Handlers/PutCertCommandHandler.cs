@@ -1,12 +1,4 @@
-﻿
-
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using NLog;
-using System.Net;
-using System.Reflection;
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public class PutCertCommandHandler : ICommandHandler
     {
@@ -28,7 +20,6 @@ namespace SAPArchiveLink
         /// <param name="command"></param>
         /// <param name="context"></param>
         /// <returns></returns>
-        /// <exception cref="ALException"></exception>
         public async Task<ICommandResponse> HandleAsync(ICommand command, ICommandRequestContext context)
         {
             const string MN = "PutCert";
@@ -43,26 +34,13 @@ namespace SAPArchiveLink
 
             try
             {
-
-                respose = await _baseServices.PutCert(authId, context.GetInputStream(), contRep, permissions);
-               
+                respose = await _baseServices.PutCert(authId, context.GetInputStream(), contRep, permissions);       
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                //if (inputStream != null)
-                //{
-                //    CommonUtils.CloseStream(inputStream, _logger);
-                //}            
-                throw new ALException(
-                    "",
-                    "",
-                    new object[] { e.GetType().Name, e.Message },
-                    e
-                );
+                return _commandResponseFactory.CreateError(ex.Message);
             }
             return respose;
-
-           // return new CommandResponse("Certificate updated");
         }
     }
 }

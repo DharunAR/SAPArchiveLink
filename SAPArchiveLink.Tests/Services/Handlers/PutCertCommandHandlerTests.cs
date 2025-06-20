@@ -54,26 +54,27 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
-        public void HandleAsync_WhenBaseServicesThrows_ThrowsALException()
+        public async Task HandleAsync_WhenBaseServicesThrows_ReturnsErrorResponse()
         {
-            // Arrange
             var contRep = "CONTREP";
             var authId = "AUTHID";
             var permissions = "PERM";
             var fakeStream = new MemoryStream();
+            var errorMessage = "fail";
+            var errorResponse = Mock.Of<ICommandResponse>();
 
             _mockCommand.Setup(c => c.GetValue(ALParameter.VarContRep)).Returns(contRep);
             _mockCommand.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns(authId);
             _mockCommand.Setup(c => c.GetValue(ALParameter.VarPermissions)).Returns(permissions);
             _mockContext.Setup(c => c.GetInputStream()).Returns(fakeStream);
             _mockBaseServices.Setup(s => s.PutCert(authId, fakeStream, contRep, permissions))
-                .ThrowsAsync(new InvalidOperationException("fail"));
+                .ThrowsAsync(new InvalidOperationException(errorMessage));
+            _mockResponseFactory.Setup(f => f.CreateError(errorMessage, It.IsAny<int>())).Returns(errorResponse);
 
-            // Act & Assert
-            var ex = Assert.ThrowsAsync<ALException>(async () =>
-                await _handler.HandleAsync(_mockCommand.Object, _mockContext.Object));
-            Assert.That(ex.InnerException, Is.TypeOf<InvalidOperationException>());
-            Assert.That(ex.InnerException.Message, Is.EqualTo("fail"));
+            var result = await _handler.HandleAsync(_mockCommand.Object, _mockContext.Object);
+
+            Assert.That(result, Is.SameAs(errorResponse));
+            _mockResponseFactory.Verify(f => f.CreateError(errorMessage, It.IsAny<int>()), Times.Once);
         }
     }
 }
