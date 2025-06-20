@@ -637,38 +637,6 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
-        public async Task CreateRecord_ReturnsError_WhenComponentIdisNull()
-        {
-            // This is a duplicate of the previous test, so you may remove or merge it.
-            var model = new CreateSapDocumentModel
-            {
-                DocId = "doc",
-                ContRep = "rep",
-                CompId = null,
-                PVersion = "1",
-                ContentLength = "10",
-                Components = new List<SapDocumentComponentModel>
-        {
-            new SapDocumentComponentModel { CompId = null, FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-        }
-            };
-            var repoMock = new Mock<ITrimRepository>();
-            var recordMock = new Mock<IArchiveRecord>();
-            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
-            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
-            repoMock.Setup(r => r.CreateRecord(It.IsAny<CreateSapDocumentModel>())).Returns(recordMock.Object);
-
-            var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError("CompId is required.", StatusCodes.Status400BadRequest))
-                .Returns(errorResponse);
-
-            var result = await _service.CreateRecord(model);
-
-            _responseFactoryMock.Verify(f => f.CreateError("CompId is required.", StatusCodes.Status400BadRequest), Times.Once);
-            Assert.That(result, Is.EqualTo(errorResponse));
-        }
-
-        [Test]
         public async Task CreateRecord_ReturnsError_WhenModelComponentIdisExists()
         {
             var model = new CreateSapDocumentModel
