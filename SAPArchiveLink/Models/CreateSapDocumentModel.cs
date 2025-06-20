@@ -12,8 +12,8 @@ namespace SAPArchiveLink
         [Required(ErrorMessage = "contRep is required.")]
         public required string ContRep { get; set; }
 
-        [Required(ErrorMessage = "compId is required.")]
-        public required string CompId { get; set; }
+       // [Required(ErrorMessage = "compId is required.")]
+        public string CompId { get; set; }
 
         [Required(ErrorMessage = "pVersion is required.")]
         public required string PVersion { get; set; }
@@ -40,6 +40,12 @@ namespace SAPArchiveLink
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
+
+            if (validationContext.Items.TryGetValue("IsValidationRequired", out var flag) && flag is bool IsValidationRequired && IsValidationRequired)
+            {              
+                if (string.IsNullOrWhiteSpace(CompId))
+                    yield return new ValidationResult("CompId is required.", new[] { nameof(CompId) });              
+            }
 
             if (!string.IsNullOrWhiteSpace(SecKey))
             {

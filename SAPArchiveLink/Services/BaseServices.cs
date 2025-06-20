@@ -183,7 +183,7 @@ public class BaseServices : IBaseServices
         SapDocumentComponentModel[] components = [];
         try
         {
-            var validationResults = ModelValidator.Validate(model);
+            var validationResults = ModelValidator.Validate(model,!isMultipart);
 
             if (validationResults.Any())
             {
@@ -212,7 +212,7 @@ public class BaseServices : IBaseServices
                             return _responseFactory.CreateError("Component ID is missing.", StatusCodes.Status400BadRequest);
 
                         if (archiveRecord.HasComponent(comp.CompId))
-                            return _responseFactory.CreateError($"A component with ID '{comp.CompId}' already exists in document '{comp.CompId}'.", StatusCodes.Status400BadRequest);
+                            return _responseFactory.CreateError($"A component with ID '{comp.CompId}' already exists in document '{model.DocId}'.", StatusCodes.Status400BadRequest);
 
                         var filePath = await _downloadFileHandler.DownloadDocument(comp.Data, comp.FileName);
                         if (string.IsNullOrWhiteSpace(filePath))
