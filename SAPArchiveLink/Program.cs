@@ -1,9 +1,8 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using NLog;
 using NLog.Web;
 using SAPArchiveLink;
-
-//var logger = NLog.LogManager.Setup().LoadConfigurationFromFile("nlog.config").GetCurrentClassLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,22 +34,50 @@ if (app.Environment.IsDevelopment())
 }
 
 // Routing & Middleware
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor
+});
+
 app.UseRouting();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthorization(); // if you're using auth
 
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path == "/" || context.Request.Path == "")
+    if (string.IsNullOrWhiteSpace(context.Request.Path) || context.Request.Path == "/")
     {
         var basePath = context.Request.PathBase.HasValue ? context.Request.PathBase.Value : "";
         context.Response.Redirect($"{basePath}/ContentServer", permanent: false);
         return;
     }
-
+    var clientCert = await context.Connection.GetClientCertificateAsync();
+    if (clientCert == null || !clientCert.Verify())
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsync("Invalid client certificate.");
+        return;
+    }
     await next();
 });
 
 app.MapControllers(); // map [ApiController] routes like /ContentServer
 
-app.Run();
+try
+{
+    app.Run();
+}
+catch (Exception ex)
+{
+    LogManager.GetCurrentClassLogger().Error(ex, "Application terminated unexpectedly.");
+    throw;
+}
+finally
+{
+    LogManager.Shutdown();
+}
