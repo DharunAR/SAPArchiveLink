@@ -9,15 +9,18 @@ public class BaseServices : IBaseServices
     private readonly IDatabaseConnection _databaseConnection;
     private ICommandResponseFactory _responseFactory;
     private IDownloadFileHandler _downloadFileHandler;
+    private ISdkMessageProvider _messageProvider;
     const string COMP_DATA = "data";
     const string COMP_DATA1 = "data1";
 
-    public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection, IDownloadFileHandler downloadFileHandler)
+    public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection, 
+        IDownloadFileHandler downloadFileHandler, ISdkMessageProvider messageProvider)
     {
         _logger = helperLogger;
         _responseFactory = commandResponseFactory;
         _databaseConnection = databaseConnection;
         _downloadFileHandler = downloadFileHandler;
+        _messageProvider = messageProvider;
     }
 
     /// <summary>
@@ -93,14 +96,14 @@ public class BaseServices : IBaseServices
         {
             IArchiveRecord recordAdapter = trimRepo.GetRecord(sapDoc.DocId, sapDoc.ContRep);
             if (recordAdapter == null)
-                return _responseFactory.CreateError("Record not found", StatusCodes.Status404NotFound);
+                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] {sapDoc.DocId} ), StatusCodes.Status404NotFound);
 
             // Handle single component response
             if (!string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
                 var component = await recordAdapter.ExtractComponentById(sapDoc.CompId);
                 if (component == null)
-                    return _responseFactory.CreateError($"Component '{sapDoc.CompId}' not found", StatusCodes.Status404NotFound);
+                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId, sapDoc.DocId}), StatusCodes.Status404NotFound);
 
                 return GetSingleComponentResponse(component, sapDoc);
             }
@@ -136,7 +139,7 @@ public class BaseServices : IBaseServices
                 var record = db.GetRecord(sapDoc.DocId, sapDoc.ContRep);
                 if (record == null)
                 {
-                    return _responseFactory.CreateError("Record not found", StatusCodes.Status404NotFound);
+                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId }), StatusCodes.Status404NotFound);
                 }
                 if (string.IsNullOrWhiteSpace(sapDoc.CompId))
                 {
@@ -149,7 +152,7 @@ public class BaseServices : IBaseServices
                 var component = await record.ExtractComponentById(sapDoc.CompId);
                 if (component == null)
                 {
-                    return _responseFactory.CreateError($"Component '{sapDoc.CompId}' not found", StatusCodes.Status404NotFound);
+                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId }), StatusCodes.Status404NotFound);
                 }
 
                 var (stream, length, rangeError) = await GetRangeStream(component.Data, component.ContentLength, sapDoc.FromOffset, sapDoc.ToOffset);
@@ -197,9 +200,10 @@ public class BaseServices : IBaseServices
                 var archiveRecord = trimRepo.GetRecord(model.DocId, model.ContRep);
                 if (archiveRecord is null)
                 {
+                    _logger.LogInformation($"Creating new archive record for DocId: {model.DocId}, ContRep: {model.ContRep}");
                     archiveRecord = trimRepo.CreateRecord(model);
                     if (archiveRecord == null)
-                        return _responseFactory.CreateError("Failed to create archive record.");
+                        return _responseFactory.CreateError($"Failed to create archive record in {model.ContRep}.");
                 }
 
                 // Handle single/multiple components
@@ -209,10 +213,14 @@ public class BaseServices : IBaseServices
                     foreach (SapDocumentComponentModel comp in components)
                     {
                         if (string.IsNullOrWhiteSpace(comp.CompId))
-                            return _responseFactory.CreateError("Component ID is missing.", StatusCodes.Status400BadRequest);
+                            return _responseFactory.CreateError("Component ID was not specified", StatusCodes.Status400BadRequest);
 
                         if (archiveRecord.HasComponent(comp.CompId))
-                            return _responseFactory.CreateError($"A component with ID '{comp.CompId}' already exists in document '{comp.CompId}'.", StatusCodes.Status400BadRequest);
+                        {
+                            string errorMessage = _messageProvider.GetMessage(MessageIds.sap_componentExists, new string[] { model.CompId, model.DocId });
+                            _logger.LogError(errorMessage);
+                            return _responseFactory.CreateError(errorMessage, StatusCodes.Status403Forbidden);
+                        }
 
                         var filePath = await _downloadFileHandler.DownloadDocument(comp.Data, comp.FileName);
                         if (string.IsNullOrWhiteSpace(filePath))
@@ -257,7 +265,7 @@ public class BaseServices : IBaseServices
                 var archiveRecord = trimRepo.GetRecord(createSapDocumentModels.DocId, createSapDocumentModels.ContRep);
                 if (archiveRecord is null)
                 {
-                    return _responseFactory.CreateError("No document with ID '%1%' was found");
+                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { createSapDocumentModels.DocId }));
                 }
                 else
                 {
@@ -268,12 +276,12 @@ public class BaseServices : IBaseServices
                         foreach (SapDocumentComponentModel model in components)
                         {
                             if (string.IsNullOrWhiteSpace(model.CompId))
-                                return _responseFactory.CreateError("Component ID is missing.", StatusCodes.Status400BadRequest);
+                                return _responseFactory.CreateError("Component ID was not specified", StatusCodes.Status400BadRequest);
 
                             IRecordSapComponent? recComp = archiveRecord.FindComponentById(model.CompId);
                             if (recComp == null)
                             {
-                                return _responseFactory.CreateError($"No Component with ID'{model.CompId}' was found in document '{createSapDocumentModels.DocId}'.", StatusCodes.Status404NotFound);
+                                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { model.CompId, createSapDocumentModels.DocId }), StatusCodes.Status404NotFound);
                             }
                             else
                             {

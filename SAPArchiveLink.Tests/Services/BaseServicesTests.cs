@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Moq;
 using System.ComponentModel;
+using TRIM.SDK;
 
 namespace SAPArchiveLink.Tests
 {
@@ -14,7 +15,7 @@ namespace SAPArchiveLink.Tests
         private Mock<ITrimRepository> _trimRepoMock;
         private Mock<IArchiveRecord> _archiveRecordMock;
         private Mock<IRecordSapComponent> _recordSapComponentMock;
-        //private Mock<IBaseServices> _service;
+        private Mock<ISdkMessageProvider> _messageProviderMock;
         private BaseServices _service;
 
         [SetUp]
@@ -25,8 +26,9 @@ namespace SAPArchiveLink.Tests
             _dbConnectionMock = new Mock<IDatabaseConnection>();
             _trimRepoMock = new Mock<ITrimRepository>();
             _downloadFileHandlerMock = new Mock<IDownloadFileHandler>();
-            _archiveRecordMock = new Mock<IArchiveRecord>(); // Initialize _archiveRecordMock
-            _recordSapComponentMock = new Mock<IRecordSapComponent>(); // Initialize _recordSapComponentMock
+            _archiveRecordMock = new Mock<IArchiveRecord>();
+            _recordSapComponentMock = new Mock<IRecordSapComponent>();
+            _messageProviderMock = new Mock<ISdkMessageProvider>();
 
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(_trimRepoMock.Object);
 
@@ -34,7 +36,9 @@ namespace SAPArchiveLink.Tests
                 _loggerMock.Object,
                 _responseFactoryMock.Object,
                 _dbConnectionMock.Object,
-                _downloadFileHandlerMock.Object);
+                _downloadFileHandlerMock.Object,
+                _messageProviderMock.Object
+            );
         }
 
         [Test]
@@ -97,8 +101,12 @@ namespace SAPArchiveLink.Tests
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
 
+            var errorMessage = "Document doc1 not found";
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_documentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError("Record not found", StatusCodes.Status404NotFound)).Returns(errorResponse);
+            _responseFactoryMock.Setup(f => f.CreateError(errorMessage, StatusCodes.Status404NotFound)).Returns(errorResponse);
 
             var result = await _service.DocGetSapComponents(sapDoc);
 
@@ -116,8 +124,12 @@ namespace SAPArchiveLink.Tests
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
 
+            var errorMessage = "Component compX not found in doc1";
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_componentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError("Component 'compX' not found", StatusCodes.Status404NotFound)).Returns(errorResponse);
+            _responseFactoryMock.Setup(f => f.CreateError(errorMessage, StatusCodes.Status404NotFound)).Returns(errorResponse);
 
             var result = await _service.DocGetSapComponents(sapDoc);
 
@@ -205,8 +217,13 @@ namespace SAPArchiveLink.Tests
             var repoMock = new Mock<ITrimRepository>();
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
+
+            var errorMessage = "Document doc not found";
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_documentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+            _responseFactoryMock.Setup(f => f.CreateError(errorMessage, StatusCodes.Status404NotFound)).Returns(errorResponse);
 
             var result = await _service.GetSapDocument(sapDoc);
 
@@ -235,18 +252,23 @@ namespace SAPArchiveLink.Tests
         {
             var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = "compX" };
             var recordMock = new Mock<IArchiveRecord>();
-            // Remove HasComponent setup
             recordMock.Setup(r => r.ExtractComponentById("compX")).ReturnsAsync((SapDocumentComponentModel)null);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+
+            var errorMessage = "Component compX not found in doc";
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_componentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError("Component 'compX' not found", StatusCodes.Status404NotFound)).Returns(errorResponse);
+            _responseFactoryMock.Setup(f => f.CreateError(errorMessage, StatusCodes.Status404NotFound)).Returns(errorResponse);
 
             var result = await _service.GetSapDocument(sapDoc);
 
             Assert.That(result, Is.EqualTo(errorResponse));
         }
+
 
         [Test]
         public async Task GetSapDocument_ReturnsError_WhenComponentCouldNotBeLoaded()
@@ -259,7 +281,10 @@ namespace SAPArchiveLink.Tests
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError("Component 'comp1' not found", StatusCodes.Status404NotFound)).Returns(errorResponse);
+            var errorMessage = "Component 'comp1' not found";
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_componentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+            _responseFactoryMock.Setup(f => f.CreateError(errorMessage, StatusCodes.Status404NotFound)).Returns(errorResponse);
 
             var result = await _service.GetSapDocument(sapDoc);
 
@@ -482,7 +507,7 @@ namespace SAPArchiveLink.Tests
 
             Assert.That(result, Is.EqualTo(expectedResponse));
         }
-
+        
         [Test]
         public async Task GetSapDocument_Returns404_WhenCompIdIsNullAndNoDataOrData1()
         {
@@ -549,6 +574,37 @@ namespace SAPArchiveLink.Tests
             Assert.IsNotNull(result);
         }
 
+        [Test]
+        public async Task CreateRecord_ReturnsError_WhenComponentExists()
+        {
+            var model = new CreateSapDocumentModel
+            {
+                DocId = "doc",
+                ContRep = "rep",
+                CompId = "comp",
+                PVersion = "1",
+                ContentLength = "10",
+                Components = new List<SapDocumentComponentModel>
+            {
+                new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+            }
+            };
+            var recordMock = new Mock<IArchiveRecord>();
+            recordMock.Setup(r => r.HasComponent("comp")).Returns(true);
+            _trimRepoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
+
+            var errorMessage = "Component comp already exists in doc";
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_componentExists, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(errorMessage, StatusCodes.Status403Forbidden)).Returns(errorResponse);
+
+            var result = await _service.CreateRecord(model);
+
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
         #endregion
 
         #region UpdateRecord ServiceTests
@@ -609,16 +665,23 @@ namespace SAPArchiveLink.Tests
                 Components = new List<SapDocumentComponentModel>()
             };
             _trimRepoMock.Setup(x => x.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
-            _responseFactoryMock.Setup(x => x.CreateError(It.IsAny<string>(), It.IsAny<int>()))
-                .Returns(Mock.Of<ICommandResponse>());
+
+            var errorMessage = "Document doc1 not found";
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_documentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(x => x.CreateError(errorMessage, It.IsAny<int>()))
+                .Returns(errorResponse);
 
             // Act
             var result = await _service.UpdateRecord(model, false);
 
             // Assert
             Assert.IsNotNull(result);
-            _responseFactoryMock.Verify(x => x.CreateError(It.Is<string>(s => s.Contains("No document with ID")), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
         }
+
 
         [Test]
         public async Task UpdateRecord_ComponentNotFound_ReturnsError()
@@ -645,16 +708,23 @@ namespace SAPArchiveLink.Tests
 
             _trimRepoMock.Setup(x => x.GetRecord(docId, contRep)).Returns(_archiveRecordMock.Object);
             _archiveRecordMock.Setup(x => x.FindComponentById(compId)).Returns((IRecordSapComponent)null);
-            _responseFactoryMock.Setup(x => x.CreateError(It.IsAny<string>(), It.IsAny<int>()))
-                .Returns(Mock.Of<ICommandResponse>());
+
+            var errorMessage = "Component comp1 not found in doc1";
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_componentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(x => x.CreateError(errorMessage, It.IsAny<int>()))
+                .Returns(errorResponse);
 
             // Act
             var result = await _service.UpdateRecord(model, false);
 
             // Assert
             Assert.IsNotNull(result);
-            _responseFactoryMock.Verify(x => x.CreateError(It.Is<string>(s => s.Contains("No Component with ID")), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
         }
+
 
         [Test]
         public async Task UpdateRecord_MissingComponentId_ReturnsError()

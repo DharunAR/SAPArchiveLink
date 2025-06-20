@@ -68,7 +68,6 @@ namespace SAPArchiveLink
             services.AddScoped<ICommandHandler, GetContentCommandHandler>();
 
 
-            //services.AddScoped<ICMArchieveLinkClient,CMArchieveLinkClient>();
             services.AddScoped<IDatabaseConnection, DatabaseConnection>();         
             services.AddSingleton<ICommandResponseFactory, CommandResponseFactory>();
             services.AddScoped<IBaseServices, BaseServices>();
@@ -91,6 +90,7 @@ namespace SAPArchiveLink
             }
             services.Configure<TrimConfigSettings>(configSection);
             services.AddSingleton<TrimInitialization>();
+            services.AddSingleton<ISdkMessageProvider, SdkMessageProvider>();
             services.AddScoped<IDownloadFileHandler>(sp => new DownloadFileHandler(config.WorkPath));
         }
 

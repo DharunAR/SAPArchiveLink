@@ -44,6 +44,7 @@ namespace SAPArchiveLink
 
         public async Task<List<SapDocumentComponentModel>> ExtractAllComponents()
         {
+            _log.LogInformation($"Extracting all components from record {_record.SapDocumentId}");
             var result = new List<SapDocumentComponentModel>();
 
             foreach (RecordSapComponent sdkComponent in _record.ChildSapComponents)
@@ -58,6 +59,7 @@ namespace SAPArchiveLink
 
         public async Task<SapDocumentComponentModel?> ExtractComponentById(string compId)
         {
+            _log.LogInformation($"Extracting component with ID: {compId} from record {_record.SapDocumentId}");
             foreach (RecordSapComponent sdkComponent in _record.ChildSapComponents)
             {
                 if (sdkComponent.ComponentId == compId)
@@ -74,7 +76,7 @@ namespace SAPArchiveLink
             var recType = GetRecordType(db, trimConfig, model.ContRep, logger);
             if (recType == null)
             {
-                logger.LogError($"No valid record type found for content repository '{model.ContRep}'.");
+                logger.LogError(TrimApplication.GetMessage(MessageIds.sap_NoValidRecTypeFound, model.ContRep));
                 return null;
             }
 
@@ -98,6 +100,7 @@ namespace SAPArchiveLink
         {
             if (!string.IsNullOrWhiteSpace(config.RecordTypeName))
             {
+                logger.LogInformation($"Get RecordType by name: {config.RecordTypeName}");
                 var tmo = db.FindTrimObjectByName(BaseObjectTypes.RecordType, config.RecordTypeName);
                 if (tmo is RecordType rt)
                 {
@@ -105,15 +108,12 @@ namespace SAPArchiveLink
                     {
                         return rt;
                     }
-
-                    logger.LogError($"Record Type '{config.RecordTypeName}' cannot be used. Only SAP Document behaviour types are allowed.");
                     return null;
                 }
-
-                logger.LogError($"No valid record type found with name '{config.RecordTypeName}'.");
                 return null;
             }
 
+            logger.LogInformation($"Get RecordType by SapRepository: {contRep}");
             var tmos = new TrimMainObjectSearch(db, BaseObjectTypes.RecordType);
             var clause = new TrimSearchClause(db, BaseObjectTypes.RecordType, SearchClauseIds.RecordTypeSaprepository);
             clause.SetCriteriaFromString(contRep);
@@ -124,8 +124,6 @@ namespace SAPArchiveLink
                 var uris = tmos.GetResultAsUriArray(1);
                 return new RecordType(db, uris[0]);
             }
-
-            logger.LogError($"No RecordType found for content repository '{contRep}'.");
             return null;
         }
 
