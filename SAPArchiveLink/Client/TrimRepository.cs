@@ -41,5 +41,25 @@ namespace SAPArchiveLink
         }
 
         public void Dispose() => _db.Dispose();
+
+        /// <summary>
+        /// Puts an archive certificate into the record.
+        /// </summary>
+        /// <param name="authId"></param>
+        /// <param name="protectionLevel"></param>
+        /// <param name="certificate"></param>
+        /// <param name="contRep"></param>
+        /// <returns></returns>
+        public void PutArchiveCertificate(string authId, int protectionLevel, IArchiveCertificate archiveCertificate, string contRep)
+        {            
+            string serialName = archiveCertificate.getSerialNumber();
+            string fingerPrint = archiveCertificate.GetFingerprint();
+            string issuer = archiveCertificate.getIssuerName();
+            TrimDateTime validFrom = TrimDateTime.Parse(archiveCertificate.ValidFrom());
+            TrimDateTime validTill = TrimDateTime.Parse(archiveCertificate.ValidTill());
+         //   _db.saveCertificate();
+
+          
+        }
     }
 }

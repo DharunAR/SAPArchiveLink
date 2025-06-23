@@ -56,12 +56,15 @@ app.Use(async (context, next) =>
         context.Response.Redirect($"{basePath}/ContentServer", permanent: false);
         return;
     }
-    var clientCert = await context.Connection.GetClientCertificateAsync();
-    if (clientCert == null || !clientCert.Verify())
+    if (!app.Environment.IsDevelopment())
     {
-        context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        await context.Response.WriteAsync("Invalid client certificate.");
-        return;
+        var clientCert = await context.Connection.GetClientCertificateAsync();
+        if (clientCert == null || !clientCert.Verify())
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsync("Invalid client certificate.");
+            return;
+        }
     }
     await next();
 });

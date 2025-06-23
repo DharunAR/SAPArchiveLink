@@ -12,14 +12,8 @@ namespace SAPArchiveLink
 
         public ArchiveCertificate(X509Certificate2 certificate, int permission = 0, bool isUsedInElibContext = false)
         {
-            _certificate = certificate ?? throw new ArgumentNullException(nameof(certificate));
-          //  _permission = permission;
-            //_isUsedInElibContext = isUsedInElibContext;
-        }
-        // Fix for CS1729: 'object' does not contain a constructor that takes 1 arguments
-        // The issue is that the `base(certData)` call is invalid because the base class of `ArchiveCertificate` is `object`, 
-        // which does not have a constructor that accepts arguments. Since `ArchiveCertificate` does not inherit from any other class, 
-        // the `base(certData)` call should be removed.
+            _certificate = certificate ?? throw new ArgumentNullException(nameof(certificate));        
+        } 
 
         private ArchiveCertificate(byte[] certData)
         {
@@ -33,11 +27,6 @@ namespace SAPArchiveLink
 
         public static ArchiveCertificate FromByteArray(byte[] data)
         {
-            if (data == null || data.Length == 0)
-            {
-                throw new ArgumentNullException(nameof(data), "Input certificate cannot be null or empty.");
-            }
-
             ArchiveCertificate? certificate = null;
             MemoryStream? ms = null;
 

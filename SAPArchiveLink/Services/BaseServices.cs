@@ -1,6 +1,8 @@
-﻿using System;
+﻿using SAPArchiveLink.Services;
+using System;
 using System.Reflection;
 using TRIM.SDK;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SAPArchiveLink;
 public class BaseServices : IBaseServices
@@ -12,15 +14,17 @@ public class BaseServices : IBaseServices
     private ISdkMessageProvider _messageProvider;
     const string COMP_DATA = "data";
     const string COMP_DATA1 = "data1";
+    private ICertificateFactory _certificateFactory;
 
     public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection, 
-        IDownloadFileHandler downloadFileHandler, ISdkMessageProvider messageProvider)
+        IDownloadFileHandler downloadFileHandler, ISdkMessageProvider messageProvider, ICertificateFactory certificateFactory)
     {
         _logger = helperLogger;
         _responseFactory = commandResponseFactory;
         _databaseConnection = databaseConnection;
         _downloadFileHandler = downloadFileHandler;
         _messageProvider = messageProvider;
+        _certificateFactory= certificateFactory;
     }
 
     /// <summary>
@@ -31,46 +35,49 @@ public class BaseServices : IBaseServices
     /// <param name="contRepId"></param>
     /// <param name="permissions"></param>
     /// <returns></returns>
-    public async Task<ICommandResponse> PutCert(string authId, Stream inputStream, string contRepId, string permissions)
+    public async Task<ICommandResponse> PutCert(PutCertificateModel putCertificateModel)
     {
         try
         {
-            const string MN = "PutCert";
-            if (string.IsNullOrWhiteSpace(authId))
+            var validationResults = ModelValidator.Validate(putCertificateModel);
+            if (validationResults.Any())
             {
-                _logger.LogError($"{MN} - Missing required parameter: authId");
-                //need to look at the error code here,  it is a 404 error
-                return _responseFactory.CreateError("Missing required parameter: authId", StatusCodes.Status404NotFound);
-            }
-            if (string.IsNullOrWhiteSpace(contRepId))
-            {
-                _logger.LogError($"{MN} - Missing required parameter: contRep");
-                return _responseFactory.CreateError("\"Parameter 'contRep' must not be null or empty", StatusCodes.Status404NotFound);
+                var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
+                var combinedErrorMessage = string.Join("; ", allErrorMessages);
+                return _responseFactory.CreateError(combinedErrorMessage);
             }
 
             using var memoryStream = new MemoryStream();
-            byte[] buffer = new byte[1024 * 2]; // 2 KB buffer
+            byte[] buffer = new byte[1024 * 2]; // 2 KB buffer  
             int bytesRead;
 
-            while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            while ((bytesRead = await putCertificateModel.Stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
             {
                 await memoryStream.WriteAsync(buffer, 0, bytesRead);
             }
-
-            int protectionLevel = -1;
-            if (!string.IsNullOrWhiteSpace(permissions))
+            if (memoryStream.ToArray() == null || memoryStream.ToArray().Length == 0)
             {
-                protectionLevel = SecurityUtils.AccessModeToInt(permissions);
+                return _responseFactory.CreateError("Certificate cannot be recognized", StatusCodes.Status406NotAcceptable);
             }
-
-            //await _archiveClient.PutArchiveCertificate(authId, protectionLevel, memoryStream.ToArray(), contRepId);
+            IArchiveCertificate? archiveCertificate = null;
+            archiveCertificate = _certificateFactory.FromByteArray(memoryStream.ToArray());
+            int protectionLevel = -1;
+            if (!string.IsNullOrWhiteSpace(putCertificateModel.Permissions))
+            {
+                protectionLevel = SecurityUtils.AccessModeToInt(putCertificateModel.Permissions);
+            }
+            using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
+            {
+                trimRepo.PutArchiveCertificate(putCertificateModel.AuthId, protectionLevel, archiveCertificate, putCertificateModel.ContRep);
+            }
 
             return _responseFactory.CreateProtocolText("Certificate published");
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            throw;
-        }
+            _logger.LogError("An error occurred while processing PutCert."+ ex);
+            return _responseFactory.CreateError("Certificate cannot be recognized", StatusCodes.Status406NotAcceptable);
+        }      
     }
 
     /// <summary>

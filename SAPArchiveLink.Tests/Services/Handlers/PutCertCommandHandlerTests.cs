@@ -38,18 +38,27 @@ namespace SAPArchiveLink.Tests
             var fakeStream = new MemoryStream();
             var expectedResponse = Mock.Of<ICommandResponse>();
 
+            var putCertificateModel = new PutCertificateModel
+            {
+                AuthId = authId,
+                ContRep = contRep,
+                Permissions = permissions,
+                PVersion = "1",
+                Stream = fakeStream
+            };
+
             _mockCommand.Setup(c => c.GetValue(ALParameter.VarContRep)).Returns(contRep);
             _mockCommand.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns(authId);
             _mockCommand.Setup(c => c.GetValue(ALParameter.VarPermissions)).Returns(permissions);
             _mockContext.Setup(c => c.GetInputStream()).Returns(fakeStream);
-            _mockBaseServices.Setup(s => s.PutCert(authId, fakeStream, contRep, permissions))
+            _mockBaseServices.Setup(s => s.PutCert(putCertificateModel))
                 .ReturnsAsync(expectedResponse);
 
             // Act
             var result = await _handler.HandleAsync(_mockCommand.Object, _mockContext.Object);
 
             // Assert
-            Assert.That(result, Is.SameAs(expectedResponse));          
+            Assert.That(result, Is.SameAs(expectedResponse));
             _mockLogger.Verify(l => l.LogInformation(It.Is<string>(s => s.Contains("Start processing"))), Times.Once);
         }
 
@@ -63,11 +72,20 @@ namespace SAPArchiveLink.Tests
             var errorMessage = "fail";
             var errorResponse = Mock.Of<ICommandResponse>();
 
+            var putCertificateModel = new PutCertificateModel
+            {
+                AuthId = authId,
+                ContRep = contRep,
+                Permissions = permissions,
+                PVersion = "1",
+                Stream = null
+            };
+
             _mockCommand.Setup(c => c.GetValue(ALParameter.VarContRep)).Returns(contRep);
             _mockCommand.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns(authId);
             _mockCommand.Setup(c => c.GetValue(ALParameter.VarPermissions)).Returns(permissions);
             _mockContext.Setup(c => c.GetInputStream()).Returns(fakeStream);
-            _mockBaseServices.Setup(s => s.PutCert(authId, fakeStream, contRep, permissions))
+            _mockBaseServices.Setup(s => s.PutCert(putCertificateModel))
                 .ThrowsAsync(new InvalidOperationException(errorMessage));
             _mockResponseFactory.Setup(f => f.CreateError(errorMessage, It.IsAny<int>())).Returns(errorResponse);
 
