@@ -210,6 +210,31 @@ namespace SAPArchiveLink
                 throw;
             }
         }
+
+        public bool DeleteComponent(string compId)
+        {
+            try
+            {
+                var compToDelete = ComponentsAdapter.FindComponentById(compId);
+                if (compToDelete != null)
+                {
+                    compToDelete.DeleteComponent();
+                    _log.LogInformation($"Component {compId} deleted successfully from record {_record.SapDocumentId}.");
+                    return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _log.LogError($"Error deleting component {compId} from record {_record.SapDocumentId}", ex);
+                throw;
+            }
+        }
+
+        public void DeleteRecord()
+        {
+            _record.Delete();
+        }
     }
 
 }

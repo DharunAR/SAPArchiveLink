@@ -56,5 +56,10 @@ namespace SAPArchiveLink
         {
             _recordSapComponent.SetDocument(filePath);
         }
+
+        public void DeleteComponent()
+        {
+            _recordSapComponent.Delete();
+        }
     }
 }

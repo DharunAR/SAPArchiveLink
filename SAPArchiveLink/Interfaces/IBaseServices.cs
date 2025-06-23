@@ -7,5 +7,6 @@
         Task<ICommandResponse> DocGetSapComponents(SapDocumentRequest sapDocumentRequest);
         Task<ICommandResponse> GetSapDocument(SapDocumentRequest sapDoc);
         Task<ICommandResponse> UpdateRecord(CreateSapDocumentModel createSapDocumentModels, bool isMultipart = false);
+        Task<ICommandResponse> DeleteSapDocument(SapDocumentRequest sapDoc);
     }
 }

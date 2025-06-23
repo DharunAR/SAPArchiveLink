@@ -11,5 +11,6 @@
         DateTime DateModified { get; set; }
 
         void SetDocument(string filePath);
+        void DeleteComponent();
     }
 }

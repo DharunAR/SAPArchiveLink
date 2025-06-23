@@ -1026,5 +1026,92 @@ namespace SAPArchiveLink.Tests
         }
 
         #endregion
+
+        #region Delete ServiceTests
+
+        [Test]
+        public async Task DeleteSapDocument_ReturnsError_WhenValidationFails()
+        {
+            var sapDoc = new SapDocumentRequest { DocId = null, ContRep = null, PVersion = null };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.DeleteSapDocument(sapDoc);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task DeleteSapDocument_ReturnsError_WhenRecordNotFound()
+        {
+            var sapDoc = new SapDocumentRequest { DocId = "doc1", ContRep = "rep1", PVersion = "v1" };
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns((IArchiveRecord)null);
+
+            var errorMessage = "Document doc1 not found";
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_documentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+            _responseFactoryMock.Setup(f => f.CreateError(errorMessage, StatusCodes.Status404NotFound)).Returns(errorResponse);
+
+            var result = await _service.DeleteSapDocument(sapDoc);
+
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task DeleteSapDocument_DeletesRecord_WhenNoCompId()
+        {
+            var sapDoc = new SapDocumentRequest { DocId = "doc1", ContRep = "rep1", PVersion = "v1" };
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
+
+            var successResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.Is<string>(s => s.Contains("deleted successfully")), It.IsAny<int>(), It.IsAny<string>()))
+                .Returns(successResponse);
+
+            var result = await _service.DeleteSapDocument(sapDoc);
+
+            _archiveRecordMock.Verify(r => r.DeleteRecord(), Times.Once);
+            Assert.That(result, Is.EqualTo(successResponse));
+        }
+
+        [Test]
+        public async Task DeleteSapDocument_DeletesComponent_WhenCompIdProvided_AndExists()
+        {
+            var sapDoc = new SapDocumentRequest { DocId = "doc1", ContRep = "rep1", PVersion = "v1", CompId = "comp1" };
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
+            _archiveRecordMock.Setup(r => r.DeleteComponent("comp1")).Returns(true);
+
+            var successResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.Is<string>(s => s.Contains("deleted successfully")), It.IsAny<int>(), It.IsAny<string>()))
+                .Returns(successResponse);
+
+            var result = await _service.DeleteSapDocument(sapDoc);
+
+            _archiveRecordMock.Verify(r => r.DeleteComponent("comp1"), Times.Once);
+            _archiveRecordMock.Verify(r => r.SetRecordMetadata(), Times.Once);
+            _archiveRecordMock.Verify(r => r.Save(), Times.Once);
+            Assert.That(result, Is.EqualTo(successResponse));
+        }
+
+        [Test]
+        public async Task DeleteSapDocument_ReturnsError_WhenComponentNotFound()
+        {
+            var sapDoc = new SapDocumentRequest { DocId = "doc1", ContRep = "rep1", PVersion = "v1", CompId = "compX" };
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
+            _archiveRecordMock.Setup(r => r.DeleteComponent("compX")).Returns(false);
+
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.Is<string>(s => s.Contains("not found")), StatusCodes.Status404NotFound))
+                .Returns(errorResponse);
+
+            var result = await _service.DeleteSapDocument(sapDoc);
+
+            _archiveRecordMock.Verify(r => r.DeleteComponent("compX"), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        #endregion
+
     }
 }

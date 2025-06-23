@@ -122,56 +122,49 @@ public class BaseServices : IBaseServices
     /// <returns>Returns 200 OK on success, 400 for missing parameters, 404 for missing record/component, or 500 for server errors.</returns>
     public async Task<ICommandResponse> GetSapDocument(SapDocumentRequest sapDoc)
     {
-        try
+        var validationResults = ModelValidator.Validate(sapDoc);
+        if (validationResults.Any())
         {
-            var validationResults = ModelValidator.Validate(sapDoc);
-            if (validationResults.Any())
-            {
-                var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
-                var combinedErrorMessage = string.Join("; ", allErrorMessages);
-                return _responseFactory.CreateError(combinedErrorMessage);
-            }
+            var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
+            var combinedErrorMessage = string.Join("; ", allErrorMessages);
+            return _responseFactory.CreateError(combinedErrorMessage);
+        }
 
-            //TODO
-            ValidateSignature(sapDoc);
-            using (ITrimRepository db = _databaseConnection.GetDatabase())
+        //TODO
+        ValidateSignature(sapDoc);
+        using (ITrimRepository db = _databaseConnection.GetDatabase())
+        {
+            var record = db.GetRecord(sapDoc.DocId, sapDoc.ContRep);
+            if (record == null)
             {
-                var record = db.GetRecord(sapDoc.DocId, sapDoc.ContRep);
-                if (record == null)
-                {
-                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId }), StatusCodes.Status404NotFound);
-                }
+                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId }), StatusCodes.Status404NotFound);
+            }
+            if (string.IsNullOrWhiteSpace(sapDoc.CompId))
+            {
+                sapDoc.CompId = GetComponentId(sapDoc.CompId, record);
                 if (string.IsNullOrWhiteSpace(sapDoc.CompId))
                 {
-                    sapDoc.CompId = GetComponentId(sapDoc.CompId, record);
-                    if (string.IsNullOrWhiteSpace(sapDoc.CompId))
-                    {
-                        return _responseFactory.CreateError("No valid component found", StatusCodes.Status404NotFound);
-                    }
+                    return _responseFactory.CreateError("No valid component found", StatusCodes.Status404NotFound);
                 }
-                var component = await record.ExtractComponentById(sapDoc.CompId);
-                if (component == null)
-                {
-                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId }), StatusCodes.Status404NotFound);
-                }
-
-                var (stream, length, rangeError) = await GetRangeStream(component.Data, component.ContentLength, sapDoc.FromOffset, sapDoc.ToOffset);
-                if (rangeError != null)
-                    return rangeError;
-
-                var response = _responseFactory.CreateDocumentContent(stream, component.ContentType, StatusCodes.Status200OK, component.FileName);
-                if (!string.IsNullOrWhiteSpace(component.Charset))
-                    response.ContentType += $"; charset={component.Charset}";
-                if (!string.IsNullOrWhiteSpace(component.Version))
-                    response.ContentType += $"; version={component.Version}";
-                response.AddHeader("Content-Length", length.ToString());
-
-                return response;
             }
-        }
-        catch (Exception ex)
-        {
-            return _responseFactory.CreateError(ex.Message, StatusCodes.Status500InternalServerError);
+            var component = await record.ExtractComponentById(sapDoc.CompId);
+            if (component == null)
+            {
+                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId }), StatusCodes.Status404NotFound);
+            }
+
+            var (stream, length, rangeError) = await GetRangeStream(component.Data, component.ContentLength, sapDoc.FromOffset, sapDoc.ToOffset);
+            if (rangeError != null)
+                return rangeError;
+
+            var response = _responseFactory.CreateDocumentContent(stream, component.ContentType, StatusCodes.Status200OK, component.FileName);
+            if (!string.IsNullOrWhiteSpace(component.Charset))
+                response.ContentType += $"; charset={component.Charset}";
+            if (!string.IsNullOrWhiteSpace(component.Version))
+                response.ContentType += $"; version={component.Version}";
+            response.AddHeader("Content-Length", length.ToString());
+
+            return response;
         }
     }
 
@@ -305,6 +298,52 @@ public class BaseServices : IBaseServices
         }
         return _responseFactory.CreateProtocolText("Component(s) updated successfully.", StatusCodes.Status200OK);
     }
+
+    /// <summary>
+    /// Delete the RecordSapDocument with all components if compId is not provided
+    /// specific component will be deleted, if compId is presented in the request query parameters
+    /// </summary>
+    /// <param name="sapDoc"></param>
+    /// <returns></returns>
+    public async Task<ICommandResponse> DeleteSapDocument(SapDocumentRequest sapDoc)
+    {
+        var validationResults = ModelValidator.Validate(sapDoc);
+        if (validationResults.Any())
+        {
+            var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
+            var combinedErrorMessage = string.Join("; ", allErrorMessages);
+            return _responseFactory.CreateError(combinedErrorMessage);
+        }
+
+        //TODO
+        ValidateSignature(sapDoc);
+
+        using (var db = _databaseConnection.GetDatabase())
+        {
+            var record = db.GetRecord(sapDoc.DocId, sapDoc.ContRep);
+            if (record == null)
+            {
+                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId }), StatusCodes.Status404NotFound);
+            }
+            if (string.IsNullOrWhiteSpace(sapDoc.CompId))
+            {
+                //Delete document with all components
+                record.DeleteRecord();
+                return _responseFactory.CreateProtocolText($"Document {sapDoc.DocId} and all associated components deleted successfully");
+            }
+            else
+            {
+                if (record.DeleteComponent(sapDoc.CompId))
+                {
+                    record.SetRecordMetadata();
+                    record.Save();
+                    return _responseFactory.CreateProtocolText($"Component {sapDoc.CompId} deleted successfully");
+                }
+                return _responseFactory.CreateError($"Component {sapDoc.CompId} not found in document {sapDoc.DocId}", StatusCodes.Status404NotFound);
+            }
+        }
+    }
+
 
     #region Helper methods
 

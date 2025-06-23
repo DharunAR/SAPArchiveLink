@@ -18,6 +18,8 @@ namespace SAPArchiveLink
         void AddComponent(string compId, string filePath, string contentType, string charSet, string version);
         void UpdateComponent(IRecordSapComponent component,SapDocumentComponentModel model);
         public void SetRecordMetadata();
+        bool DeleteComponent(string compId);
+        void DeleteRecord();
     }
 
 }
