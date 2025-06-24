@@ -25,6 +25,8 @@
 
         string GetCertSubject();
         void SetCertSubject(string certSubject);
+        bool IsValid { get; }
+        string ValidationError { get; }
     }
 
 }

@@ -9,6 +9,7 @@
     }
     public enum ALCommandTemplate
     {
+        Unknown,
         // Access Functions
         INFO,
         GET,

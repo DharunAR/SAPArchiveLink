@@ -1,10 +1,7 @@
-﻿using System;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
-using NUnit.Framework;
 using SAPArchiveLink.Controllers;
 
 namespace SAPArchiveLink.Tests
@@ -71,13 +68,13 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
-        public async Task Handle_Returns400_WhenALExceptionThrown()
+        public async Task Handle_Returns400_WhenExceptionThrown()
         {
             _httpContext.Request.QueryString = new QueryString("?param=value");
             _httpContext.Request.ContentType = "application/json";
             _httpContext.Request.Method = "GET";
             _dispatcherMock.Setup(d => d.RunRequest(It.IsAny<CommandRequest>(), It.IsAny<ContentServerRequestAuthenticator>()))
-                .ThrowsAsync(new ALException("Test error"));
+                .ThrowsAsync(new Exception("Test error"));
 
             var result = await _controller.Handle();
             Assert.That(result, Is.InstanceOf<ObjectResult>());
@@ -101,10 +98,5 @@ namespace SAPArchiveLink.Tests
             Assert.That(objectResult.StatusCode, Is.EqualTo(500));
             Assert.That(objectResult.Value.ToString(), Does.Contain("An unexpected error occurred."));
         }
-    }
-
-    public class ALException : Exception
-    {
-        public ALException(string message) : base(message) { }
     }
 }

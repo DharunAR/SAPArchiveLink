@@ -54,10 +54,6 @@ namespace SAPArchiveLink.Controllers
 
                 return await _dispatcher.RunRequest(commandRequest, _authenticator);
             }
-            catch (ALException ex)
-            {
-                return StatusCode(400, new { error = ex.Message });
-            }
             catch (Exception ex)
             {
                 return StatusCode(500, new { error = "An unexpected error occurred.", details = ex.Message });

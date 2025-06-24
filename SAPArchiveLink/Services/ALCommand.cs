@@ -3,22 +3,17 @@
     public class ALCommand : ICommand
     {
         private ALCommandTemplate _template;
-        public ALCommandTemplate Template
-        {
-            get { return _template; }
-            private set
-            {
-                _template = value;
-            }
-        }
         private readonly string _httpMethod;
         private readonly CommandParameters _parameters;
         private readonly string _accessMode;
         private readonly string _charset;
-        private readonly ILogger<ALCommand> _logger;
         private bool _isImmutable;
         private bool _isVerified;
         private string _certSubject;
+        private string _validationError;
+
+        public string ValidationError => _validationError;
+        public bool IsValid => string.IsNullOrWhiteSpace(_validationError);
 
         #region Constants
 
@@ -39,23 +34,18 @@
 
         #endregion
 
-        private ALCommand(CommandRequest context)
+        public ALCommand(CommandRequest context)
         {
             _httpMethod = context.HttpMethod;
             _template = ALCommandTemplateResolver.Parse(_httpMethod, context.Url);
-            _charset = "UTF-8"; // Hardcoded as IConfiguration is not used
+            _charset = "UTF-8";
             _parameters = new CommandParameters();
             _parameters.ParseQueryString(context.Url);
             _accessMode = ALCommandTemplateMetadata.GetAccessMode(_template);
 
-            string expectedHttpMethod = ALCommandTemplateMetadata.GetHttpMethod(_template);
-            if (_httpMethod != expectedHttpMethod)
+            if (_template == ALCommandTemplate.Unknown)
             {
-                throw new ALException(
-                    "INVALID_HTTP_METHOD",
-                    "Invalid HTTP method {0} for command {1}. Expected {2}.",
-                    new object[] { _httpMethod, _template.ToString(), expectedHttpMethod },
-                    400);
+                _validationError = $"Unsupported command in URL or HTTP method: {context.HttpMethod} {context.Url}";
             }
         }
 
