@@ -17,6 +17,7 @@ namespace SAPArchiveLink.Tests
         private Mock<IRecordSapComponent> _recordSapComponentMock;
         private Mock<ISdkMessageProvider> _messageProviderMock;
         private Mock<ICertificateFactory> _certificateFactoryMock;
+        private Mock<IArchiveCertificate> _archiveCertificateMock;
         private BaseServices _service;
 
         [SetUp]
@@ -31,7 +32,7 @@ namespace SAPArchiveLink.Tests
             _recordSapComponentMock = new Mock<IRecordSapComponent>();
             _messageProviderMock = new Mock<ISdkMessageProvider>();
             _certificateFactoryMock = new Mock<ICertificateFactory>();
-
+            _archiveCertificateMock = new Mock<IArchiveCertificate>();
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(_trimRepoMock.Object);
 
             _service = new BaseServices(
@@ -85,6 +86,23 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
+        public async Task PutCert_WithValiddata__ReturnsError_WhenCertificateCannotBeRecognized()
+        {
+            // Arrange
+            var model = new PutCertificateModel
+            {
+                AuthId = "auth",
+                ContRep = "contRep",
+                PVersion = "1.0",
+                Stream = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
+            _trimRepoMock.Setup(f => f.PutArchiveCertificate(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<IArchiveCertificate>(), It.IsAny<string>())).Throws(new InvalidOperationException("Test exception"));
+
+            var result = await _service.PutCert(model);
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("Certificate cannot be recognized")), StatusCodes.Status406NotAcceptable), Times.AtLeastOnce);
+        }
+        [Test]
         public async Task PutCert_Success_ReturnsProtocolText()
         {
             // Arrange
@@ -92,6 +110,7 @@ namespace SAPArchiveLink.Tests
             {
                 AuthId = "auth",
                 ContRep = "contRep",
+                Permissions="crud",
                 PVersion = "1.0",
                 Stream = new MemoryStream(new byte[] { 1, 2, 3 })
             };
