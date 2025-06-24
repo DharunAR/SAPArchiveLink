@@ -16,6 +16,7 @@ namespace SAPArchiveLink.Tests
         private Mock<IArchiveRecord> _archiveRecordMock;
         private Mock<IRecordSapComponent> _recordSapComponentMock;
         private Mock<ISdkMessageProvider> _messageProviderMock;
+        private Mock<ICertificateFactory> _certificateFactoryMock;
         private BaseServices _service;
 
         [SetUp]
@@ -29,6 +30,7 @@ namespace SAPArchiveLink.Tests
             _archiveRecordMock = new Mock<IArchiveRecord>();
             _recordSapComponentMock = new Mock<IRecordSapComponent>();
             _messageProviderMock = new Mock<ISdkMessageProvider>();
+            _certificateFactoryMock = new Mock<ICertificateFactory>();
 
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(_trimRepoMock.Object);
 
@@ -37,44 +39,77 @@ namespace SAPArchiveLink.Tests
                 _responseFactoryMock.Object,
                 _dbConnectionMock.Object,
                 _downloadFileHandlerMock.Object,
-                _messageProviderMock.Object
+                _messageProviderMock.Object,
+                _certificateFactoryMock.Object
             );
         }
 
         [Test]
-        public async Task PutCert_ReturnsError_WhenAuthIdMissing()
+        public async Task PutCert_ReturnsError_WhenModelIsInvalid()
         {
-            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
-                .Returns(Mock.Of<ICommandResponse>());
-
-            var result = await _service.PutCert(null, new MemoryStream(), "contRep", "crud");
-
-            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains("authId")), StatusCodes.Status404NotFound), Times.Once);
-            Assert.IsNotNull(result);
+            // Arrange
+            var model = new PutCertificateModel
+            {
+                AuthId = null, // Required, so invalid
+                ContRep = "contRep",
+                PVersion = "1.0",
+                Stream = new MemoryStream()
+            };
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(Mock.Of<ICommandResponse>());
+            // Act
+            var result = await _service.PutCert(model);
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("authId is required.")), StatusCodes.Status400BadRequest), Times.Once);
         }
 
         [Test]
-        public async Task PutCert_ReturnsError_WhenContRepIdMissing()
+        public async Task PutCert_ReturnsError_WhenCertificateCannotBeRecognized()
         {
-            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
-                .Returns(Mock.Of<ICommandResponse>());
-
-            var result = await _service.PutCert("auth", new MemoryStream(), null, "crud");
-
-            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains("contRep")), StatusCodes.Status404NotFound), Times.Once);
-            Assert.IsNotNull(result);
+            // Arrange
+            var model = new PutCertificateModel
+            {
+                AuthId = "auth",
+                ContRep = "contRep",
+                PVersion = "1.0",
+                Stream = new MemoryStream(new byte[0])
+            };
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(Mock.Of<ICommandResponse>());
+           // Simulate ArchiveCertificate.FromByteArray throws
+            //typeof(ArchiveCertificate)
+            //    .GetMethod("FromByteArray")
+            //    ?.Invoke(null, new object[] { new byte[0] });
+            // Act
+            var result = await _service.PutCert(model);
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("Certificate cannot be recognized")), StatusCodes.Status406NotAcceptable), Times.AtLeastOnce);
         }
 
         [Test]
-        public async Task PutCert_ReturnsProtocolText_OnSuccess()
+        public async Task PutCert_Success_ReturnsProtocolText()
         {
-            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
-                .Returns(Mock.Of<ICommandResponse>());
+            // Arrange
+            var model = new PutCertificateModel
+            {
+                AuthId = "auth",
+                ContRep = "contRep",
+                PVersion = "1.0",
+                Stream = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
 
-            var result = await _service.PutCert("auth", new MemoryStream(new byte[] { 1, 2, 3 }), "contRep", "crud");
+            var mockFactory = new Mock<ICertificateFactory>();
+            mockFactory.Setup(f => f.FromByteArray(It.IsAny<byte[]>()))
+                       .Returns(Mock.Of<IArchiveCertificate>(c =>
+                           c.getIssuerName() == "Mock Issuer" &&
+                           c.ValidTill() == "2030-01-01"));
 
-            _responseFactoryMock.Verify(f => f.CreateProtocolText(It.Is<string>(s => s.Contains("Certificate published")), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
-            Assert.IsNotNull(result);
+
+           // var archiveCert = ArchiveCertificate.FromByteArray(new byte[] { 1, 2, 3 });
+            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), 200, It.IsAny<string>())).Returns(Mock.Of<ICommandResponse>());
+            _trimRepoMock.Setup(r => r.PutArchiveCertificate(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<ArchiveCertificate>(), It.IsAny<string>()));
+            // Act
+            var result = await _service.PutCert(model);
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateProtocolText("Certificate published", 200, It.IsAny<string>()), Times.Once);
         }
 
         #region DocGet ServiceTests

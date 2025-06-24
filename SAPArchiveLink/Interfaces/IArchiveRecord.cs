@@ -19,7 +19,7 @@ namespace SAPArchiveLink
         void UpdateComponent(IRecordSapComponent component,SapDocumentComponentModel model);
         public void SetRecordMetadata();
         bool DeleteComponent(string compId);
-        void DeleteRecord();
+        void DeleteRecord();    
     }
 
 }

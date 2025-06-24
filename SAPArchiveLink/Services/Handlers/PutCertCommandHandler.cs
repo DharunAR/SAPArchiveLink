@@ -1,4 +1,6 @@
-﻿namespace SAPArchiveLink
+﻿using System;
+
+namespace SAPArchiveLink
 {
     public class PutCertCommandHandler : ICommandHandler
     {
@@ -25,16 +27,22 @@
             const string MN = "PutCert";
             _logger.LogInformation($"{MN} - Start processing");
             ICommandResponse respose;
-            // Logger.Enter(MN); // Assuming Logger is your logging class
-
-            //  IAccessIdentifier accessIdentifier = CreateAccessIdentifier(command, context);
             string contRep = command.GetValue(ALParameter.VarContRep);
             string authId = command.GetValue(ALParameter.VarAuthId);
-            string permissions = command.GetValue(ALParameter.VarPermissions);        
+            string permissions = command.GetValue(ALParameter.VarPermissions);
+            string pVersion = command.GetValue(ALParameter.VarPVersion);
+            var putCertificateModel = new PutCertificateModel
+            {
+                ContRep = contRep,
+                AuthId = authId,
+                PVersion = pVersion,
+                Permissions = permissions,
+                Stream = context.GetInputStream(),
+            }; 
 
             try
             {
-                respose = await _baseServices.PutCert(authId, context.GetInputStream(), contRep, permissions);       
+                respose = await _baseServices.PutCert(putCertificateModel);       
             }
             catch (Exception ex)
             {

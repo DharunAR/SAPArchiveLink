@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using SAPArchiveLink.Services;
 using TRIM.SDK;
 
 namespace SAPArchiveLink
@@ -73,6 +74,7 @@ namespace SAPArchiveLink
             services.AddSingleton<ICommandResponseFactory, CommandResponseFactory>();
             services.AddScoped<IBaseServices, BaseServices>();
             services.AddTransient(typeof(ILogHelper<>), typeof(LogHelper<>));
+            services.AddScoped<ICertificateFactory, CertificateFactory>();
         }
 
         /// <summary>
