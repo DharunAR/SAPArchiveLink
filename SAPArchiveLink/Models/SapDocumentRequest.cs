@@ -17,6 +17,7 @@ namespace SAPArchiveLink
         public string Expiration { get; set; }
         public long FromOffset { get; set; }
         public long ToOffset { get; set; }
+        public string ResultAs { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

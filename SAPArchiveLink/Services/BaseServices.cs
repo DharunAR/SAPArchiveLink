@@ -1,8 +1,4 @@
-﻿using SAPArchiveLink.Services;
-using System;
-using System.Reflection;
-using TRIM.SDK;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+﻿using TRIM.SDK;
 
 namespace SAPArchiveLink;
 public class BaseServices : IBaseServices
