@@ -5,94 +5,77 @@ namespace SAPArchiveLink.Tests
     [TestFixture]
     public class PutCertCommandHandlerTests
     {
-        private Mock<ILogHelper<PutCertCommandHandler>> _mockLogger;
-        private Mock<ICommandResponseFactory> _mockResponseFactory;
-        private Mock<IBaseServices> _mockBaseServices;
-        private Mock<ICommand> _mockCommand;
-        private Mock<ICommandRequestContext> _mockContext;
+        private Mock<ILogHelper<PutCertCommandHandler>> _loggerMock;
+        private Mock<ICommandResponseFactory> _responseFactoryMock;
+        private Mock<IBaseServices> _baseServicesMock;
+        private Mock<ICommand> _commandMock;
+        private Mock<ICommandRequestContext> _contextMock;
         private PutCertCommandHandler _handler;
+        private Mock<ICommandResponse> _commandResponseMock;
 
         [SetUp]
         public void SetUp()
         {
-            _mockLogger = new Mock<ILogHelper<PutCertCommandHandler>>();
-            _mockResponseFactory = new Mock<ICommandResponseFactory>();
-            _mockBaseServices = new Mock<IBaseServices>();
-            _mockCommand = new Mock<ICommand>();
-            _mockContext = new Mock<ICommandRequestContext>();
+            _loggerMock = new Mock<ILogHelper<PutCertCommandHandler>>();
+            _responseFactoryMock = new Mock<ICommandResponseFactory>();
+            _baseServicesMock = new Mock<IBaseServices>();
+            _commandMock = new Mock<ICommand>();
+            _contextMock = new Mock<ICommandRequestContext>();
+            _commandResponseMock = new Mock<ICommandResponse>();
 
             _handler = new PutCertCommandHandler(
-                _mockLogger.Object,
-                _mockResponseFactory.Object,
-                _mockBaseServices.Object
+                _loggerMock.Object,
+                _responseFactoryMock.Object,
+                _baseServicesMock.Object
             );
         }
 
         [Test]
-        public async Task HandleAsync_Success_ReturnsCommandResponse()
+        public async Task HandleAsync_ReturnsResponse_WhenPutCertSucceeds()
         {
             // Arrange
-            var contRep = "CONTREP";
-            var authId = "AUTHID";
-            var permissions = "PERM";
-            var fakeStream = new MemoryStream();
-            var expectedResponse = Mock.Of<ICommandResponse>();
-
-            var putCertificateModel = new PutCertificateModel
-            {
-                AuthId = authId,
-                ContRep = contRep,
-                Permissions = permissions,
-                PVersion = "1",
-                Stream = fakeStream
-            };
-
-            _mockCommand.Setup(c => c.GetValue(ALParameter.VarContRep)).Returns(contRep);
-            _mockCommand.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns(authId);
-            _mockCommand.Setup(c => c.GetValue(ALParameter.VarPermissions)).Returns(permissions);
-            _mockContext.Setup(c => c.GetInputStream()).Returns(fakeStream);
-            _mockBaseServices.Setup(s => s.PutCert(putCertificateModel))
-                .ReturnsAsync(expectedResponse);
+            _commandMock.Setup(c => c.GetValue(ALParameter.VarContRep)).Returns("contRep1");
+            _commandMock.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns("authId1");
+            _commandMock.Setup(c => c.GetValue(ALParameter.VarPermissions)).Returns("perm1");
+            _commandMock.Setup(c => c.GetValue(ALParameter.VarPVersion)).Returns("v1");
+            var stream = new MemoryStream();
+            _contextMock.Setup(c => c.GetInputStream()).Returns(stream);
+            _baseServicesMock.Setup(b => b.PutCert(It.IsAny<PutCertificateModel>()))
+                .ReturnsAsync(_commandResponseMock.Object);
 
             // Act
-            var result = await _handler.HandleAsync(_mockCommand.Object, _mockContext.Object);
+            var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
 
             // Assert
-            Assert.That(result, Is.SameAs(expectedResponse));
-            _mockLogger.Verify(l => l.LogInformation(It.Is<string>(s => s.Contains("Start processing"))), Times.Once);
+            Assert.That(result, Is.SameAs(_commandResponseMock.Object));
+            _loggerMock.Verify(l => l.LogInformation(It.Is<string>(s => s.Contains("Start processing"))), Times.Once);
+            _baseServicesMock.Verify(b => b.PutCert(It.Is<PutCertificateModel>(m =>
+                m.ContRep == "contRep1" &&
+                m.AuthId == "authId1" &&
+                m.Permissions == "perm1" &&
+                m.PVersion == "v1" &&
+                m.Stream == stream
+            )), Times.Once);
         }
 
         [Test]
-        public async Task HandleAsync_WhenBaseServicesThrows_ReturnsErrorResponse()
+        public async Task HandleAsync_ReturnsErrorResponse_WhenPutCertThrowsException()
         {
-            var contRep = "CONTREP";
-            var authId = "AUTHID";
-            var permissions = "PERM";
-            var fakeStream = new MemoryStream();
-            var errorMessage = "fail";
-            var errorResponse = Mock.Of<ICommandResponse>();
+            // Arrange
+            _commandMock.Setup(c => c.GetValue(It.IsAny<string>())).Returns(string.Empty);
+            _contextMock.Setup(c => c.GetInputStream()).Returns(Stream.Null);
+            var exception = new Exception("fail!");
+            _baseServicesMock.Setup(b => b.PutCert(It.IsAny<PutCertificateModel>()))
+                .ThrowsAsync(exception);
+            var errorResponseMock = new Mock<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError("fail!", It.IsAny<int>())).Returns(errorResponseMock.Object);
 
-            var putCertificateModel = new PutCertificateModel
-            {
-                AuthId = authId,
-                ContRep = contRep,
-                Permissions = permissions,
-                PVersion = "1",
-                Stream = null
-            };
+            // Act
+            var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
 
-            _mockCommand.Setup(c => c.GetValue(ALParameter.VarContRep)).Returns(contRep);
-            _mockCommand.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns(authId);
-            _mockCommand.Setup(c => c.GetValue(ALParameter.VarPermissions)).Returns(permissions);
-            _mockContext.Setup(c => c.GetInputStream()).Returns(fakeStream);
-            _mockBaseServices.Setup(s => s.PutCert(putCertificateModel))
-                .ThrowsAsync(new InvalidOperationException(errorMessage));
-            _mockResponseFactory.Setup(f => f.CreateError(errorMessage, It.IsAny<int>())).Returns(errorResponse);
-
-            var result = await _handler.HandleAsync(_mockCommand.Object, _mockContext.Object);
-
-            Assert.That(result, Is.SameAs(errorResponse));
-            _mockResponseFactory.Verify(f => f.CreateError(errorMessage, It.IsAny<int>()), Times.Once);
+            // Assert
+            Assert.That(result, Is.SameAs(errorResponseMock.Object));
+            _responseFactoryMock.Verify(f => f.CreateError("fail!", It.IsAny<int>()), Times.Once);
         }
     }
 }
