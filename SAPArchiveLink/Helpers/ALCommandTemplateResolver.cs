@@ -60,7 +60,7 @@ namespace SAPArchiveLink
                 ("GET", "getannotations") => ALCommandTemplate.GETANNOTATIONS,
                 ("PUT", "distributecontent") => ALCommandTemplate.DISTRIBUTECONTENT,
                 ("GET", "getcontent") => ALCommandTemplate.GETCONTENT,
-                _ => throw new ALException(400, $"Unknown command: {commandName} for HTTP method {httpMethod}")
+                _ => ALCommandTemplate.Unknown
             };
         }
     }

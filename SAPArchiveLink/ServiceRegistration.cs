@@ -13,6 +13,7 @@ namespace SAPArchiveLink
         public static void RegisterServices(IServiceCollection services)
         {
             services.AddControllers();
+            services.AddSingleton<ICommandHandlerRegistry, CommandHandlerRegistry>();
             services.AddScoped<ICommandDispatcherService, ALCommandDispatcher>();
             services.AddScoped<IVerifier, Verifier>();
             services.AddScoped<ContentServerRequestAuthenticator>();
