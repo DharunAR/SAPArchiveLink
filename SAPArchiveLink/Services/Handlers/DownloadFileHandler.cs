@@ -13,12 +13,33 @@ namespace SAPArchiveLink
             _saveDirectory = saveDirectory;
         }
 
+        private string NormalizeContentType(string contentType)
+        {
+            if (contentType.StartsWith("Content-Type:", StringComparison.OrdinalIgnoreCase))
+                return contentType.Substring("Content-Type:".Length).Trim();
+            return contentType;
+        }
+
         public async Task<List<SapDocumentComponentModel>> HandleRequestAsync(string contentType, Stream body, string docId)
         {
             var uploadedFiles = new List<SapDocumentComponentModel>();
+            contentType = NormalizeContentType(contentType);
 
             try
             {
+                if (!body.CanSeek)
+                {
+                    var buffered = new MemoryStream();
+                    await body.CopyToAsync(buffered);
+                    buffered.Position = 0;
+                    body = buffered;
+                }
+                else
+                {
+                    body.Position = 0;
+                    body.Seek(0, SeekOrigin.Begin);
+                }
+
                 if (string.IsNullOrEmpty(contentType) || !contentType.Contains("multipart/form-data"))
                 {
                     uploadedFiles = await ParseSinglepartManuallyAsync(contentType, body, docId);
@@ -29,9 +50,9 @@ namespace SAPArchiveLink
                 }
 
             }
-            catch
+            catch(Exception ex)
             {
-
+                throw;
             }
 
             return uploadedFiles;
@@ -152,6 +173,7 @@ namespace SAPArchiveLink
                 throw new InvalidOperationException("Boundary not found in Content-Type.");
 
             var reader = new MultipartReader(boundary, body);
+               
             MultipartSection? section;
 
             while ((section = await reader.ReadNextSectionAsync()) != null)
@@ -175,11 +197,15 @@ namespace SAPArchiveLink
                     {
                         filePath = getFilePath(compId, contentTypeHeader.ToString());
                     }
+         
+                    var buffered = new MemoryStream();
+                    await section.Body.CopyToAsync(buffered);
+                    buffered.Position = 0;
 
                     uploadedFiles.Add(new SapDocumentComponentModel
                     {
                         CompId = compId.FirstOrDefault() ?? string.Empty,
-                        Data = section.Body,
+                        Data = buffered,
                         FileName = filePath,
                         ContentType = contentTypeHeader.ToString(),
                         Charset = ExtractCharset(contentTypeHeader.ToString()),
@@ -191,7 +217,6 @@ namespace SAPArchiveLink
 
             return uploadedFiles;
         }
-
         private string GetBoundaryFromContentType(string? contentType)
         {
             if (string.IsNullOrEmpty(contentType))
@@ -202,7 +227,7 @@ namespace SAPArchiveLink
             var elements = contentType.Split(';', StringSplitOptions.RemoveEmptyEntries);
             var boundaryElement = Array.Find(elements, e => e.Trim().StartsWith("boundary=", StringComparison.OrdinalIgnoreCase));
             return boundaryElement?.Split('=')[1].Trim('"') ?? throw new InvalidOperationException("Boundary not found in Content-Type.");
-        }      
+        }
 
         public void ClearAllFiles(string? filePath = null)
         {

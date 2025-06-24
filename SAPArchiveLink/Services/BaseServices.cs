@@ -182,7 +182,7 @@ public class BaseServices : IBaseServices
         SapDocumentComponentModel[] components = [];
         try
         {
-            var validationResults = ModelValidator.Validate(model);
+            var validationResults = ModelValidator.Validate(model, !isMultipart);
 
             if (validationResults.Any())
             {
@@ -213,7 +213,7 @@ public class BaseServices : IBaseServices
 
                         if (archiveRecord.HasComponent(comp.CompId))
                         {
-                            string errorMessage = _messageProvider.GetMessage(MessageIds.sap_componentExists, new string[] { model.CompId, model.DocId });
+                            string errorMessage = _messageProvider.GetMessage(MessageIds.sap_componentExists, new string[] { comp.CompId, model.DocId });
                             _logger.LogError(errorMessage);
                             return _responseFactory.CreateError(errorMessage, StatusCodes.Status403Forbidden);
                         }
