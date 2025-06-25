@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Net;
+using System.Text;
 using TRIM.SDK;
 
 namespace SAPArchiveLink;
@@ -561,27 +562,33 @@ public class BaseServices : IBaseServices
         html.AppendLine("<html><head><meta charset=\"utf-8\"><title>Document Info</title></head><body>");
         html.AppendLine("<h1>Document Information</h1>");
         html.AppendLine("<table border='1'><tr><th>Field</th><th>Value</th></tr>");
-        html.AppendLine($"<tr><td>Document ID</td><td>{doc.DocId}</td></tr>");
+        html.AppendLine($"<tr><td>Document ID</td><td>{HtmlEncode(doc.DocId)}</td></tr>");
         html.AppendLine($"<tr><td>Components</td><td>{components.Count}</td></tr>");
         html.AppendLine("</table>");
 
         html.AppendLine("<h2>Components</h2>");
         html.AppendLine("<table border='1'><tr><th>ID</th><th>Type</th><th>Length</th><th>Status</th><th>Created</th><th>Modified</th></tr>");
+
         foreach (var c in components)
         {
-            html.AppendLine($"<tr>" +
-                            $"<td>{c.CompId}</td>" +
-                            $"<td>{c.ContentType}</td>" +
-                            $"<td>{c.ContentLength}</td>" +
-                            $"<td>{c.Status}</td>" +
-                            $"<td>{c.CreationDate:yyyy-MM-dd HH:mm:ss}</td>" +
-                            $"<td>{c.ModifiedDate:yyyy-MM-dd HH:mm:ss}</td>" +
-                            $"</tr>");
+            html.AppendLine("<tr>" +
+                $"<td>{HtmlEncode(c.CompId)}</td>" +
+                $"<td>{HtmlEncode(c.ContentType)}</td>" +
+                $"<td>{c.ContentLength}</td>" +
+                $"<td>{HtmlEncode(c.Status)}</td>" +
+                $"<td>{c.CreationDate:yyyy-MM-dd HH:mm:ss}</td>" +
+                $"<td>{c.ModifiedDate:yyyy-MM-dd HH:mm:ss}</td>" +
+                "</tr>");
         }
+
         html.AppendLine("</table>");
         html.AppendLine("</body></html>");
-
         return html.ToString();
+    }
+
+    private string HtmlEncode(string? input)
+    {
+        return WebUtility.HtmlEncode(input ?? string.Empty);
     }
 
     #endregion

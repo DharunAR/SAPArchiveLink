@@ -38,6 +38,7 @@ namespace SAPArchiveLink
                     AccessMode = command.GetValue(ALParameter.VarAccessMode),
                     AuthId = command.GetValue(ALParameter.VarAuthId),
                     Expiration = command.GetValue(ALParameter.VarExpiration),
+                    ResultAs = command.GetValue(ALParameter.VarResultAs)
                 };
 
                 return await _baseService.GetDocumentInfo(sapDocumentRequest);
