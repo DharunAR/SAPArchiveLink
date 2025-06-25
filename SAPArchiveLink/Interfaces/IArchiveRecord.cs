@@ -9,8 +9,8 @@ namespace SAPArchiveLink
         SapDocumentComponentModel? GetComponentById(string compId);
         public IRecordSapComponent? FindComponentById(string compId);
         bool HasComponent(string compId);
-        Task<List<SapDocumentComponentModel>> ExtractAllComponents();
-        Task<SapDocumentComponentModel?> ExtractComponentById(string compId);
+        Task<List<SapDocumentComponentModel>> ExtractAllComponents(bool extractContent = true);
+        Task<SapDocumentComponentModel?> ExtractComponentById(string compId, bool extractContent = true);
         DateTime DateCreated { get; }
         DateTime DateModified { get; }
         int ComponentCount { get; }

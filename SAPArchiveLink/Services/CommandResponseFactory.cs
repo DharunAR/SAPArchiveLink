@@ -16,7 +16,9 @@
 
         public ICommandResponse CreateError(string message, int statusCode = StatusCodes.Status400BadRequest)
             => CommandResponse.ForError(message, statusCode);
-     
+
+        public ICommandResponse CreateInfoMetadata(List<SapDocumentComponentModel> components, int statusCode = 200)
+            => CommandResponse.ForInfoMetadata(components, statusCode);
     }
 
 }

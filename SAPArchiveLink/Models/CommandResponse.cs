@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.StaticFiles;
 using System.Net.Mime;
+using System.Text;
 
 namespace SAPArchiveLink
 {
@@ -96,6 +97,26 @@ namespace SAPArchiveLink
         }
 
         /// <summary>
+        /// Creates a multipart/form-data response containing metadata for multiple document components.
+        /// </summary>
+        /// <param name="components"></param>
+        /// <param name="statusCode"></param>
+        /// <returns></returns>
+        public static CommandResponse ForInfoMetadata(List<SapDocumentComponentModel> components, int statusCode = StatusCodes.Status200OK)
+        {
+            string boundary = $"info_{Guid.NewGuid():N}";
+            return new CommandResponse
+            {
+                Components = components,
+                StatusCode = statusCode,
+                ContentType = $"multipart/form-data; boundary={boundary}",
+                Boundary = boundary,
+                IsStream = false
+            };
+        }
+
+
+        /// <summary>
         /// Creates a plain text error response with an SAP ArchiveLink-compliant message body
         /// and appropriate HTTP status code.
         /// </summary>
@@ -144,6 +165,5 @@ namespace SAPArchiveLink
             }
             return contentType;
         }
-
     }
 }

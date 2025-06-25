@@ -42,14 +42,14 @@ namespace SAPArchiveLink
             return FindComponentById(compId) != null;
         }
 
-        public async Task<List<SapDocumentComponentModel>> ExtractAllComponents()
+        public async Task<List<SapDocumentComponentModel>> ExtractAllComponents(bool extractContent = true)
         {
             _log.LogInformation($"Extracting all components from record {_record.SapDocumentId}");
             var result = new List<SapDocumentComponentModel>();
 
             foreach (RecordSapComponent sdkComponent in _record.ChildSapComponents)
             {
-                var sapComponent = await ExtractToSapComponent(sdkComponent);
+                var sapComponent = await ExtractToSapComponent(sdkComponent, extractContent);
                 if (sapComponent != null)
                     result.Add(sapComponent);
             }
@@ -57,14 +57,14 @@ namespace SAPArchiveLink
             return result;
         }
 
-        public async Task<SapDocumentComponentModel?> ExtractComponentById(string compId)
+        public async Task<SapDocumentComponentModel?> ExtractComponentById(string compId, bool extractContent = true)
         {
             _log.LogInformation($"Extracting component with ID: {compId} from record {_record.SapDocumentId}");
             foreach (RecordSapComponent sdkComponent in _record.ChildSapComponents)
             {
                 if (sdkComponent.ComponentId == compId)
                 {
-                    return await ExtractToSapComponent(sdkComponent);
+                    return await ExtractToSapComponent(sdkComponent, extractContent);
                 }
             }
 
@@ -137,16 +137,18 @@ namespace SAPArchiveLink
                 .Replace("%contrep%", model.ContRep);
         }
 
-        private async Task<SapDocumentComponentModel> ExtractToSapComponent(RecordSapComponent sdkComponent)
+        private async Task<SapDocumentComponentModel> ExtractToSapComponent(RecordSapComponent sdkComponent, bool extractContent)
         {
-            var extractDocument = sdkComponent.GetExtractDocument();
-            if(extractDocument != null)
+            var component = ExtractComponentMetadata(sdkComponent);
+            if (extractContent)
             {
-                string uploadsPath = $"{_trimConfig.WorkPath}\\Uploads";
+                var extractDocument = sdkComponent.GetExtractDocument();
+                if (extractDocument == null)
+                    return null;
+                string uploadsPath = Path.Combine(_trimConfig.WorkPath, "Uploads");
                 Directory.CreateDirectory(uploadsPath);
-                var fileName = File.Exists(extractDocument.FileName)
-                    ? extractDocument.FileName
-                    : Path.Combine(uploadsPath);
+
+                var fileName = File.Exists(extractDocument.FileName) ? extractDocument.FileName : Path.Combine(uploadsPath);
 
                 extractDocument.DoExtract(fileName, true, false, string.Empty);
 
@@ -155,23 +157,28 @@ namespace SAPArchiveLink
                 await fileStream.CopyToAsync(memoryStream);
                 memoryStream.Position = 0;
 
-                return new SapDocumentComponentModel
-                {
-                    CompId = sdkComponent.ComponentId,
-                    ContentType = sdkComponent.ContentType ?? "application/octet-stream",
-                    Charset = sdkComponent.CharacterSet ?? "UTF-8",
-                    Version = sdkComponent.ApplicationVersion,
-                    ContentLength = sdkComponent.Bytes,
-                    CreationDate = sdkComponent.ArchiveDate,
-                    ModifiedDate = sdkComponent.DateModified,
-                    Status = "online",
-                    PVersion = sdkComponent.ArchiveLinkVersion,
-                    Data = memoryStream,
-                    FileName = fileName
-                };
+                component.Data = memoryStream;
+                component.FileName = fileName;
             }
-            return null;
+            return component;
         }
+
+        public SapDocumentComponentModel ExtractComponentMetadata(RecordSapComponent sdkComponent)
+        {
+            return new SapDocumentComponentModel
+            {
+                CompId = sdkComponent.ComponentId,
+                ContentType = sdkComponent.ContentType ?? "application/octet-stream",
+                Charset = sdkComponent.CharacterSet ?? "UTF-8",
+                Version = sdkComponent.ApplicationVersion,
+                ContentLength = sdkComponent.Bytes,
+                CreationDate = sdkComponent.ArchiveDate,
+                ModifiedDate = sdkComponent.DateModified,
+                Status = "online",
+                PVersion = sdkComponent.ArchiveLinkVersion
+            };
+        }
+
 
         public void AddComponent(string compId, string filePath, string contentType, string charSet, string version)
         {

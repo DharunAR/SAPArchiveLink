@@ -1,4 +1,5 @@
-﻿using TRIM.SDK;
+﻿using System.Text;
+using TRIM.SDK;
 
 namespace SAPArchiveLink;
 public class BaseServices : IBaseServices
@@ -347,6 +348,50 @@ public class BaseServices : IBaseServices
         }
     }
 
+    /// <summary>
+    /// Get Document Info from ArchiveLink repository.
+    /// </summary>
+    /// <param name="sapDoc"></param>
+    /// <returns></returns>
+    public async Task<ICommandResponse> GetDocumentInfo(SapDocumentRequest sapDoc)
+    {
+        var validationResults = ModelValidator.Validate(sapDoc);
+        if (validationResults.Any())
+        {
+            var message = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
+            return _responseFactory.CreateError(message);
+        }
+
+        ValidateSignature(sapDoc);
+        bool isHtml = sapDoc.ResultAs?.Equals("html", StringComparison.OrdinalIgnoreCase) == true;
+
+        using var trimRepo = _databaseConnection.GetDatabase();
+        var recordAdapter = trimRepo.GetRecord(sapDoc.DocId, sapDoc.ContRep);
+        if (recordAdapter == null)
+            return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, [sapDoc.DocId]), StatusCodes.Status404NotFound);
+
+        if (!string.IsNullOrWhiteSpace(sapDoc.CompId))
+        {
+            var component = await recordAdapter.ExtractComponentById(sapDoc.CompId, extractContent: false);
+            if (component == null)
+                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, [sapDoc.CompId, sapDoc.DocId]), StatusCodes.Status404NotFound);
+
+            if (isHtml)
+                return CreateHtmlResponse(sapDoc, [component], recordAdapter);
+
+            return GetSingleComponentResponse(component, sapDoc, true);
+        }
+
+        if (isHtml)
+        {
+            var components = recordAdapter.GetAllComponents();
+            return CreateHtmlResponse(sapDoc, components, recordAdapter);
+        }
+
+        var multipartComponents = await recordAdapter.ExtractAllComponents(extractContent: false);
+        return GetMultiPartResponse(multipartComponents, recordAdapter, sapDoc, true);
+    }
+
 
     #region Helper methods
 
@@ -371,10 +416,35 @@ public class BaseServices : IBaseServices
     /// <param name="component"></param>
     /// <param name="sapDoc"></param>
     /// <returns></returns>
-    private ICommandResponse GetSingleComponentResponse(SapDocumentComponentModel component, SapDocumentRequest sapDoc)
+    private ICommandResponse GetSingleComponentResponse(SapDocumentComponentModel component, SapDocumentRequest sapDoc, bool isInfo = false)
     {
-        var response = _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName);
+        var response = !isInfo ? _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName)
+            : _responseFactory.CreateInfoMetadata(new List<SapDocumentComponentModel>() { component });
 
+        AddSingleComponentHeaders(component, sapDoc, response);
+
+        return response;
+    }
+
+    /// <summary>
+    /// Returns Multipart response for DocGet
+    /// </summary>
+    /// <param name="multipartComponents"></param>
+    /// <param name="record"></param>
+    /// <param name="sapDoc"></param>
+    /// <returns></returns>
+    private ICommandResponse GetMultiPartResponse(List<SapDocumentComponentModel> multipartComponents, IArchiveRecord record, SapDocumentRequest sapDoc, bool isInfo = false)
+    {
+        var multipartResponse = !isInfo ? _responseFactory.CreateMultipartDocument(multipartComponents) 
+                                : _responseFactory.CreateInfoMetadata(multipartComponents);
+
+        AddMultiPartHeaders(multipartComponents, record, sapDoc, multipartResponse);
+
+        return multipartResponse;
+    }
+
+    private ICommandResponse AddSingleComponentHeaders(SapDocumentComponentModel component, SapDocumentRequest sapDoc, ICommandResponse response)
+    {
         response.AddHeader("X-compId", component.CompId);
         response.AddHeader("X-Content-Length", component.ContentLength.ToString());
         response.AddHeader("X-compDateC", component.CreationDate.ToUniversalTime().ToString("yyyy-MM-dd"));
@@ -389,17 +459,8 @@ public class BaseServices : IBaseServices
         return response;
     }
 
-    /// <summary>
-    /// Returns Multipart response for DocGet
-    /// </summary>
-    /// <param name="multipartComponents"></param>
-    /// <param name="record"></param>
-    /// <param name="sapDoc"></param>
-    /// <returns></returns>
-    private ICommandResponse GetMultiPartResponse(List<SapDocumentComponentModel> multipartComponents, IArchiveRecord record, SapDocumentRequest sapDoc)
+    private ICommandResponse AddMultiPartHeaders(List<SapDocumentComponentModel> multipartComponents, IArchiveRecord record, SapDocumentRequest sapDoc, ICommandResponse multipartResponse)
     {
-        var multipartResponse = _responseFactory.CreateMultipartDocument(multipartComponents);
-
         multipartResponse.AddHeader("X-dateC", record.DateCreated.ToUniversalTime().ToString("yyyy-MM-dd"));
         multipartResponse.AddHeader("X-timeC", record.DateCreated.ToUniversalTime().ToString("HH:mm:ss"));
         multipartResponse.AddHeader("X-dateM", record.DateModified.ToUniversalTime().ToString("yyyy-MM-dd"));
@@ -412,6 +473,7 @@ public class BaseServices : IBaseServices
 
         return multipartResponse;
     }
+
 
     private void ValidateSignature(SapDocumentRequest sapReq)
     {
@@ -478,7 +540,50 @@ public class BaseServices : IBaseServices
         originalStream.Position = 0;
         return (originalStream, contentLength, null);
     }
-        
+
+    private ICommandResponse CreateHtmlResponse(SapDocumentRequest doc, List<SapDocumentComponentModel> components, IArchiveRecord record)
+    {
+        var html = BuildHtmlInfoPage(doc, components);
+        var response = _responseFactory.CreateHtmlReport(html);
+
+        if (components.Count == 1)
+            AddSingleComponentHeaders(components[0], doc, response);
+        else
+            AddMultiPartHeaders(components, record, doc, response);
+
+        return response;
+    }
+
+    private string BuildHtmlInfoPage(SapDocumentRequest doc, List<SapDocumentComponentModel> components)
+    {
+        var html = new StringBuilder();
+        html.AppendLine("<!DOCTYPE html>");
+        html.AppendLine("<html><head><meta charset=\"utf-8\"><title>Document Info</title></head><body>");
+        html.AppendLine("<h1>Document Information</h1>");
+        html.AppendLine("<table border='1'><tr><th>Field</th><th>Value</th></tr>");
+        html.AppendLine($"<tr><td>Document ID</td><td>{doc.DocId}</td></tr>");
+        html.AppendLine($"<tr><td>Components</td><td>{components.Count}</td></tr>");
+        html.AppendLine("</table>");
+
+        html.AppendLine("<h2>Components</h2>");
+        html.AppendLine("<table border='1'><tr><th>ID</th><th>Type</th><th>Length</th><th>Status</th><th>Created</th><th>Modified</th></tr>");
+        foreach (var c in components)
+        {
+            html.AppendLine($"<tr>" +
+                            $"<td>{c.CompId}</td>" +
+                            $"<td>{c.ContentType}</td>" +
+                            $"<td>{c.ContentLength}</td>" +
+                            $"<td>{c.Status}</td>" +
+                            $"<td>{c.CreationDate:yyyy-MM-dd HH:mm:ss}</td>" +
+                            $"<td>{c.ModifiedDate:yyyy-MM-dd HH:mm:ss}</td>" +
+                            $"</tr>");
+        }
+        html.AppendLine("</table>");
+        html.AppendLine("</body></html>");
+
+        return html.ToString();
+    }
+
     #endregion
 
 }
