@@ -172,7 +172,7 @@ namespace SAPArchiveLink.Tests
         {
             var sapDoc = new SapDocumentRequest { DocId = "doc1", ContRep = "rep1", PVersion = "v1", CompId = "compX" };
             var recordMock = new Mock<IArchiveRecord>();
-            recordMock.Setup(r => r.ExtractComponentById("compX")).ReturnsAsync((SapDocumentComponentModel)null);
+            recordMock.Setup(r => r.ExtractComponentById("compX", true)).ReturnsAsync((SapDocumentComponentModel)null);
 
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
@@ -208,7 +208,7 @@ namespace SAPArchiveLink.Tests
             };
 
             var recordMock = new Mock<IArchiveRecord>();
-            recordMock.Setup(r => r.ExtractComponentById("comp1")).ReturnsAsync(component);
+            recordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
 
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
@@ -232,7 +232,7 @@ namespace SAPArchiveLink.Tests
             };
 
             var recordMock = new Mock<IArchiveRecord>();
-            recordMock.Setup(r => r.ExtractAllComponents()).ReturnsAsync(components);
+            recordMock.Setup(r => r.ExtractAllComponents(true)).ReturnsAsync(components);
             recordMock.SetupGet(r => r.DateCreated).Returns(DateTime.UtcNow);
             recordMock.SetupGet(r => r.DateModified).Returns(DateTime.UtcNow);
             recordMock.SetupGet(r => r.ComponentCount).Returns(components.Count);
@@ -306,7 +306,7 @@ namespace SAPArchiveLink.Tests
         {
             var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = "compX" };
             var recordMock = new Mock<IArchiveRecord>();
-            recordMock.Setup(r => r.ExtractComponentById("compX")).ReturnsAsync((SapDocumentComponentModel)null);
+            recordMock.Setup(r => r.ExtractComponentById("compX", true)).ReturnsAsync((SapDocumentComponentModel)null);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
@@ -330,7 +330,7 @@ namespace SAPArchiveLink.Tests
             var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = "comp1" };
             var recordMock = new Mock<IArchiveRecord>();
             // Remove HasComponent setup
-            recordMock.Setup(r => r.ExtractComponentById("comp1")).ReturnsAsync((SapDocumentComponentModel)null);
+            recordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync((SapDocumentComponentModel)null);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
@@ -361,7 +361,7 @@ namespace SAPArchiveLink.Tests
             };
             var recordMock = new Mock<IArchiveRecord>();
             // Remove HasComponent setup
-            recordMock.Setup(r => r.ExtractComponentById("comp1")).ReturnsAsync(component);
+            recordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
@@ -398,7 +398,7 @@ namespace SAPArchiveLink.Tests
             };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("comp1")).Returns(true);
-            recordMock.Setup(r => r.ExtractComponentById("comp1")).ReturnsAsync(component);
+            recordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
@@ -434,7 +434,7 @@ namespace SAPArchiveLink.Tests
             };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("comp1")).Returns(true);
-            recordMock.Setup(r => r.ExtractComponentById("comp1")).ReturnsAsync(component);
+            recordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
@@ -470,7 +470,7 @@ namespace SAPArchiveLink.Tests
             };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("comp1")).Returns(true);
-            recordMock.Setup(r => r.ExtractComponentById("comp1")).ReturnsAsync(component);
+            recordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
@@ -507,7 +507,7 @@ namespace SAPArchiveLink.Tests
             };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("comp1")).Returns(true);
-            recordMock.Setup(r => r.ExtractComponentById("comp1")).ReturnsAsync(component);
+            recordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
@@ -528,7 +528,7 @@ namespace SAPArchiveLink.Tests
             var component = new SapDocumentComponentModel { CompId = "data" };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("data")).Returns(true);
-            recordMock.Setup(r => r.ExtractComponentById("data")).ReturnsAsync(component);
+            recordMock.Setup(r => r.ExtractComponentById("data", true)).ReturnsAsync(component);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
@@ -549,7 +549,7 @@ namespace SAPArchiveLink.Tests
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("data")).Returns(false);
             recordMock.Setup(r => r.HasComponent("data1")).Returns(true);
-            recordMock.Setup(r => r.ExtractComponentById("data1")).ReturnsAsync(component);
+            recordMock.Setup(r => r.ExtractComponentById("data1", true)).ReturnsAsync(component);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
@@ -814,12 +814,12 @@ namespace SAPArchiveLink.Tests
             repoMock.Setup(r => r.CreateRecord(It.IsAny<CreateSapDocumentModel>())).Returns(recordMock.Object);
 
             var errorResponse = Mock.Of<ICommandResponse>();
-            _responseFactoryMock.Setup(f => f.CreateError("CompId is required.", StatusCodes.Status400BadRequest))
+            _responseFactoryMock.Setup(f => f.CreateError("Component ID was not specified", StatusCodes.Status400BadRequest))
                 .Returns(errorResponse);
 
             var result = await _service.CreateRecord(model, true);
 
-            _responseFactoryMock.Verify(f => f.CreateError("CompId is required.", StatusCodes.Status400BadRequest), Times.Once);
+            _responseFactoryMock.Verify(f => f.CreateError("Component ID was not specified", StatusCodes.Status400BadRequest), Times.Once);
             Assert.That(result, Is.EqualTo(errorResponse));
         }
 
