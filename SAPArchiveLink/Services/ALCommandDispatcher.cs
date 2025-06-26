@@ -6,11 +6,13 @@ namespace SAPArchiveLink
     {
         private readonly ICommandHandlerRegistry _handlerRegistry;
         private readonly ICommandResponseFactory _commandResponseFactory;
+        private readonly IDownloadFileHandler _downloadFileHandler;
 
-        public ALCommandDispatcher(ICommandHandlerRegistry handlerRegistry, ICommandResponseFactory commandResponseFactory)
+        public ALCommandDispatcher(ICommandHandlerRegistry handlerRegistry, ICommandResponseFactory commandResponseFactory, IDownloadFileHandler downloadFileHandler)
         {
             _handlerRegistry = handlerRegistry;
             _commandResponseFactory = commandResponseFactory;
+            _downloadFileHandler = downloadFileHandler;
         }
 
         public async Task<IActionResult> RunRequest(CommandRequest request, ContentServerRequestAuthenticator _authenticator)
@@ -42,7 +44,7 @@ namespace SAPArchiveLink
                 return new RedirectResult(locationUrl, false);
             }
 
-            return new ArchiveLinkResult(response);
+            return new ArchiveLinkResult(response, _downloadFileHandler);
         }
 
         private async Task<ICommandResponse> ExecuteRequest(ICommandRequestContext context, ICommand command)

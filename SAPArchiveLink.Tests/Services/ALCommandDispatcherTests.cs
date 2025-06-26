@@ -13,6 +13,7 @@ namespace SAPArchiveLink.Tests
     {
         private Mock<ICommandHandlerRegistry> _mockRegistry;
         private Mock<ICommandResponseFactory> _mockResponseFactory;
+        private Mock<IDownloadFileHandler> _mockFileHandler;
         private ALCommandDispatcher _dispatcher;
 
         [SetUp]
@@ -20,7 +21,8 @@ namespace SAPArchiveLink.Tests
         {
             _mockRegistry = new Mock<ICommandHandlerRegistry>();
             _mockResponseFactory = new Mock<ICommandResponseFactory>();
-            _dispatcher = new ALCommandDispatcher(_mockRegistry.Object, _mockResponseFactory.Object);
+            _mockFileHandler = new Mock<IDownloadFileHandler>();
+            _dispatcher = new ALCommandDispatcher(_mockRegistry.Object, _mockResponseFactory.Object, _mockFileHandler.Object);
         }
 
         [TestCase("get&compId=1", ALCommandTemplate.GET, "GET")]

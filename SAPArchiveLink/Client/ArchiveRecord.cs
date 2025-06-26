@@ -158,7 +158,7 @@ namespace SAPArchiveLink
                 memoryStream.Position = 0;
 
                 component.Data = memoryStream;
-                component.FileName = fileName;
+                component.FileName = extractDocument.FileName;
             }
             return component;
         }
