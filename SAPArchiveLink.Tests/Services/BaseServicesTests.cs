@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Moq;
-using System.ComponentModel;
 using TRIM.SDK;
 
 namespace SAPArchiveLink.Tests
@@ -44,6 +43,8 @@ namespace SAPArchiveLink.Tests
                 _certificateFactoryMock.Object
             );
         }
+
+        #region PutCert Service tests
 
         [Test]
         public async Task PutCert_ReturnsError_WhenModelIsInvalid()
@@ -130,6 +131,8 @@ namespace SAPArchiveLink.Tests
             // Assert
             _responseFactoryMock.Verify(f => f.CreateProtocolText("Certificate published", 200, It.IsAny<string>()), Times.Once);
         }
+
+        #endregion
 
         #region DocGet ServiceTests
 
@@ -1163,6 +1166,247 @@ namespace SAPArchiveLink.Tests
 
             _archiveRecordMock.Verify(r => r.DeleteComponent("compX"), Times.Once);
             Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        #endregion
+
+        #region Info ServiceTests
+
+        [Test]
+        public async Task GetDocumentInfo_InvalidModel_ReturnsValidationError()
+        {
+            var request = new SapDocumentRequest()
+            {
+                CompId = "123",
+                PVersion = "0045"
+            };
+            var expectedResponseMock = new Mock<ICommandResponse>();
+
+            _responseFactoryMock
+                .Setup(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status400BadRequest))
+                .Returns(expectedResponseMock.Object);
+
+            // Act
+            var result = await _service.GetDocumentInfo(request);
+
+            // Assert
+            Assert.IsNotNull(result);
+            Assert.AreEqual(expectedResponseMock.Object, result);
+        }
+
+
+        [Test]
+        public async Task GetDocumentInfo_DocumentNotFound_Returns404()
+        {
+            var request = GetValidRequest();
+
+            _trimRepoMock.Setup(r => r.GetRecord("DOC123", "CR1")).Returns<IArchiveRecord>(null);
+
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_documentNotFound, It.IsAny<string[]>()))
+                .Returns("Document not found");
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError("Document not found", StatusCodes.Status404NotFound))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetDocumentInfo(request);
+
+            Assert.AreEqual(expectedResponse, result);
+        }
+
+        [Test]
+        public async Task GetDocumentInfo_ComponentNotFound_Returns404()
+        {
+            var request = GetValidRequest(compId: "C1");
+
+            _trimRepoMock.Setup(r => r.GetRecord("DOC123", "CR1")).Returns(_archiveRecordMock.Object);
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("C1", false))
+                .ReturnsAsync((SapDocumentComponentModel?)null);
+
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_componentNotFound, It.IsAny<string[]>()))
+                .Returns("Component not found");
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError("Component not found", StatusCodes.Status404NotFound))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetDocumentInfo(request);
+
+            Assert.AreEqual(expectedResponse, result);
+        }
+
+
+        [Test]
+        public async Task GetDocumentInfo_SingleComponentInfo_ReturnsInfoMetadata()
+        {
+            var request = GetValidRequest(compId: "C1");
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "C1",
+                ContentLength = 123,
+                ContentType = "application/pdf",
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active"
+            };
+
+            _trimRepoMock.Setup(r => r.GetRecord("DOC123", "CR1")).Returns(_archiveRecordMock.Object);
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("C1", false)).ReturnsAsync(component);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateInfoMetadata(It.Is<List<SapDocumentComponentModel>>(list => list.Count == 1), StatusCodes.Status200OK))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetDocumentInfo(request);
+
+            Assert.AreEqual(expectedResponse, result);
+        }
+
+        [Test]
+        public async Task GetDocumentInfo_HtmlSingleComponent_ReturnsHtml()
+        {
+            var request = GetValidRequest(compId: "C1", resultAs: "html");
+
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "C1",
+                ContentLength = 100,
+                ContentType = "application/pdf",
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active"
+            };
+
+            _trimRepoMock.Setup(r => r.GetRecord("DOC123", "CR1")).Returns(_archiveRecordMock.Object);
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("C1", false)).ReturnsAsync(component);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateHtmlReport(It.Is<string>(s => s.Contains("<html>")), StatusCodes.Status200OK, "UTF-8"))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetDocumentInfo(request);
+
+            Assert.AreEqual(expectedResponse, result);
+        }
+
+        [Test]
+        public async Task GetDocumentInfo_HtmlMultiComponent_ReturnsHtml()
+        {
+            var request = GetValidRequest(resultAs: "html");
+
+            var components = new List<SapDocumentComponentModel>
+    {
+        new SapDocumentComponentModel
+        {
+            CompId = "C1",
+            ContentLength = 100,
+            ContentType = "application/pdf",
+            CreationDate = DateTime.UtcNow,
+            ModifiedDate = DateTime.UtcNow,
+            Status = "active"
+        },
+        new SapDocumentComponentModel
+        {
+            CompId = "C2",
+            ContentLength = 150,
+            ContentType = "image/png",
+            CreationDate = DateTime.UtcNow,
+            ModifiedDate = DateTime.UtcNow,
+            Status = "archived"
+        }
+    };
+
+            _trimRepoMock.Setup(r => r.GetRecord("DOC123", "CR1")).Returns(_archiveRecordMock.Object);
+            _archiveRecordMock.Setup(r => r.GetAllComponents()).Returns(components);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateHtmlReport(It.Is<string>(s => s.Contains("<html>")), StatusCodes.Status200OK, "UTF-8"))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetDocumentInfo(request);
+
+            Assert.AreEqual(expectedResponse, result);
+        }
+
+        [Test]
+        public async Task GetDocumentInfo_WithMultipleComponents_ReturnsInfoResponse()
+        {
+            var docId = "DOC001";
+            var contRep = "REP001";
+
+            var sapDoc = new SapDocumentRequest
+            {
+                DocId = docId,
+                ContRep = contRep,
+                ResultAs = null, // not "html"
+                CompId = null,   // triggers multi-part logic
+                PVersion = "0045"
+            };
+
+            var component1 = new SapDocumentComponentModel
+            {
+                CompId = "C1",
+                ContentType = "application/pdf",
+                ContentLength = 12345,
+                Status = "online",
+                CreationDate = DateTime.UtcNow.AddDays(-1),
+                ModifiedDate = DateTime.UtcNow
+            };
+
+            var component2 = new SapDocumentComponentModel
+            {
+                CompId = "C2",
+                ContentType = "image/png",
+                ContentLength = 45678,
+                Status = "online",
+                CreationDate = DateTime.UtcNow.AddDays(-2),
+                ModifiedDate = DateTime.UtcNow.AddDays(-1)
+            };
+
+            var components = new List<SapDocumentComponentModel> { component1, component2 };
+
+            var expectedResponse = new Mock<ICommandResponse>();
+
+            _archiveRecordMock
+                .Setup(r => r.ExtractAllComponents(false))
+                .ReturnsAsync(components);
+
+            _archiveRecordMock
+                .Setup(r => r.DateCreated)
+                .Returns(DateTime.UtcNow.AddDays(-5));
+            _archiveRecordMock
+                .Setup(r => r.DateModified)
+                .Returns(DateTime.UtcNow);
+            _archiveRecordMock
+                .Setup(r => r.ComponentCount)
+                .Returns(2);
+
+            _trimRepoMock
+                .Setup(t => t.GetRecord(docId, contRep))
+                .Returns(_archiveRecordMock.Object);
+
+            _responseFactoryMock
+                .Setup(f => f.CreateInfoMetadata(components, 200))
+                .Returns(expectedResponse.Object);
+
+            var result = await _service.GetDocumentInfo(sapDoc);
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(expectedResponse.Object, result);
+
+            _archiveRecordMock.Verify(r => r.ExtractAllComponents(false), Times.Once);
+            _responseFactoryMock.Verify(f => f.CreateInfoMetadata(components, 200), Times.Once);
+        }
+        private SapDocumentRequest GetValidRequest(string? compId = null, string? resultAs = null)
+        {
+            return new SapDocumentRequest
+            {
+                DocId = "DOC123",
+                ContRep = "CR1",
+                CompId = compId,
+                ResultAs = resultAs,
+                PVersion = "001"
+            };
         }
 
         #endregion
