@@ -9,5 +9,6 @@
         Task<ICommandResponse> UpdateRecord(CreateSapDocumentModel createSapDocumentModels, bool isMultipart = false);
         Task<ICommandResponse> DeleteSapDocument(SapDocumentRequest sapDoc);
         Task<ICommandResponse> GetDocumentInfo(SapDocumentRequest sapDocumentRequest);
+        Task<ICommandResponse> GetSearchResult(SapSearchRequestModel sapSearchRequest);
     }
 }

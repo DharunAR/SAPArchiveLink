@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Net.Mime;
 using System.Text;
 using TRIM.SDK;
 
@@ -14,7 +15,7 @@ public class BaseServices : IBaseServices
     const string COMP_DATA1 = "data1";
     private ICertificateFactory _certificateFactory;
 
-    public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection, 
+    public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection,
         IDownloadFileHandler downloadFileHandler, ISdkMessageProvider messageProvider, ICertificateFactory certificateFactory)
     {
         _logger = helperLogger;
@@ -22,7 +23,7 @@ public class BaseServices : IBaseServices
         _databaseConnection = databaseConnection;
         _downloadFileHandler = downloadFileHandler;
         _messageProvider = messageProvider;
-        _certificateFactory= certificateFactory;
+        _certificateFactory = certificateFactory;
     }
 
     /// <summary>
@@ -73,9 +74,9 @@ public class BaseServices : IBaseServices
         }
         catch (Exception ex)
         {
-            _logger.LogError("An error occurred while processing PutCert."+ ex);
+            _logger.LogError("An error occurred while processing PutCert." + ex);
             return _responseFactory.CreateError("Certificate cannot be recognized", StatusCodes.Status406NotAcceptable);
-        }      
+        }
     }
 
     /// <summary>
@@ -101,14 +102,14 @@ public class BaseServices : IBaseServices
         {
             IArchiveRecord recordAdapter = trimRepo.GetRecord(sapDoc.DocId, sapDoc.ContRep);
             if (recordAdapter == null)
-                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] {sapDoc.DocId} ), StatusCodes.Status404NotFound);
+                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId }), StatusCodes.Status404NotFound);
 
             // Handle single component response
             if (!string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
                 var component = await recordAdapter.ExtractComponentById(sapDoc.CompId);
                 if (component == null)
-                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId, sapDoc.DocId}), StatusCodes.Status404NotFound);
+                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId, sapDoc.DocId }), StatusCodes.Status404NotFound);
 
                 return GetSingleComponentResponse(component, sapDoc);
             }
@@ -116,7 +117,7 @@ public class BaseServices : IBaseServices
             // Handle multipart response (multiple components)
             var multipartComponents = await recordAdapter.ExtractAllComponents();
             return GetMultiPartResponse(multipartComponents, recordAdapter, sapDoc);
-        }       
+        }
     }
 
     /// <summary>
@@ -235,7 +236,7 @@ public class BaseServices : IBaseServices
         {
             CleanUpFiles(components);
         }
-        
+
         return _responseFactory.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created);
     }
 
@@ -393,6 +394,39 @@ public class BaseServices : IBaseServices
         return GetMultiPartResponse(multipartComponents, recordAdapter, sapDoc, true);
     }
 
+    public async Task<ICommandResponse> GetSearchResult(SapSearchRequestModel sapSearchRequest)
+    {
+        string searchResult = null;
+        var validationResults = ModelValidator.Validate(sapSearchRequest);
+        if (validationResults.Any())
+        {
+            var message = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
+            return _responseFactory.CreateError(message);
+        }
+
+        using var trimRepo = _databaseConnection.GetDatabase();
+        var recordAdapter = trimRepo.GetRecord(sapSearchRequest.DocId, sapSearchRequest.ContRep);
+        if (recordAdapter == null)
+            return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, [sapSearchRequest.DocId]), StatusCodes.Status404NotFound);
+
+        if (!string.IsNullOrWhiteSpace(sapSearchRequest.CompId))
+        {
+            var component = await recordAdapter.ExtractComponentById(sapSearchRequest.CompId, extractContent: true);
+            if (component == null)
+                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, [sapSearchRequest.CompId, sapSearchRequest.DocId]), StatusCodes.Status404NotFound);
+
+            var extractor = TextExtractorFactory.GetExtractor(component.ContentType);
+            if (extractor == null)
+            {
+                throw new NotSupportedException($"Unsupported content type: {component.ContentType}");
+            }
+
+
+            searchResult = SearchContent(extractor,component.Data, sapSearchRequest.Pattern, sapSearchRequest.FromOffset, sapSearchRequest.ToOffset);
+        }
+
+        return _responseFactory.CreateProtocolText(searchResult);
+    }
 
     #region Helper methods
 
@@ -436,7 +470,7 @@ public class BaseServices : IBaseServices
     /// <returns></returns>
     private ICommandResponse GetMultiPartResponse(List<SapDocumentComponentModel> multipartComponents, IArchiveRecord record, SapDocumentRequest sapDoc, bool isInfo = false)
     {
-        var multipartResponse = !isInfo ? _responseFactory.CreateMultipartDocument(multipartComponents) 
+        var multipartResponse = !isInfo ? _responseFactory.CreateMultipartDocument(multipartComponents)
                                 : _responseFactory.CreateInfoMetadata(multipartComponents);
 
         AddMultiPartHeaders(multipartComponents, record, sapDoc, multipartResponse);
@@ -589,6 +623,65 @@ public class BaseServices : IBaseServices
     private string HtmlEncode(string? input)
     {
         return WebUtility.HtmlEncode(input ?? string.Empty);
+    }
+
+    /// <summary>
+    /// Searches for a text string within a byte range in a stream and returns ArchiveLink-style search result.
+    /// </summary>
+    
+    private string SearchContent(
+        ITextExtractor extractor,
+        Stream stream,
+        string searchText,
+        long fromOffset = 0,
+        long toOffset = -1,
+        bool caseSensitive = false)
+    {
+        if (stream == null || !stream.CanRead)
+            throw new ArgumentException("Stream must be readable.");
+
+        var content = extractor.ExtractText(stream);
+
+        if (string.IsNullOrEmpty(searchText))
+            throw new ArgumentException("Search text must not be empty.");
+
+        // Normalize offsets
+        toOffset = toOffset == -1 || toOffset > content.Length ? content.Length : toOffset;
+        fromOffset = Math.Clamp(fromOffset, 0, content.Length);
+        toOffset = Math.Clamp(toOffset, 0, content.Length);
+
+        if (fromOffset > toOffset)
+        {
+            // Reverse search range
+            content = content.Substring((int)toOffset, (int)(fromOffset - toOffset));
+            content = new string(content.Reverse().ToArray());
+        }
+        else
+        {
+            content = content.Substring((int)fromOffset, (int)(toOffset - fromOffset));
+        }
+
+        var matchOffsets = new List<long>();
+        var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+        int index = 0;
+        while ((index = content.IndexOf(searchText, index, comparison)) != -1)
+        {
+            long offset = fromOffset < toOffset
+                ? fromOffset + index
+                : fromOffset - index - searchText.Length;
+
+            matchOffsets.Add(offset);
+            index += searchText.Length;
+        }
+
+        // Format result
+        var result = new StringBuilder();
+        result.Append(matchOffsets.Count).Append(';');
+        foreach (var offset in matchOffsets)
+            result.Append(offset).Append(';');
+
+        return result.ToString();
     }
 
     #endregion

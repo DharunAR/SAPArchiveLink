@@ -158,6 +158,7 @@ namespace SAPArchiveLink
                 memoryStream.Position = 0;
 
                 component.Data = memoryStream;
+                component.Charset = sdkComponent.CharacterSet ?? "UTF-8";
                 component.FileName = extractDocument.FileName;
             }
             return component;
