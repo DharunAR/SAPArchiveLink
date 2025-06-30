@@ -1,6 +1,6 @@
 ﻿using UglyToad.PdfPig;
 
-namespace SAPArchiveLink.Helpers
+namespace SAPArchiveLink
 {
     public class PdfTextExtractor : ITextExtractor
     {

@@ -13,7 +13,8 @@
             {
                 "text/plain" => new PlainTextExtractor(),
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document" => new DocxTextExtractor(),
-              //  "application/pdf" => new PdfTextExtractor(),
+               "application/pdf" => new PdfTextExtractor(),
+                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" => new ExcelTextExtractor(),
                 _ => null
             };
         }
