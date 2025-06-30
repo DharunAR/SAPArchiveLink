@@ -8,7 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.ClearProviders();
 builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
-builder.Logging.AddNLog("nlog.config");
+builder.Logging.AddNLogWeb("nlog.config");
 builder.Host.UseNLog();
 builder.WebHost.ConfigureKestrel(options =>
 {
