@@ -25,7 +25,7 @@ namespace SAPArchiveLink.Tests
         [Test]
         public void CommandTemplate_ReturnsINFO()
         {
-            Assert.AreEqual(ALCommandTemplate.INFO, _handler.CommandTemplate);
+            Assert.That(_handler.CommandTemplate, Is.EqualTo(ALCommandTemplate.INFO));
         }
 
         [Test]
@@ -44,7 +44,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
 
-            Assert.AreEqual(expectedResponse, result);
+            Assert.That(result, Is.EqualTo(expectedResponse));
             _baseServiceMock.Verify(s => s.GetDocumentInfo(It.Is<SapDocumentRequest>(r =>
                 r.DocId == "doc1" &&
                 r.ContRep == "rep1" &&

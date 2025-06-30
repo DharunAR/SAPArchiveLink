@@ -54,8 +54,8 @@ namespace SAPArchiveLink.Tests
 
             var result = await _dispatcher.RunRequest(request, null);
 
-            mockHandler.Verify(h => h.HandleAsync(It.IsAny<ICommand>(), It.IsAny<ICommandRequestContext>()), Times.Once);
-            Assert.IsInstanceOf<ArchiveLinkResult>(result);
+            mockHandler.Verify(h => h.HandleAsync(It.IsAny<ICommand>(), It.IsAny<ICommandRequestContext>()), Times.Once);            
+            Assert.That(result, Is.TypeOf<ArchiveLinkResult>());
         }
 
         [Test]
@@ -82,7 +82,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _dispatcher.RunRequest(request, null);
 
-            Assert.IsInstanceOf<ArchiveLinkResult>(result);
+            Assert.That(result, Is.TypeOf<ArchiveLinkResult>());           
             _mockResponseFactory.Verify(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status400BadRequest), Times.Once);
         }
 
@@ -108,7 +108,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _dispatcher.RunRequest(request, null);
 
-            Assert.IsInstanceOf<ArchiveLinkResult>(result);
+            Assert.That(result, Is.TypeOf<ArchiveLinkResult>());
         }
     }
 

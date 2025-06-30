@@ -9,10 +9,10 @@ namespace SAPArchiveLink.Tests
         public void Should_Bind_TrimConfigSettings_From_Configuration()
         {
             var settings = new Dictionary<string, string>
-        {
-            { "TRIMConfig:WorkPath", "C:\\TRIM\\Work" },
-            { "TRIMConfig:BinariesLoadPath", "C:\\TRIM\\Bin" }
-        };
+            {
+                { "TRIMConfig:WorkPath", "C:\\TRIM\\Work" },
+                { "TRIMConfig:BinariesLoadPath", "C:\\TRIM\\Bin" }
+            };
 
             var config = new ConfigurationBuilder()
                 .AddInMemoryCollection(settings)
@@ -20,8 +20,8 @@ namespace SAPArchiveLink.Tests
 
             var trimConfig = config.GetSection("TRIMConfig").Get<TrimConfigSettings>();
 
-            Assert.AreEqual("C:\\TRIM\\Work", trimConfig.WorkPath);
-            Assert.AreEqual("C:\\TRIM\\Bin", trimConfig.BinariesLoadPath);
+            Assert.That(trimConfig?.WorkPath, Is.EqualTo("C:\\TRIM\\Work"));
+            Assert.That(trimConfig?.BinariesLoadPath, Is.EqualTo("C:\\TRIM\\Bin"));
         }
 
         [Test]
@@ -30,7 +30,7 @@ namespace SAPArchiveLink.Tests
             var config = new ConfigurationBuilder().Build();
             var trimConfig = config.GetSection("TRIMConfig").Get<TrimConfigSettings>();
 
-            Assert.IsNull(trimConfig?.WorkPath);
+            Assert.That(trimConfig?.WorkPath, Is.Null);
         }
     }
 }

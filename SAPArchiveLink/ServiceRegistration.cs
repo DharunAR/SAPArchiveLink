@@ -75,6 +75,15 @@ namespace SAPArchiveLink
             services.AddScoped<IBaseServices, BaseServices>();
             services.AddTransient(typeof(ILogHelper<>), typeof(LogHelper<>));
             services.AddScoped<ICertificateFactory, CertificateFactory>();
+            RegisterTextExtractors();
+        }
+
+        private static void RegisterTextExtractors()
+        {
+            TextExtractorFactory.Register("text/plain", new PlainTextExtractor());
+            TextExtractorFactory.Register("application/pdf", new PdfTextExtractor());
+            TextExtractorFactory.Register("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new ExcelTextExtractor());
+            TextExtractorFactory.Register("application/vnd.openxmlformats-officedocument.wordprocessingml.document", new DocxTextExtractor());           
         }
 
         /// <summary>

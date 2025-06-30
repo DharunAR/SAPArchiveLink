@@ -49,7 +49,7 @@ namespace SAPArchiveLink.Tests
                 .ReturnsAsync(new OkResult());
 
             var result = await _controller.Handle();
-            Assert.IsInstanceOf<OkResult>(result);
+            Assert.That(result, Is.TypeOf<OkResult>());
             _dispatcherMock.Verify(d => d.RunRequest(It.Is<CommandRequest>(c => c.Charset == "UTF-8"), It.IsAny<ContentServerRequestAuthenticator>()), Times.Once);
         }
 
@@ -63,7 +63,7 @@ namespace SAPArchiveLink.Tests
                 .ReturnsAsync(new OkResult());
 
             var result = await _controller.Handle();
-            Assert.IsInstanceOf<OkResult>(result);
+            Assert.That(result, Is.TypeOf<OkResult>());
             _dispatcherMock.Verify(d => d.RunRequest(It.Is<CommandRequest>(c => c.Charset == "ISO-8859-1"), It.IsAny<ContentServerRequestAuthenticator>()), Times.Once);
         }
 

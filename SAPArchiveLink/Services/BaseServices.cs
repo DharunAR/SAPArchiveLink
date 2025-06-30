@@ -394,36 +394,66 @@ public class BaseServices : IBaseServices
         return GetMultiPartResponse(multipartComponents, recordAdapter, sapDoc, true);
     }
 
+    /// <summary>
+    /// Searches the content of a specific document component for a given pattern.
+    /// </summary>
+    /// <param name="sapSearchRequest"></param>
+    /// <returns></returns>
+    /// <exception cref="NotSupportedException"></exception>
     public async Task<ICommandResponse> GetSearchResult(SapSearchRequestModel sapSearchRequest)
     {
+        _logger.LogInformation($"GetSearchResult called for DocId: {sapSearchRequest.DocId}");
         string searchResult = null;
         var validationResults = ModelValidator.Validate(sapSearchRequest);
         if (validationResults.Any())
         {
             var message = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
+            _logger.LogError($"Validation failed in GetSearchResult: {message}");
             return _responseFactory.CreateError(message);
         }
 
         using var trimRepo = _databaseConnection.GetDatabase();
         var recordAdapter = trimRepo.GetRecord(sapSearchRequest.DocId, sapSearchRequest.ContRep);
         if (recordAdapter == null)
+        {
+            _logger.LogError($"Document not found in GetSearchResult. DocId: {sapSearchRequest.DocId}, ContRep: {sapSearchRequest.ContRep}");
             return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, [sapSearchRequest.DocId]), StatusCodes.Status404NotFound);
+        }
 
         if (!string.IsNullOrWhiteSpace(sapSearchRequest.CompId))
         {
             var component = await recordAdapter.ExtractComponentById(sapSearchRequest.CompId, extractContent: true);
             if (component == null)
+            {
+                _logger.LogError($"Component not found in GetSearchResult. CompId: {sapSearchRequest.CompId}, DocId: {sapSearchRequest.DocId}");
                 return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, [sapSearchRequest.CompId, sapSearchRequest.DocId]), StatusCodes.Status404NotFound);
+            }
 
             var extractor = TextExtractorFactory.GetExtractor(component.ContentType);
             if (extractor == null)
             {
+                _logger.LogError($"Unsupported content type in GetSearchResult: {component.ContentType}");
                 throw new NotSupportedException($"Unsupported content type: {component.ContentType}");
             }
 
-
-            searchResult = SearchContent(extractor,component.Data, sapSearchRequest.Pattern, sapSearchRequest.FromOffset, sapSearchRequest.ToOffset);
-        }
+            try
+            {
+                searchResult = SearchContent(
+                    extractor,
+                    component.Data,
+                    sapSearchRequest.Pattern,
+                    sapSearchRequest.FromOffset,
+                    sapSearchRequest.ToOffset,
+                    sapSearchRequest.CaseSensitive
+                );
+                _logger.LogInformation($"Search completed in GetSearchResult. DocId: {sapSearchRequest.DocId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error during search in GetSearchResult. DocId: {sapSearchRequest.DocId}, CompId: {sapSearchRequest.CompId}, {ex}");
+                return _responseFactory.CreateError("An error occurred during search operation.");
+            }
+        }        
 
         return _responseFactory.CreateProtocolText(searchResult);
     }
@@ -624,10 +654,6 @@ public class BaseServices : IBaseServices
     {
         return WebUtility.HtmlEncode(input ?? string.Empty);
     }
-
-    /// <summary>
-    /// Searches for a text string within a byte range in a stream and returns ArchiveLink-style search result.
-    /// </summary>
     
     private string SearchContent(
         ITextExtractor extractor,

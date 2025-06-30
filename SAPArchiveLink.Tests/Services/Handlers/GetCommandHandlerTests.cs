@@ -24,7 +24,7 @@ namespace SAPArchiveLink.Tests
         [Test]
         public void CommandTemplate_ReturnsGET()
         {
-            Assert.AreEqual(ALCommandTemplate.GET, _handler.CommandTemplate);
+            Assert.That(_handler.CommandTemplate, Is.EqualTo(ALCommandTemplate.GET));
         }
 
         [Test]
@@ -44,7 +44,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
 
-            Assert.AreEqual(expectedResponse, result);
+            Assert.That(result, Is.EqualTo(expectedResponse));
             _baseServiceMock.Verify(s => s.GetSapDocument(It.Is<SapDocumentRequest>(r =>
                 r.DocId == "doc1" &&
                 r.ContRep == "rep1" &&
@@ -72,7 +72,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
 
-            Assert.AreEqual(expectedResponse, result);
+            Assert.That(result, Is.EqualTo(expectedResponse));
             _baseServiceMock.Verify(s => s.GetSapDocument(It.Is<SapDocumentRequest>(r =>
                 r.FromOffset == 0 && r.ToOffset == 0
             )), Times.Once);
@@ -88,7 +88,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
 
-            Assert.AreEqual(errorResponse, result);
+            Assert.That(result, Is.EqualTo(errorResponse));
             _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg == "fail"), It.Is<int>(code => code == 400)), Times.Once);
         }
     }

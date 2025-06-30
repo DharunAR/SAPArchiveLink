@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.AspNetCore.Http;
 using Moq;
 using TRIM.SDK;
 
@@ -898,7 +899,7 @@ namespace SAPArchiveLink.Tests
             var result = await _service.UpdateRecord(model, false);
 
             // Assert
-            Assert.IsNotNull(result);
+            Assert.That(result, Is.Not.Null);
             _archiveRecordMock.Verify(x => x.UpdateComponent(_recordSapComponentMock.Object, component), Times.Once);
             _archiveRecordMock.Verify(x => x.SetRecordMetadata(), Times.Once);
             _archiveRecordMock.Verify(x => x.Save(), Times.Once);
@@ -932,7 +933,7 @@ namespace SAPArchiveLink.Tests
             var result = await _service.UpdateRecord(model, false);
 
             // Assert
-            Assert.IsNotNull(result);
+           Assert.That(result, Is.Not.Null);
             Assert.That(result, Is.EqualTo(errorResponse));
         }
 
@@ -975,7 +976,7 @@ namespace SAPArchiveLink.Tests
             var result = await _service.UpdateRecord(model, false);
 
             // Assert
-            Assert.IsNotNull(result);
+           Assert.That(result, Is.Not.Null);
             Assert.That(result, Is.EqualTo(errorResponse));
         }
 
@@ -1008,7 +1009,7 @@ namespace SAPArchiveLink.Tests
             var result = await _service.UpdateRecord(model, false);
 
             // Assert
-            Assert.IsNotNull(result);
+           Assert.That(result, Is.Not.Null);
             _responseFactoryMock.Verify(x => x.CreateError(It.Is<string>(s => s.Contains("CompId is required.")), It.IsAny<int>()), Times.Once);
         }
 
@@ -1078,7 +1079,7 @@ namespace SAPArchiveLink.Tests
             var result = await _service.UpdateRecord(model, false);
 
             // Assert
-            Assert.IsNotNull(result);
+           Assert.That(result, Is.Not.Null);
             _responseFactoryMock.Verify(x => x.CreateError(It.Is<string>(s => s.Contains("Failed to save component file")), It.IsAny<int>()), Times.Once);
         }
 
@@ -1190,8 +1191,8 @@ namespace SAPArchiveLink.Tests
             var result = await _service.GetDocumentInfo(request);
 
             // Assert
-            Assert.IsNotNull(result);
-            Assert.AreEqual(expectedResponseMock.Object, result);
+           Assert.That(result, Is.Not.Null);
+           Assert.That(result, Is.EqualTo(expectedResponseMock.Object));
         }
 
 
@@ -1211,7 +1212,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _service.GetDocumentInfo(request);
 
-            Assert.AreEqual(expectedResponse, result);
+            Assert.That(result, Is.EqualTo(expectedResponse));
         }
 
         [Test]
@@ -1231,8 +1232,8 @@ namespace SAPArchiveLink.Tests
                 .Returns(expectedResponse);
 
             var result = await _service.GetDocumentInfo(request);
-
-            Assert.AreEqual(expectedResponse, result);
+          
+            Assert.That(result, Is.EqualTo(expectedResponse));
         }
 
 
@@ -1259,7 +1260,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _service.GetDocumentInfo(request);
 
-            Assert.AreEqual(expectedResponse, result);
+            Assert.That(result, Is.EqualTo(expectedResponse));
         }
 
         [Test]
@@ -1286,7 +1287,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _service.GetDocumentInfo(request);
 
-            Assert.AreEqual(expectedResponse, result);
+            Assert.That(result, Is.EqualTo(expectedResponse));
         }
 
         [Test]
@@ -1325,7 +1326,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _service.GetDocumentInfo(request);
 
-            Assert.AreEqual(expectedResponse, result);
+            Assert.That(result, Is.EqualTo(expectedResponse));
         }
 
         [Test]
@@ -1391,8 +1392,8 @@ namespace SAPArchiveLink.Tests
 
             var result = await _service.GetDocumentInfo(sapDoc);
 
-            Assert.IsNotNull(result);
-            Assert.AreEqual(expectedResponse.Object, result);
+           Assert.That(result, Is.Not.Null);
+            Assert.That(result, Is.EqualTo(expectedResponse.Object));
 
             _archiveRecordMock.Verify(r => r.ExtractAllComponents(false), Times.Once);
             _responseFactoryMock.Verify(f => f.CreateInfoMetadata(components, 200), Times.Once);
@@ -1410,6 +1411,144 @@ namespace SAPArchiveLink.Tests
         }
 
         #endregion
+
+        [Test]
+        public async Task GetSearchResult_ReturnsError_WhenValidationFails()
+        {
+            // Arrange
+            var request = new SapSearchRequestModel { DocId = "", CompId = "", PVersion = "",ContRep="",Pattern="" };
+            _responseFactoryMock
+                .Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
+                .Returns(Mock.Of<ICommandResponse>());
+
+            // Act
+            var result = await _service.GetSearchResult(request);
+
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+        }
+
+        [Test]
+        public async Task GetSearchResult_ReturnsError_WhenRecordNotFound()
+        {
+            // Arrange
+            var request = new SapSearchRequestModel { DocId = "doc1", CompId = "comp1", PVersion = "v1", ContRep = "ST", Pattern = "Test" };
+            var repoMock = new Mock<ITrimRepository>();
+            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns((IArchiveRecord)null);
+            _responseFactoryMock
+                .Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
+                .Returns(Mock.Of<ICommandResponse>());
+
+            // Act
+            var result = await _service.GetSearchResult(request);
+
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+        }
+
+        [Test]
+        public async Task GetSearchResult_ReturnsError_WhenComponentNotFound()
+        {
+            // Arrange
+            var request = new SapSearchRequestModel {DocId = "doc1", CompId = "comp1", PVersion = "v1", ContRep = "ST", Pattern = "Test" ,};
+            var repoMock = new Mock<ITrimRepository>();
+            var recordMock = new Mock<IArchiveRecord>();
+            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
+            recordMock.Setup(r => r.ExtractComponentById(It.IsAny<string>(), true)).ReturnsAsync((SapDocumentComponentModel)null);
+            _responseFactoryMock
+                .Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
+                .Returns(Mock.Of<ICommandResponse>());
+
+            // Act
+            var result = await _service.GetSearchResult(request);
+
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+        }
+
+        [Test]
+        public async Task GetSearchResult_ReturnsError_WhenExtractorNotFound()
+        {
+            // Arrange
+            var request = new SapSearchRequestModel {DocId = "doc1", CompId = "comp1", PVersion = "v1", ContRep = "ST", Pattern = "Test" };
+            var repoMock = new Mock<ITrimRepository>();
+            var recordMock = new Mock<IArchiveRecord>();
+            var component = new SapDocumentComponentModel
+            {
+                ContentType = "unknown/type",
+                Data = new MemoryStream()
+            };
+            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
+            recordMock.Setup(r => r.ExtractComponentById(It.IsAny<string>(), true)).ReturnsAsync(component);
+
+            // Act & Assert
+            Assert.ThrowsAsync<NotSupportedException>(async () => await _service.GetSearchResult(request));
+        }
+
+        [Test]
+        public async Task GetSearchResult_ReturnsProtocolText_WhenSearchSucceeds()
+        {
+            // Arrange
+            var request = new SapSearchRequestModel { DocId = "doc1", CompId = "comp1", PVersion = "v1", Pattern = "test",ContRep= "ST"};
+            var repoMock = new Mock<ITrimRepository>();
+            var recordMock = new Mock<IArchiveRecord>();
+            var component = new SapDocumentComponentModel
+            {
+                ContentType = "text/plain",
+                Data = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("this is a test string with test"))
+            };
+            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
+            recordMock.Setup(r => r.ExtractComponentById(It.IsAny<string>(), true)).ReturnsAsync(component);
+
+            // Patch the TextExtractorFactory for this test
+            TextExtractorFactory.Register("text/plain", new PlainTextExtractor());
+
+            var responseMock = new Mock<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
+                .Returns(responseMock.Object);
+
+            // Act
+            var result = await _service.GetSearchResult(request);
+
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [Test]
+        public async Task GetSearchResult_ReturnsProtocolText_WhenSearchSucceeds_WithFromoffset()
+        {
+            // Arrange
+            var request = new SapSearchRequestModel { DocId = "doc1", CompId = "comp1", PVersion = "v1", Pattern = "test", ContRep = "ST",FromOffset=5 };
+            var repoMock = new Mock<ITrimRepository>();
+            var recordMock = new Mock<IArchiveRecord>();
+            var component = new SapDocumentComponentModel
+            {
+                ContentType = "text/plain",
+                Data = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("this is a test string with test"))
+            };
+            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
+            recordMock.Setup(r => r.ExtractComponentById(It.IsAny<string>(), true)).ReturnsAsync(component);
+
+            // Patch the TextExtractorFactory for this test
+            TextExtractorFactory.Register("text/plain", new PlainTextExtractor());
+
+            var responseMock = new Mock<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
+                .Returns(responseMock.Object);
+
+            // Act
+            var result = await _service.GetSearchResult(request);
+
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
+        }     
 
     }
 }

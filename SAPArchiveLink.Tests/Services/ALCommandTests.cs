@@ -58,7 +58,7 @@ namespace SAPArchiveLink.Tests
 
             var command = new ALCommand(request);
 
-            Assert.IsFalse(command.IsValid);
+            Assert.That(command.IsValid, Is.False); 
             Assert.That(command.ValidationError, Does.Contain("Unsupported command"));
         }
 
