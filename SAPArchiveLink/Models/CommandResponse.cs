@@ -6,11 +6,11 @@ namespace SAPArchiveLink
 {
     public class CommandResponse: ICommandResponse
     {
-        public Stream StreamContent { get; private set; }
-        public string TextContent { get; private set; }
+        public Stream? StreamContent { get; private set; }
+        public string? TextContent { get; private set; }
         public bool IsStream { get; private set; }
         public List<SapDocumentComponentModel> Components { get; private set; } = new();
-        public string Boundary { get; private set; }
+        public string Boundary { get; private set; } = string.Empty;
 
         public int StatusCode { get; set; } = StatusCodes.Status200OK;
         public string ContentType { get; set; } = MediaTypeNames.Text.Plain + "; charset=UTF-8";
@@ -63,13 +63,13 @@ namespace SAPArchiveLink
         /// <param name="statusCode"></param>
         /// <param name="fileName"></param>
         /// <returns></returns>
-        public static CommandResponse ForDocumentContent(Stream contentStream, string contentType = MediaTypeNames.Application.Octet, int statusCode = StatusCodes.Status200OK, string fileName = null)
+        public static CommandResponse ForDocumentContent(Stream contentStream, string contentType = MediaTypeNames.Application.Octet, int statusCode = StatusCodes.Status200OK, string? fileName = null)
         {
             var response = new CommandResponse
             {
                 StreamContent = contentStream,
                 StatusCode = statusCode,
-                ContentType = GetMimeTypeFromExtension(fileName),
+                ContentType = string.IsNullOrWhiteSpace(fileName) ? contentType : GetMimeTypeFromExtension(fileName),
                 IsStream = true
             };
 
@@ -159,7 +159,7 @@ namespace SAPArchiveLink
         private static string GetMimeTypeFromExtension(string fileName)
         {
             var provider = new FileExtensionContentTypeProvider();
-            if (!provider.TryGetContentType(fileName, out string contentType))
+            if (!provider.TryGetContentType(fileName, out string? contentType))
             {
                 contentType = MediaTypeNames.Application.Octet;
             }

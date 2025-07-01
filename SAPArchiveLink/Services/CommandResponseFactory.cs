@@ -8,7 +8,7 @@
         public ICommandResponse CreateHtmlReport(string htmlContent, int statusCode = 200, string charset = "UTF-8")
             => CommandResponse.ForHtmlReport(htmlContent, statusCode, charset);
 
-        public ICommandResponse CreateDocumentContent(Stream contentStream, string contentType = "application/octet-stream", int statusCode = 200, string fileName = null)
+        public ICommandResponse CreateDocumentContent(Stream contentStream, string contentType = "application/octet-stream", int statusCode = 200, string? fileName = null)
             => CommandResponse.ForDocumentContent(contentStream, contentType, statusCode, fileName);
 
         public ICommandResponse CreateMultipartDocument(List<SapDocumentComponentModel> components, int statusCode = 200)

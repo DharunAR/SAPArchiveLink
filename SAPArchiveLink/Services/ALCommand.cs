@@ -3,14 +3,14 @@
     public class ALCommand : ICommand
     {
         private ALCommandTemplate _template;
-        private readonly string _httpMethod;
+        private readonly string? _httpMethod;
         private readonly CommandParameters _parameters;
         private readonly string _accessMode;
         private readonly string _charset;
         private bool _isImmutable;
         private bool _isVerified;
-        private string _certSubject;
-        private string _validationError;
+        private string? _certSubject;
+        private string _validationError = string.Empty;
 
         public string ValidationError => _validationError;
         public bool IsValid => string.IsNullOrWhiteSpace(_validationError);
@@ -37,16 +37,22 @@
         public ALCommand(CommandRequest context)
         {
             _httpMethod = context.HttpMethod;
-            _template = ALCommandTemplateResolver.Parse(_httpMethod, context.Url);
-            _charset = "UTF-8";
+            string url = context.Url;
+            _charset = context.Charset ?? "UTF-8";
             _parameters = new CommandParameters();
-            _parameters.ParseQueryString(context.Url);
-            _accessMode = ALCommandTemplateMetadata.GetAccessMode(_template);
 
-            if (_template == ALCommandTemplate.Unknown)
+            if (string.IsNullOrWhiteSpace(_httpMethod) || string.IsNullOrWhiteSpace(url))
             {
-                _validationError = $"Unsupported command in URL or HTTP method: {context.HttpMethod} {context.Url}";
+                _template = ALCommandTemplate.Unknown;
+                _validationError = $"Unsupported command in URL: {url} or HTTP method: {_httpMethod}";
             }
+            else
+            {
+                _template = ALCommandTemplateResolver.Parse(_httpMethod, url);
+                _parameters.ParseQueryString(url);
+            }
+
+            _accessMode = ALCommandTemplateMetadata.GetAccessMode(_template);
         }
 
         public static ICommand FromHttpRequest(CommandRequest context)

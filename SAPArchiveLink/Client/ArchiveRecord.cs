@@ -137,7 +137,7 @@ namespace SAPArchiveLink
                 .Replace("%contrep%", model.ContRep);
         }
 
-        private async Task<SapDocumentComponentModel> ExtractToSapComponent(RecordSapComponent sdkComponent, bool extractContent)
+        private async Task<SapDocumentComponentModel?> ExtractToSapComponent(RecordSapComponent sdkComponent, bool extractContent)
         {
             var component = ExtractComponentMetadata(sdkComponent);
             if (extractContent)

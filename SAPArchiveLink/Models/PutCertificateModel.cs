@@ -14,9 +14,9 @@ namespace SAPArchiveLink
         [Required(ErrorMessage = "pVersion is required.")]
         public required string PVersion { get; set; }
 
-        public string Permissions { get; set; }
+        public string? Permissions { get; set; }
 
-        public Stream Stream { get; set; }
+        public Stream? Stream { get; set; }
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

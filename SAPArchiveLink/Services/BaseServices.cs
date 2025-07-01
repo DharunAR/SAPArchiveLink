@@ -49,26 +49,28 @@ public class BaseServices : IBaseServices
             using var memoryStream = new MemoryStream();
             byte[] buffer = new byte[1024 * 2]; // 2 KB buffer  
             int bytesRead;
-
-            while ((bytesRead = await putCertificateModel.Stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            if(putCertificateModel.Stream != null)
             {
-                await memoryStream.WriteAsync(buffer, 0, bytesRead);
-            }
-            if (memoryStream.ToArray() == null || memoryStream.ToArray().Length == 0)
-            {
-                return _responseFactory.CreateError("Certificate cannot be recognized", StatusCodes.Status406NotAcceptable);
-            }
-            IArchiveCertificate? archiveCertificate = null;
-            archiveCertificate = _certificateFactory.FromByteArray(memoryStream.ToArray());
-            int protectionLevel = -1;
-            if (!string.IsNullOrWhiteSpace(putCertificateModel.Permissions))
-            {
-                protectionLevel = SecurityUtils.AccessModeToInt(putCertificateModel.Permissions);
-            }
-            using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
-            {
-                trimRepo.PutArchiveCertificate(putCertificateModel.AuthId, protectionLevel, archiveCertificate, putCertificateModel.ContRep);
-            }
+                while ((bytesRead = await putCertificateModel.Stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    await memoryStream.WriteAsync(buffer, 0, bytesRead);
+                }
+                if (memoryStream.ToArray() == null || memoryStream.ToArray().Length == 0)
+                {
+                    return _responseFactory.CreateError("Certificate cannot be recognized", StatusCodes.Status406NotAcceptable);
+                }
+                IArchiveCertificate? archiveCertificate = null;
+                archiveCertificate = _certificateFactory.FromByteArray(memoryStream.ToArray());
+                int protectionLevel = -1;
+                if (!string.IsNullOrWhiteSpace(putCertificateModel.Permissions))
+                {
+                    protectionLevel = SecurityUtils.AccessModeToInt(putCertificateModel.Permissions);
+                }
+                using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
+                {
+                    trimRepo.PutArchiveCertificate(putCertificateModel.AuthId, protectionLevel, archiveCertificate, putCertificateModel.ContRep);
+                }
+            }   
 
             return _responseFactory.CreateProtocolText("Certificate published");
         }
@@ -147,14 +149,15 @@ public class BaseServices : IBaseServices
             }
             if (string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
-                sapDoc.CompId = GetComponentId(sapDoc.CompId, record);
-                if (string.IsNullOrWhiteSpace(sapDoc.CompId))
+                string? compId = GetComponentId(record);
+                if (string.IsNullOrWhiteSpace(compId))
                 {
                     return _responseFactory.CreateError("No valid component found", StatusCodes.Status404NotFound);
                 }
+                sapDoc.CompId = compId;
             }
             var component = await record.ExtractComponentById(sapDoc.CompId);
-            if (component == null)
+            if (component == null || component.Data == null)
             {
                 return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId }), StatusCodes.Status404NotFound);
             }
@@ -163,7 +166,7 @@ public class BaseServices : IBaseServices
             if (rangeError != null)
                 return rangeError;
 
-            var response = _responseFactory.CreateDocumentContent(stream, component.ContentType, StatusCodes.Status200OK, component.FileName);
+            var response = _responseFactory.CreateDocumentContent(stream!, component.ContentType, StatusCodes.Status200OK, component.FileName);
             if (!string.IsNullOrWhiteSpace(component.Charset))
                 response.ContentType += $"; charset={component.Charset}";
             if (!string.IsNullOrWhiteSpace(component.Version))
@@ -220,7 +223,6 @@ public class BaseServices : IBaseServices
                             _logger.LogError(errorMessage);
                             return _responseFactory.CreateError(errorMessage, StatusCodes.Status403Forbidden);
                         }
-
                         var filePath = await _downloadFileHandler.DownloadDocument(comp.Data, comp.FileName);
                         if (string.IsNullOrWhiteSpace(filePath))
                             return _responseFactory.CreateError("Failed to save component file.", StatusCodes.Status400BadRequest);
@@ -287,7 +289,6 @@ public class BaseServices : IBaseServices
                                 var filePath = await _downloadFileHandler.DownloadDocument(model.Data, model.FileName);
                                 if (string.IsNullOrWhiteSpace(filePath))
                                     return _responseFactory.CreateError("Failed to save component file.", StatusCodes.Status400BadRequest);
-
                                 archiveRecord.UpdateComponent(recComp, model);
                             }
                         }
@@ -552,11 +553,8 @@ public class BaseServices : IBaseServices
     /// <param name="compId"></param>
     /// <param name="record"></param>
     /// <returns></returns>
-    private string GetComponentId(string compId, IArchiveRecord record)
+    private string? GetComponentId(IArchiveRecord record)
     {
-        if (!string.IsNullOrWhiteSpace(compId))
-            return compId;
-
         if (record.HasComponent(COMP_DATA))
             return COMP_DATA;
 

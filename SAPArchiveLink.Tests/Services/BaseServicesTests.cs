@@ -206,7 +206,7 @@ namespace SAPArchiveLink.Tests
                 CreationDate = DateTime.UtcNow,
                 ModifiedDate = DateTime.UtcNow,
                 Status = "active",
-                PVersion = "v1",
+                PVersion = "0045",
                 Data = new MemoryStream(),
                 FileName = "file.pdf"
             };
@@ -529,7 +529,7 @@ namespace SAPArchiveLink.Tests
         public async Task GetSapDocument_ReturnsData_WhenCompIdIsNullAndDataExists()
         {
             var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = null };
-            var component = new SapDocumentComponentModel { CompId = "data" };
+            var component = new SapDocumentComponentModel { CompId = "data", Data = new MemoryStream() };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("data")).Returns(true);
             recordMock.Setup(r => r.ExtractComponentById("data", true)).ReturnsAsync(component);
@@ -549,7 +549,7 @@ namespace SAPArchiveLink.Tests
         public async Task GetSapDocument_ReturnsData1_WhenCompIdIsNullAndData1Exists()
         {
             var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = null };
-            var component = new SapDocumentComponentModel { CompId = "data1", /* ... */ };
+            var component = new SapDocumentComponentModel { CompId = "data1", Data = new MemoryStream() };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("data")).Returns(false);
             recordMock.Setup(r => r.HasComponent("data1")).Returns(true);
@@ -1178,8 +1178,10 @@ namespace SAPArchiveLink.Tests
         {
             var request = new SapDocumentRequest()
             {
+                DocId = null,
                 CompId = "123",
-                PVersion = "0045"
+                PVersion = "0045",
+                ContRep = null
             };
             var expectedResponseMock = new Mock<ICommandResponse>();
 
@@ -1190,9 +1192,8 @@ namespace SAPArchiveLink.Tests
             // Act
             var result = await _service.GetDocumentInfo(request);
 
-            // Assert
-           Assert.That(result, Is.Not.Null);
-           Assert.That(result, Is.EqualTo(expectedResponseMock.Object));
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result, Is.EqualTo(expectedResponseMock.Object));
         }
 
 
@@ -1232,7 +1233,6 @@ namespace SAPArchiveLink.Tests
                 .Returns(expectedResponse);
 
             var result = await _service.GetDocumentInfo(request);
-          
             Assert.That(result, Is.EqualTo(expectedResponse));
         }
 
@@ -1392,7 +1392,7 @@ namespace SAPArchiveLink.Tests
 
             var result = await _service.GetDocumentInfo(sapDoc);
 
-           Assert.That(result, Is.Not.Null);
+            Assert.That(result, Is.Not.Null);
             Assert.That(result, Is.EqualTo(expectedResponse.Object));
 
             _archiveRecordMock.Verify(r => r.ExtractAllComponents(false), Times.Once);

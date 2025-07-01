@@ -12,7 +12,7 @@
         // Parse query string into parameters
         public void ParseQueryString(string queryString)
         {
-            if (string.IsNullOrEmpty(queryString)) return;
+            if (string.IsNullOrWhiteSpace(queryString)) return;
 
             queryString = queryString.TrimStart('?');
             var pairs = queryString.Split('&')

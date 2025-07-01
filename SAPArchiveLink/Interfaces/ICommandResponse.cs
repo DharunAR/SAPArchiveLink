@@ -2,8 +2,8 @@
 {
     public interface ICommandResponse
     {
-        Stream StreamContent { get; }
-        string TextContent { get; }
+        Stream? StreamContent { get; }
+        string? TextContent { get; }
         bool IsStream { get; }
         List<SapDocumentComponentModel> Components { get; }
         string Boundary { get; }
