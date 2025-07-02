@@ -15,6 +15,7 @@ namespace SAPArchiveLink.Tests
         private Mock<ICommandResponseFactory> _mockResponseFactory;
         private Mock<IDownloadFileHandler> _mockFileHandler;
         private ALCommandDispatcher _dispatcher;
+        private Mock<IDatabaseConnection> _dbConnectionMock;
 
         [SetUp]
         public void Setup()
@@ -22,7 +23,8 @@ namespace SAPArchiveLink.Tests
             _mockRegistry = new Mock<ICommandHandlerRegistry>();
             _mockResponseFactory = new Mock<ICommandResponseFactory>();
             _mockFileHandler = new Mock<IDownloadFileHandler>();
-            _dispatcher = new ALCommandDispatcher(_mockRegistry.Object, _mockResponseFactory.Object, _mockFileHandler.Object);
+            _dbConnectionMock = new Mock<IDatabaseConnection>();
+            _dispatcher = new ALCommandDispatcher(_mockRegistry.Object, _mockResponseFactory.Object, _mockFileHandler.Object, _dbConnectionMock.Object);
         }
 
         [TestCase("get&compId=1", ALCommandTemplate.GET, "GET")]

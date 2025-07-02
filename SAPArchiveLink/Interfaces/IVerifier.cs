@@ -4,7 +4,7 @@ namespace SAPArchiveLink
 {
     public interface IVerifier
     {
-        void SetCertificates(List<IArchiveCertificate> certificates);
+        void SetCertificates(IArchiveCertificate certificates);
         void SetSignedData(byte[] signedData);
         void SetRequiredPermission(int permission);
         void VerifyAgainst(byte[] data);

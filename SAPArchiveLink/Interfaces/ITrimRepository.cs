@@ -5,6 +5,7 @@
         IArchiveRecord? GetRecord(string docId, string contRep);
         IArchiveRecord? CreateRecord(CreateSapDocumentModel model);
         void SaveCertificate(string authId, int protectionLevel, IArchiveCertificate certificate, string contRep);
+        IArchiveCertificate GetArchiveCertificate(string contentRepo);
     }
 
 }

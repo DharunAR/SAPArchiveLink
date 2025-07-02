@@ -7,21 +7,29 @@ namespace SAPArchiveLink
 {
     public class Verifier : IVerifier
     {
-        private List<IArchiveCertificate> _certificates;
-        private List<X509Certificate2> _rawCertificates;
+        private IArchiveCertificate _certificates;
+        private X509Certificate2Collection _rawCertificates; // Change type to X509Certificate2Collection
         private byte[] _signedData;
         private int _requiredPermission = -1;
         private X509Certificate2 _verifiedCertificate;
 
-        public void SetCertificates(List<IArchiveCertificate> certificates)
+        public void SetCertificates(IArchiveCertificate certificates)
         {
             _certificates = certificates;
-            _rawCertificates = certificates?.Select(c => c.GetCertificate()).ToList();
+            _rawCertificates = new X509Certificate2Collection(); // Initialize as a collection
+            if (certificates?.GetCertificate() != null)
+            {
+                _rawCertificates.Add(certificates.GetCertificate()); // Add the certificate to the collection
+            }
         }
 
-        public void SetRawCertificates(List<X509Certificate2> certificates)
+        public void SetRawCertificates(X509Certificate2 certificates)
         {
-            _rawCertificates = certificates;
+            _rawCertificates = new X509Certificate2Collection(); // Initialize as a collection
+            if (certificates != null)
+            {
+                _rawCertificates.Add(certificates); // Add the certificate to the collection
+            }
         }
 
         public void SetSignedData(byte[] signedData)
@@ -45,7 +53,7 @@ namespace SAPArchiveLink
             // Optionally validate using only specific trusted certs
             var extraStore = new X509Certificate2Collection();
             if (_rawCertificates != null)
-                extraStore.AddRange(_rawCertificates.ToArray());
+                extraStore.AddRange(_rawCertificates); // Fix: AddRange works with X509Certificate2Collection
 
             try
             {
@@ -53,24 +61,22 @@ namespace SAPArchiveLink
             }
             catch (CryptographicException ex)
             {
-                throw new Exception();//throw new ICSSecurityException("Signature verification failed.", ex);
+                throw new Exception(); // throw new ICSSecurityException("Signature verification failed.", ex);
             }
 
             // Find verified signer cert
             var signerCert = signedCms.SignerInfos[0].Certificate;
             if (signerCert == null)
-                throw new Exception();//throw new ICSSecurityException("No valid certificate found in signed data.");
+                throw new Exception(); // throw new ICSSecurityException("No valid certificate found in signed data.");
 
             // Permission check if needed
             if (_requiredPermission >= 0 && _certificates != null)
             {
-                var matching = _certificates.FirstOrDefault(c =>
-                    c.GetCertificate().Thumbprint == signerCert.Thumbprint &&
-                    c.GetPermission() >= _requiredPermission);
+                var matching = _certificates.GetCertificate().Thumbprint == signerCert.Thumbprint && _certificates.GetPermission() >= _requiredPermission;
 
-                    if (matching == null)
-                        throw new Exception();
-                    //throw new ICSSecurityException("Certificate found but permission insufficient.");
+                if (matching == null)
+                    throw new Exception();
+                // throw new ICSSecurityException("Certificate found but permission insufficient.");
             }
 
             _verifiedCertificate = signerCert;

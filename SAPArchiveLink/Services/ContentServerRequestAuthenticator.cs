@@ -16,7 +16,7 @@ namespace SAPArchiveLink
             _logger = logger;
         }
 
-        public X509Certificate2 CheckRequest(CommandRequest request, ICommand command, List<IArchiveCertificate> certificates)
+        public X509Certificate2 CheckRequest(CommandRequest request, ICommand command, IArchiveCertificate certificates)
         {
             _logger.LogDebug("Validating command {CommandName} with version {Version}", command.GetTemplate(), command.GetValue("pVersion"));
 
@@ -47,7 +47,7 @@ namespace SAPArchiveLink
             return CheckAuthentication(command, certificates);
         }
 
-        private X509Certificate2 CheckAuthentication(ICommand command, List<IArchiveCertificate> certificates)
+        private X509Certificate2 CheckAuthentication(ICommand command, IArchiveCertificate certificates)
         {
             bool requiresSignature = !string.IsNullOrEmpty(command.GetValue(ALParameter.VarSecKey)) ||
                                      !string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsPi)) ||
@@ -76,7 +76,7 @@ namespace SAPArchiveLink
             }
         }
 
-        private X509Certificate2 VerifyUrl(ICommand command, List<IArchiveCertificate> certificates)
+        private X509Certificate2 VerifyUrl(ICommand command, IArchiveCertificate certificates)
         {
             _verifier.SetCertificates(certificates);
 

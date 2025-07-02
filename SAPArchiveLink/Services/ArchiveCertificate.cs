@@ -9,8 +9,8 @@ namespace SAPArchiveLink
     {
         private readonly X509Certificate2 _certificate;
         private readonly int _permission;
-        private readonly bool _isUsedInElibContext;
-
+        private readonly bool _isEnabled;
+        private readonly string _authId;
 
         public static ArchiveCertificate FromByteArray(byte[] data)
         {
@@ -54,9 +54,12 @@ namespace SAPArchiveLink
             return certificate ?? throw new InvalidOperationException("Failed to create a valid ArchiveCertificate.");
         }
 
-        public ArchiveCertificate(X509Certificate2 certificate, int permission = 0, bool isUsedInElibContext = false)
+        public ArchiveCertificate(X509Certificate2 certificate,string authId, int permission = 0, bool isEnabled = false)
         {
-            _certificate = certificate ?? throw new ArgumentNullException(nameof(certificate));        
+            _certificate = certificate ?? throw new ArgumentNullException(nameof(certificate));
+            _isEnabled = isEnabled;
+            _permission = permission;
+            _authId = authId;
         }
 
         public string GetFingerprint()
@@ -88,10 +91,14 @@ namespace SAPArchiveLink
         {
             return _permission;
         }
-
-        public bool IsUsedInElibContext()
+        public string GetAuthId()
         {
-            return _isUsedInElibContext;
+            return _authId;
+        }
+
+        public bool IsEnabled()
+        {
+            return _isEnabled;
         }
 
         public X509Certificate2 GetCertificate()

@@ -8,7 +8,7 @@ namespace SAPArchiveLink
 
         int GetPermission();
 
-        bool IsUsedInElibContext();
+        bool IsEnabled();
 
         X509Certificate2 GetCertificate();
 
@@ -19,6 +19,8 @@ namespace SAPArchiveLink
         string ValidTill();
 
         string ValidFrom();
+
+        string GetAuthId();
 
     }
 

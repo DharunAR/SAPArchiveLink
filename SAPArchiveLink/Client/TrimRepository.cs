@@ -82,5 +82,22 @@ namespace SAPArchiveLink
             sapRepoConfigUserOptions.Save();
             
         }
+
+        public IArchiveCertificate GetArchiveCertificate(string contentRepo)
+        {
+            SapRepoConfigUserOptions sapRepoConfigUserOptions = new SapRepoConfigUserOptions(_db);
+            ApiSapRepoItemList list = sapRepoConfigUserOptions.SapRepos;
+            foreach (SapRepoItem item in list)
+            {
+                if (item.ArchiveDataID == contentRepo)
+                {
+                   bool isEnabed= sapRepoConfigUserOptions.getIsEnabled(item.ArchiveDataID);
+                    byte[] certBytes = Convert.FromBase64String(item.Content);
+                    var certificate = new X509Certificate2(certBytes);
+                    return new ArchiveCertificate(certificate, item.AuthId,item.Permissions, isEnabed);
+                }
+            }
+            return null;
+        }
     }
 }

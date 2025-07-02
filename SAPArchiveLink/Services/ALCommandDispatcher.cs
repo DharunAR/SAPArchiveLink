@@ -7,12 +7,14 @@ namespace SAPArchiveLink
         private readonly ICommandHandlerRegistry _handlerRegistry;
         private readonly ICommandResponseFactory _commandResponseFactory;
         private readonly IDownloadFileHandler _downloadFileHandler;
+        private readonly IDatabaseConnection _databaseConnection;
 
-        public ALCommandDispatcher(ICommandHandlerRegistry handlerRegistry, ICommandResponseFactory commandResponseFactory, IDownloadFileHandler downloadFileHandler)
+        public ALCommandDispatcher(ICommandHandlerRegistry handlerRegistry, ICommandResponseFactory commandResponseFactory, IDownloadFileHandler downloadFileHandler, IDatabaseConnection databaseConnection)
         {
             _handlerRegistry = handlerRegistry;
             _commandResponseFactory = commandResponseFactory;
             _downloadFileHandler = downloadFileHandler;
+            _databaseConnection = databaseConnection;
         }
 
         public async Task<IActionResult> RunRequest(CommandRequest request, ContentServerRequestAuthenticator _authenticator)
@@ -33,9 +35,15 @@ namespace SAPArchiveLink
                 return new ArchiveLinkResult(errorResponse);
             }
 
-            // TODO: Uncomment when you implement auth
-            // var certificates = new List<IArchiveCertificate>();
-            // var certificate = _authenticator.CheckRequest(request, command, certificates);
+            if (!string.IsNullOrEmpty(command.GetValue(ALParameter.VarContRep)))
+            {
+                using var trimRepo = _databaseConnection.GetDatabase();
+                var archieveCertificate = trimRepo.GetArchiveCertificate(command.GetValue(ALParameter.VarContRep));
+                var certificate = _authenticator.CheckRequest(request, command, archieveCertificate);
+
+            }           
+           // var certificates = new List<IArchiveCertificate>();
+           
 
             var response = await ExecuteRequest(context, command);
 
