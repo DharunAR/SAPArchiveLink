@@ -77,11 +77,7 @@ namespace SAPArchiveLink.Tests
                 Stream = new MemoryStream(new byte[0])
             };
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(Mock.Of<ICommandResponse>());
-           // Simulate ArchiveCertificate.FromByteArray throws
-            //typeof(ArchiveCertificate)
-            //    .GetMethod("FromByteArray")
-            //    ?.Invoke(null, new object[] { new byte[0] });
-            // Act
+       
             var result = await _service.PutCert(model);
             // Assert
             _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("Certificate cannot be recognized")), StatusCodes.Status406NotAcceptable), Times.AtLeastOnce);
@@ -98,11 +94,11 @@ namespace SAPArchiveLink.Tests
                 PVersion = "1.0",
                 Stream = new MemoryStream(new byte[] { 1, 2, 3 })
             };
-            _trimRepoMock.Setup(f => f.PutArchiveCertificate(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<IArchiveCertificate>(), It.IsAny<string>())).Throws(new InvalidOperationException("Test exception"));
+            _trimRepoMock.Setup(f => f.SaveCertificate(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<IArchiveCertificate>(), It.IsAny<string>())).Throws(new InvalidOperationException("An error occurred while saving certificate."));
 
             var result = await _service.PutCert(model);
             // Assert
-            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("Certificate cannot be recognized")), StatusCodes.Status406NotAcceptable), Times.AtLeastOnce);
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("An error occurred while saving certificate.")), StatusCodes.Status500InternalServerError), Times.AtLeastOnce);
         }
         [Test]
         public async Task PutCert_Success_ReturnsProtocolText()
@@ -126,7 +122,7 @@ namespace SAPArchiveLink.Tests
 
            // var archiveCert = ArchiveCertificate.FromByteArray(new byte[] { 1, 2, 3 });
             _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), 200, It.IsAny<string>())).Returns(Mock.Of<ICommandResponse>());
-            _trimRepoMock.Setup(r => r.PutArchiveCertificate(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<ArchiveCertificate>(), It.IsAny<string>()));
+            _trimRepoMock.Setup(r => r.SaveCertificate(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<ArchiveCertificate>(), It.IsAny<string>()));
             // Act
             var result = await _service.PutCert(model);
             // Assert

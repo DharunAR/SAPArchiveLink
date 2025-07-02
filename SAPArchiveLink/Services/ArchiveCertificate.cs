@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Razor.TagHelpers;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 
 namespace SAPArchiveLink
 {
@@ -10,26 +11,10 @@ namespace SAPArchiveLink
         private readonly int _permission;
         private readonly bool _isUsedInElibContext;
 
-        public ArchiveCertificate(X509Certificate2 certificate, int permission = 0, bool isUsedInElibContext = false)
-        {
-            _certificate = certificate ?? throw new ArgumentNullException(nameof(certificate));        
-        } 
-
-        private ArchiveCertificate(byte[] certData)
-        {
-            if (certData == null || certData.Length == 0)
-            {
-                throw new ArgumentNullException(nameof(certData), "Certificate data cannot be null or empty.");
-            }
-
-            _certificate = new X509Certificate2(certData);         
-        }
 
         public static ArchiveCertificate FromByteArray(byte[] data)
         {
             ArchiveCertificate? certificate = null;
-            MemoryStream? ms = null;
-
             try
             {
                 try
@@ -47,42 +32,36 @@ namespace SAPArchiveLink
                 catch (Exception)
                 {
                     // Fallback to X.509 if not PKCS7
-                    ms?.Dispose(); // dispose any prior stream if needed
-
-                    ms = new MemoryStream(data);
-                    var cert = new X509Certificate2(ms.ToArray());
-                    certificate = new ArchiveCertificate(cert.RawData);
+                    string certificateContent = Encoding.UTF8.GetString(data);
+                    if (certificateContent.Contains("-----BEGIN"))
+                    {
+                        // PEM format
+                        certificate = LoadFromPem(certificateContent);
+                    }
+                    else
+                    {
+                        // Assume base64 encoded binary (DER or PFX)
+                        var cert = new X509Certificate2(data);
+                        certificate = new ArchiveCertificate(cert.RawData);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 throw new ArgumentException("Failed to create ArchiveCertificate from byte array.", ex);
             }
-            finally
-            {
-                if (ms != null)
-                {
-                    try
-                    {
-                        ms.Dispose();
-                    }
-                    catch (IOException)
-                    {
-                        // Log the exception if needed
-                    }
-                }
-            }
 
             return certificate ?? throw new InvalidOperationException("Failed to create a valid ArchiveCertificate.");
+        }
+
+        public ArchiveCertificate(X509Certificate2 certificate, int permission = 0, bool isUsedInElibContext = false)
+        {
+            _certificate = certificate ?? throw new ArgumentNullException(nameof(certificate));        
         }
 
         public string GetFingerprint()
         {
             return _certificate.Thumbprint;
-            //using (var sha1 = SHA1.Create())
-            //{
-            //    return sha1.ComputeHash(_certificate.RawData);
-            //}
         }
 
         public string getSerialNumber()
@@ -94,10 +73,12 @@ namespace SAPArchiveLink
         {
             return _certificate.Issuer;
         }
+
         public string ValidTill()
         {
             return _certificate.NotAfter.ToString();
         }
+
         public string ValidFrom()
         {
             return _certificate.NotBefore.ToString();
@@ -117,6 +98,92 @@ namespace SAPArchiveLink
         {
             return _certificate;
         }
+
+        private ArchiveCertificate(byte[] certData)
+        {
+            if (certData == null || certData.Length == 0)
+            {
+                throw new ArgumentNullException(nameof(certData), "Certificate data cannot be null or empty.");
+            }
+
+            _certificate = new X509Certificate2(certData);         
+        }      
+
+        private static ArchiveCertificate LoadFromPem(string pemString)
+        {
+            string? certPem = null;
+            string? keyPem = null;
+
+            // Extract CERTIFICATE and PRIVATE KEY sections  
+            var lines = pemString.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            StringBuilder sectionBuilder = new();
+            string? currentSection = null;
+
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("-----BEGIN "))
+                {
+                    currentSection = line;
+                    sectionBuilder.Clear();
+                }
+                else if (line.StartsWith("-----END "))
+                {
+                    var sectionContent = sectionBuilder.ToString();
+                    if (currentSection != null && currentSection.Contains("CERTIFICATE") && !currentSection.Contains("PRIVATE KEY"))
+                    {
+                        certPem = $"{currentSection}\n{sectionContent}{line}";
+                    }
+                    else if (currentSection != null && currentSection.Contains("PRIVATE KEY"))
+                    {
+                        keyPem = $"{currentSection}\n{sectionContent}{line}";
+                    }
+                    currentSection = null;
+                }
+                else if (currentSection != null)
+                {
+                    sectionBuilder.AppendLine(line);
+                }
+            }
+
+            if (certPem == null)
+                throw new InvalidOperationException("No CERTIFICATE section found in PEM.");
+
+            // Load certificate  
+            var certBase64 = certPem
+                .Replace("-----BEGIN CERTIFICATE-----", "")
+                .Replace("-----END CERTIFICATE-----", "")
+                .Replace("\n", "")
+                .Replace("\r", "");
+            var certBytes = Convert.FromBase64String(certBase64);
+            var cert = new ArchiveCertificate(certBytes);
+
+            if (keyPem == null)
+                return cert; // public cert only  
+
+            // Load private key  
+            var keyBase64 = keyPem
+                .Replace("-----BEGIN PRIVATE KEY-----", "")
+                .Replace("-----END PRIVATE KEY-----", "")
+                .Replace("-----BEGIN RSA PRIVATE KEY-----", "")
+                .Replace("-----END RSA PRIVATE KEY-----", "")
+                .Replace("\n", "")
+                .Replace("\r", "");
+            var keyBytes = Convert.FromBase64String(keyBase64);
+
+            using RSA rsa = RSA.Create();
+            try
+            {
+                rsa.ImportPkcs8PrivateKey(keyBytes, out _);
+            }
+            catch (CryptographicException)
+            {
+                rsa.ImportRSAPrivateKey(keyBytes, out _);
+            }
+
+            var certWithKey = cert.GetCertificate().CopyWithPrivateKey(rsa);
+            return new ArchiveCertificate(certWithKey.Export(X509ContentType.Pfx));
+        }          
+      
     }
 
 }

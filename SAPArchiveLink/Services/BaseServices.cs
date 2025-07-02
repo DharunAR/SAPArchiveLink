@@ -41,43 +41,56 @@ public class BaseServices : IBaseServices
             var validationResults = ModelValidator.Validate(putCertificateModel);
             if (validationResults.Any())
             {
-                var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
-                var combinedErrorMessage = string.Join("; ", allErrorMessages);
+                string combinedErrorMessage = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
                 return _responseFactory.CreateError(combinedErrorMessage);
             }
 
-            using var memoryStream = new MemoryStream();
-            byte[] buffer = new byte[1024 * 2]; // 2 KB buffer  
-            int bytesRead;
-            if(putCertificateModel.Stream != null)
+            byte[] certBytes;
+            using (var memoryStream = new MemoryStream())
             {
+                byte[] buffer = new byte[2048];
+                int bytesRead;
                 while ((bytesRead = await putCertificateModel.Stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                 {
                     await memoryStream.WriteAsync(buffer, 0, bytesRead);
                 }
-                if (memoryStream.ToArray() == null || memoryStream.ToArray().Length == 0)
-                {
-                    return _responseFactory.CreateError("Certificate cannot be recognized", StatusCodes.Status406NotAcceptable);
-                }
-                IArchiveCertificate? archiveCertificate = null;
-                archiveCertificate = _certificateFactory.FromByteArray(memoryStream.ToArray());
-                int protectionLevel = -1;
-                if (!string.IsNullOrWhiteSpace(putCertificateModel.Permissions))
-                {
-                    protectionLevel = SecurityUtils.AccessModeToInt(putCertificateModel.Permissions);
-                }
-                using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
-                {
-                    trimRepo.PutArchiveCertificate(putCertificateModel.AuthId, protectionLevel, archiveCertificate, putCertificateModel.ContRep);
-                }
-            }   
+
+                certBytes = memoryStream.ToArray();
+            }
+            if (certBytes == null || certBytes.Length == 0)
+            {
+                return _responseFactory.CreateError("Certificate cannot be recognized", StatusCodes.Status406NotAcceptable);
+            }
+
+            IArchiveCertificate? archiveCertificate = null;
+            try
+            {
+                archiveCertificate = _certificateFactory.FromByteArray(certBytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Failed to parse certificate from byte array. AuthId: {putCertificateModel.AuthId}", ex);
+                return _responseFactory.CreateError(ex.Message, StatusCodes.Status406NotAcceptable);
+            }
+
+            int protectionLevel = !string.IsNullOrWhiteSpace(putCertificateModel.Permissions)
+             ? SecurityUtils.AccessModeToInt(putCertificateModel.Permissions)
+             : -1;
+            using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
+            {
+                trimRepo.SaveCertificate
+                    (putCertificateModel.AuthId,
+                    protectionLevel,
+                    archiveCertificate,
+                    putCertificateModel.ContRep);
+            }
 
             return _responseFactory.CreateProtocolText("Certificate published");
         }
         catch (Exception ex)
         {
-            _logger.LogError("An error occurred while processing PutCert." + ex);
-            return _responseFactory.CreateError("Certificate cannot be recognized", StatusCodes.Status406NotAcceptable);
+            _logger.LogError("An error occurred while saving certificate.", ex);
+            return _responseFactory.CreateError(ex.Message, StatusCodes.Status500InternalServerError);
         }
     }
 

@@ -1,4 +1,6 @@
-﻿using TRIM.SDK;
+﻿using System.Runtime.ConstrainedExecution;
+using System.Security.Cryptography.X509Certificates;
+using TRIM.SDK;
 
 namespace SAPArchiveLink
 {
@@ -50,16 +52,35 @@ namespace SAPArchiveLink
         /// <param name="certificate"></param>
         /// <param name="contRep"></param>
         /// <returns></returns>
-        public void PutArchiveCertificate(string authId, int protectionLevel, IArchiveCertificate archiveCertificate, string contRep)
+        public void SaveCertificate(string authId, int protectionLevel, IArchiveCertificate archiveCertificate, string contRep)
         {            
             string serialName = archiveCertificate.getSerialNumber();
             string fingerPrint = archiveCertificate.GetFingerprint();
             string issuer = archiveCertificate.getIssuerName();
             TrimDateTime validFrom = TrimDateTime.Parse(archiveCertificate.ValidFrom());
-            TrimDateTime validTill = TrimDateTime.Parse(archiveCertificate.ValidTill());
-         //   _db.saveCertificate();
+            TrimDateTime validTill = TrimDateTime.Parse(archiveCertificate.ValidTill());           
+            var cert= archiveCertificate.GetCertificate();
+            byte[] certBytes = cert.Export(X509ContentType.Cert);
+            // Convert to Base64
+            string base64Cert = Convert.ToBase64String(certBytes);
 
-          
+            SapRepoConfigUserOptions sapRepoConfigUserOptions = new SapRepoConfigUserOptions(_db);      
+
+            SapRepoItem sapRepoItem = new SapRepoItem();
+
+            sapRepoItem.setArchiveDataID(contRep);
+            sapRepoItem.setAuthId(authId);
+            sapRepoItem.setFingerPrint(fingerPrint);
+            sapRepoItem.setContent(base64Cert);
+            sapRepoItem.setIssuerCertificate(issuer);
+            sapRepoItem.setPermissions(protectionLevel);
+            sapRepoItem.setSerialName(serialName);
+            sapRepoItem.setValidFrom(validFrom);
+            sapRepoItem.setValidTill(validTill);
+
+            sapRepoConfigUserOptions.AddSapRepoItem(sapRepoItem);
+            sapRepoConfigUserOptions.Save();
+            
         }
     }
 }
