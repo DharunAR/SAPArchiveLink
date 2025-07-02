@@ -89,11 +89,13 @@ public class BaseServices : IBaseServices
     /// <returns>Response includes all required ArchiveLink headers and binary content</returns>
     public async Task<ICommandResponse> DocGetSapComponents(SapDocumentRequest sapDoc)
     {
+        _logger.LogInformation($"DocGet request for DocId: {sapDoc.DocId}, ContRep: {sapDoc.ContRep}");
         var validationResults = ModelValidator.Validate(sapDoc);
         if (validationResults.Any())
         {
             var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
             var combinedErrorMessage = string.Join("; ", allErrorMessages);
+            _logger.LogError($"DocGet Validation errors: {combinedErrorMessage}");
             return _responseFactory.CreateError(combinedErrorMessage);
         }
 
@@ -102,16 +104,24 @@ public class BaseServices : IBaseServices
 
         using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
         {
+            _logger.LogInformation($"Fetching record for DocId: {sapDoc.DocId} and ContRep: {sapDoc.ContRep}");
             IArchiveRecord recordAdapter = trimRepo.GetRecord(sapDoc.DocId, sapDoc.ContRep);
             if (recordAdapter == null)
-                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId }), StatusCodes.Status404NotFound);
-
+            {
+                string errorMessage = _messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId });
+                _logger.LogError(errorMessage);
+                return _responseFactory.CreateError(errorMessage, StatusCodes.Status404NotFound);
+            }
             // Handle single component response
             if (!string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
                 var component = await recordAdapter.ExtractComponentById(sapDoc.CompId);
                 if (component == null)
-                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId, sapDoc.DocId }), StatusCodes.Status404NotFound);
+                {
+                    string errorMessage = _messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId, sapDoc.DocId });
+                    _logger.LogError(errorMessage);
+                    return _responseFactory.CreateError(errorMessage, StatusCodes.Status404NotFound);
+                }
 
                 return GetSingleComponentResponse(component, sapDoc);
             }
@@ -130,11 +140,13 @@ public class BaseServices : IBaseServices
     /// <returns>Returns 200 OK on success, 400 for missing parameters, 404 for missing record/component, or 500 for server errors.</returns>
     public async Task<ICommandResponse> GetSapDocument(SapDocumentRequest sapDoc)
     {
+        _logger.LogInformation($"Get request for DocId: {sapDoc.DocId}, ContRep: {sapDoc.ContRep}");
         var validationResults = ModelValidator.Validate(sapDoc);
         if (validationResults.Any())
         {
             var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
             var combinedErrorMessage = string.Join("; ", allErrorMessages);
+            _logger.LogError($"Get Validation errors: {combinedErrorMessage}");
             return _responseFactory.CreateError(combinedErrorMessage);
         }
 
@@ -142,10 +154,13 @@ public class BaseServices : IBaseServices
         ValidateSignature(sapDoc);
         using (ITrimRepository db = _databaseConnection.GetDatabase())
         {
+            _logger.LogInformation($"Fetching record for DocId: {sapDoc.DocId} and ContRep: {sapDoc.ContRep}");
             var record = db.GetRecord(sapDoc.DocId, sapDoc.ContRep);
             if (record == null)
             {
-                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId }), StatusCodes.Status404NotFound);
+                string errorMessage = _messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId });
+                _logger.LogError(errorMessage);
+                return _responseFactory.CreateError(errorMessage, StatusCodes.Status404NotFound);
             }
             if (string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
@@ -159,7 +174,9 @@ public class BaseServices : IBaseServices
             var component = await record.ExtractComponentById(sapDoc.CompId);
             if (component == null || component.Data == null)
             {
-                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId }), StatusCodes.Status404NotFound);
+                string errorMessage = _messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId });
+                _logger.LogError(errorMessage);
+                return _responseFactory.CreateError(errorMessage, StatusCodes.Status404NotFound);
             }
 
             var (stream, length, rangeError) = await GetRangeStream(component.Data, component.ContentLength, sapDoc.FromOffset, sapDoc.ToOffset);
@@ -335,6 +352,7 @@ public class BaseServices : IBaseServices
             if (string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
                 //Delete document with all components
+                _logger.LogInformation($"Deleting document {sapDoc.DocId} and all associated components.");
                 record.DeleteRecord();
                 return _responseFactory.CreateProtocolText($"Document {sapDoc.DocId} and all associated components deleted successfully");
             }
@@ -484,6 +502,7 @@ public class BaseServices : IBaseServices
     /// <returns></returns>
     private ICommandResponse GetSingleComponentResponse(SapDocumentComponentModel component, SapDocumentRequest sapDoc, bool isInfo = false)
     {
+        _logger.LogInformation(isInfo ? "Creating Info Metadata for Single Component" : "Creating Document Content for Single Component");
         var response = !isInfo ? _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName)
             : _responseFactory.CreateInfoMetadata(new List<SapDocumentComponentModel>() { component });
 
@@ -501,6 +520,7 @@ public class BaseServices : IBaseServices
     /// <returns></returns>
     private ICommandResponse GetMultiPartResponse(List<SapDocumentComponentModel> multipartComponents, IArchiveRecord record, SapDocumentRequest sapDoc, bool isInfo = false)
     {
+        _logger.LogInformation(isInfo ? "Creating Info Metadata for MultiPart" : "Creating Document Content for MultiPart");
         var multipartResponse = !isInfo ? _responseFactory.CreateMultipartDocument(multipartComponents)
                                 : _responseFactory.CreateInfoMetadata(multipartComponents);
 
@@ -576,6 +596,7 @@ public class BaseServices : IBaseServices
     /// <returns></returns>
     private async Task<(Stream? Stream, long? Length, ICommandResponse? Error)> GetRangeStream(Stream originalStream, long contentLength, long fromOffset, long toOffset)
     {
+        _logger.LogInformation($"Get Document stream");
         if (fromOffset < 0 || toOffset < 0)
             return (null, 0L, _responseFactory.CreateError("Offsets cannot be negative"));
 

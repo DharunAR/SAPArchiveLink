@@ -1,6 +1,4 @@
-﻿
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public class SearchCommandHandler : ICommandHandler
     {
@@ -45,8 +43,6 @@ namespace SAPArchiveLink
             {
                 return _responseFactory.CreateError($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
             }
-
-            return CommandResponse.ForProtocolText("Search completed");
         }
     }
 }

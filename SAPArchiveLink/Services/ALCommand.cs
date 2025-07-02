@@ -50,8 +50,12 @@
             {
                 _template = ALCommandTemplateResolver.Parse(_httpMethod, url);
                 _parameters.ParseQueryString(url);
-            }
 
+                if (_template == ALCommandTemplate.Unknown)
+                {
+                    _validationError = $"Unsupported command in URL or HTTP method: {_httpMethod} {url}";
+                }
+            }
             _accessMode = ALCommandTemplateMetadata.GetAccessMode(_template);
         }
 

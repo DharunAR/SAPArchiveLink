@@ -34,6 +34,7 @@ namespace SAPArchiveLink
 
         public IRecordSapComponent? FindComponentById(string compId)
         {
+            _log.LogInformation($"Finding component with ID: {compId} in record {_record.SapDocumentId}");
             return ComponentsAdapter.FindComponentById(compId);
         }
 
@@ -73,6 +74,7 @@ namespace SAPArchiveLink
 
         public static ArchiveRecord? CreateNewArchiveRecord(Database db, TrimConfigSettings trimConfig, ILogHelper<ArchiveRecord> logger, CreateSapDocumentModel model)
         {
+            logger.LogInformation($"Creating new ArchiveRecord for ContRep: {model.ContRep}, DocId: {model.DocId}, PVersion: {model.PVersion}");
             var recType = GetRecordType(db, trimConfig, model.ContRep, logger);
             if (recType == null)
             {
@@ -187,6 +189,7 @@ namespace SAPArchiveLink
             {
                 if (string.IsNullOrWhiteSpace(compId))
                     return;
+                _log.LogInformation($"Adding component '{compId}' to record {_record.SapDocumentId}");
                 ComponentsAdapter.AddComponent(compId, version, contentType, charSet, filePath);
             }
             catch (Exception ex)
@@ -196,7 +199,8 @@ namespace SAPArchiveLink
             }
         }
         public void UpdateComponent(IRecordSapComponent component, SapDocumentComponentModel model)
-        {          
+        {       
+            _log.LogInformation($"Updating component {component.ComponentId} in record {_record.SapDocumentId}");
             ComponentsAdapter.UpdateComponent(component, model);
         }
         
