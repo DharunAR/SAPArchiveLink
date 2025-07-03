@@ -19,6 +19,11 @@ namespace SAPArchiveLink
 
         public async Task<IActionResult> RunRequest(CommandRequest request, ContentServerRequestAuthenticator _authenticator)
         {
+            var unsupportedTemplates = new[]
+               {
+                    ALCommandTemplate.PUTCERT
+
+                };
             var context = new CommandRequestContext(request.HttpRequest);
 
             var command = ALCommand.FromHttpRequest(new CommandRequest
@@ -33,16 +38,21 @@ namespace SAPArchiveLink
             {
                 var errorResponse = _commandResponseFactory.CreateError($"Bad request: {command.ValidationError}", StatusCodes.Status400BadRequest);
                 return new ArchiveLinkResult(errorResponse);
-            }
-
-            if (!string.IsNullOrEmpty(command.GetValue(ALParameter.VarContRep)))
-            {
-                using var trimRepo = _databaseConnection.GetDatabase();
-                var archieveCertificate = trimRepo.GetArchiveCertificate(command.GetValue(ALParameter.VarContRep));
-                var certificate = _authenticator.CheckRequest(request, command, archieveCertificate);
-
             }           
-           // var certificates = new List<IArchiveCertificate>();
+
+            if (!unsupportedTemplates.Contains(command.GetTemplate()))
+            {
+                if (!string.IsNullOrEmpty(command.GetValue(ALParameter.VarContRep)))
+                {
+                    using var trimRepo = _databaseConnection.GetDatabase();
+                    var archieveCertificate = trimRepo.GetArchiveCertificate(command.GetValue(ALParameter.VarContRep));
+                    if (archieveCertificate != null && archieveCertificate.IsEnabled())
+                    {
+                        var certificate = _authenticator.CheckRequest(request, command, archieveCertificate);
+                    }
+
+                }
+            }       
            
 
             var response = await ExecuteRequest(context, command);
