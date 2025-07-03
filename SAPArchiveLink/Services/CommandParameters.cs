@@ -16,7 +16,7 @@
 
             queryString = queryString.TrimStart('?');
             var pairs = queryString.Split('&')
-                .Select(part => part.Split('='))
+                .Select(part => part.Split('=',2))
                 .Where(parts => parts.Length == 2);
 
             foreach (var pair in pairs)

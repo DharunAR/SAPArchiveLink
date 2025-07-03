@@ -44,42 +44,61 @@ namespace SAPArchiveLink
 
         public void VerifyAgainst(byte[] data)
         {
-            if (_signedData == null)
+            if (_signedData == null || _signedData.Length == 0)
                 throw new InvalidOperationException("Signed data must be set before verification.");
 
-            var signedCms = new SignedCms(new ContentInfo(data), detached: true);
-            signedCms.Decode(_signedData);
-
-            // Optionally validate using only specific trusted certs
-            var extraStore = new X509Certificate2Collection();
-            if (_rawCertificates != null)
-                extraStore.AddRange(_rawCertificates); // Fix: AddRange works with X509Certificate2Collection
 
             try
             {
+                var signedCms = new SignedCms(new ContentInfo(data), detached: true);
+                signedCms.Decode(_signedData);
+              
+                var extraStore = new X509Certificate2Collection();
+                if (_rawCertificates != null)
+                    extraStore.AddRange(_rawCertificates); 
                 signedCms.CheckSignature(extraStore, true);
+                var signerCert = signedCms.SignerInfos[0].Certificate;
+                if (signerCert == null)
+                    throw new Exception("No certificate found in signer info.");
+
+                if (_certificates != null && signerCert.Thumbprint != _certificates.GetCertificate().Thumbprint)
+                    throw new Exception("Signer certificate does not match expected certificate.");
+
+                if (_certificates != null && _requiredPermission >= 0)
+                {
+                    int granted = _certificates.GetPermission();
+                    if ((granted & _requiredPermission) == 0)
+                        throw new Exception("Permission denied: insufficient certificate rights.");
+                }
+
+                _verifiedCertificate = signerCert;
             }
-            catch (CryptographicException ex)
+            catch (Exception)
             {
-                throw new Exception(); // throw new ICSSecurityException("Signature verification failed.", ex);
+                try
+                {
+                    var cert = new X509Certificate2(_signedData);
+                    cert.Verify();
+                    _verifiedCertificate = cert;
+
+                    if (cert == null)
+                        throw new Exception("No certificate found in signer info.");
+
+                    if (_certificates != null && cert.Thumbprint != _certificates.GetCertificate().Thumbprint)
+                        throw new Exception("Signer certificate does not match expected certificate.");
+
+                    if (_certificates != null && _requiredPermission >= 0)
+                    {
+                        int granted = _certificates.GetPermission();
+                        if ((granted & _requiredPermission) == 0)
+                            throw new Exception("Permission denied: insufficient certificate rights.");
+                    }
+                }
+                catch (Exception fallbackEx)
+                {
+                    throw new Exception("Both PKCS#7 and X.509 verification failed.", fallbackEx);
+                }
             }
-
-            // Find verified signer cert
-            var signerCert = signedCms.SignerInfos[0].Certificate;
-            if (signerCert == null)
-                throw new Exception(); // throw new ICSSecurityException("No valid certificate found in signed data.");
-
-            // Permission check if needed
-            if (_requiredPermission >= 0 && _certificates != null)
-            {
-                var matching = _certificates.GetCertificate().Thumbprint == signerCert.Thumbprint && _certificates.GetPermission() >= _requiredPermission;
-
-                if (matching == null)
-                    throw new Exception();
-                // throw new ICSSecurityException("Certificate found but permission insufficient.");
-            }
-
-            _verifiedCertificate = signerCert;
         }
 
         public X509Certificate2 GetCertificate(int index = -1)
@@ -93,5 +112,4 @@ namespace SAPArchiveLink
             return _rawCertificates[index];
         }
     }
-
 }
