@@ -2,13 +2,21 @@
 {
     public class TrimInitialization
     {
-        public bool IsInitialized { get; private set; }
+        private readonly object _lock = new();
+        public bool IsInitialized { get; private set; } = false;
         public string? ErrorMessage { get; private set; }
 
         /// <summary>
         /// Set the Trim has been initialized
         /// </summary>
-        public void TrimInitialized() => IsInitialized = true;
+        public void TrimInitialized() 
+        {
+            lock (_lock)
+            {
+                IsInitialized = true;
+                ErrorMessage = null;
+            }
+        } 
 
         /// <summary>
         /// Capture the failure of Trim initialization
@@ -16,8 +24,11 @@
         /// <param name="errorMessage"></param>
         public void FailInitialization(string errorMessage)
         {
-            IsInitialized = false;
-            ErrorMessage = errorMessage;
+            lock(_lock)
+            {
+                IsInitialized = false;
+                ErrorMessage = errorMessage;
+            }
         }
     }
 }

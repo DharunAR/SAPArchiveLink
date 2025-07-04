@@ -19,11 +19,10 @@ namespace SAPArchiveLink
 
         public async Task<IActionResult> RunRequest(CommandRequest request, ContentServerRequestAuthenticator _authenticator)
         {
-            var unsupportedTemplates = new[]
-               {
-                    ALCommandTemplate.PUTCERT
-
-                };
+            var skipAuthTemplates = new[]
+            {
+                ALCommandTemplate.PUTCERT
+            };
             var context = new CommandRequestContext(request.HttpRequest);
 
             var command = ALCommand.FromHttpRequest(new CommandRequest
@@ -40,21 +39,20 @@ namespace SAPArchiveLink
                 return new ArchiveLinkResult(errorResponse);
             }           
 
-            if (!unsupportedTemplates.Contains(command.GetTemplate()))
+            if (!skipAuthTemplates.Contains(command.GetTemplate()))
             {
                 if (!string.IsNullOrEmpty(command.GetValue(ALParameter.VarContRep)))
                 {
                     using var trimRepo = _databaseConnection.GetDatabase();
                     var archieveCertificate = trimRepo.GetArchiveCertificate(command.GetValue(ALParameter.VarContRep));
-                    if (archieveCertificate != null && archieveCertificate.IsEnabled())
+                    var requestAuthResult = _authenticator.CheckRequest(request, command, archieveCertificate);
+                    if (requestAuthResult != null && !requestAuthResult.IsAuthenticated)
                     {
-                        var certificate = _authenticator.CheckRequest(request, command, archieveCertificate);
+                        return new ArchiveLinkResult(requestAuthResult.ErrorResponse);
                     }
-
                 }
             }       
-           
-
+          
             var response = await ExecuteRequest(context, command);
 
             if (response.StatusCode == 307 && response.Headers.TryGetValue("Location", out string? locationUrl))

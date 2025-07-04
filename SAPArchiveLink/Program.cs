@@ -5,7 +5,7 @@ using NLog.Web;
 using SAPArchiveLink;
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
 builder.Logging.ClearProviders();
 builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
 builder.Logging.AddNLogWeb("nlog.config");
@@ -21,10 +21,6 @@ ServiceRegistration.RegisterTrimConfig(builder.Services, builder.Configuration);
 ServiceRegistration.RegisterServices(builder.Services);
 
 var app = builder.Build();
-
-var config = app.Services.GetRequiredService<IOptions<TrimConfigSettings>>();
-var initState = app.Services.GetRequiredService<TrimInitialization>();
-ServiceRegistration.InitializeTrimService(config, initState);
 
 app.UseMiddleware<TrimApplicationMiddleware>();
 // Optional: add development exception handling

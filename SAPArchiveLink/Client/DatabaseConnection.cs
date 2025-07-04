@@ -11,9 +11,9 @@ namespace SAPArchiveLink
         private readonly TrimConfigSettings _trimConfig;
         private readonly ILoggerFactory _loggerFactory;
 
-        public DatabaseConnection(IOptions<TrimConfigSettings> config, ILoggerFactory loggerFactory)
+        public DatabaseConnection(IOptionsMonitor<TrimConfigSettings> config, ILoggerFactory loggerFactory)
         {
-            _trimConfig = config.Value;
+            _trimConfig = config.CurrentValue;
             _loggerFactory = loggerFactory;
             Database.AllowAccessFromMultipleThreads = true;
         }

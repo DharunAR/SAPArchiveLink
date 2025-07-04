@@ -203,6 +203,8 @@ public class BaseServices : IBaseServices
                 response.ContentType += $"; version={component.Version}";
             response.AddHeader("Content-Length", length.ToString());
 
+            response.AddHeader("Content-Disposition", SecurityUtils.GetContentDispositionValue(component.FileName));
+
             return response;
         }
     }

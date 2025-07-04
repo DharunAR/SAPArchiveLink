@@ -11,6 +11,7 @@ namespace SAPArchiveLink.Tests
     {
         private Mock<ICommandDispatcherService> _dispatcherMock;
         private Mock<ContentServerRequestAuthenticator> _authenticatorMock;
+        private Mock<ICommandResponseFactory> _responseFactoryMock;
         private ContentServerController _controller;
         private DefaultHttpContext _httpContext;
 
@@ -18,9 +19,10 @@ namespace SAPArchiveLink.Tests
         public void SetUp()
         {
             _dispatcherMock = new Mock<ICommandDispatcherService>();
+            _responseFactoryMock = new Mock<ICommandResponseFactory>();
             var verifierMock = new Mock<IVerifier>();
             var loggerMock = new Mock<ILogger<ContentServerRequestAuthenticator>>();
-            _authenticatorMock = new Mock<ContentServerRequestAuthenticator>(verifierMock.Object, loggerMock.Object);
+            _authenticatorMock = new Mock<ContentServerRequestAuthenticator>(verifierMock.Object, loggerMock.Object, _responseFactoryMock.Object);
             _controller = new ContentServerController(_dispatcherMock.Object, _authenticatorMock.Object);
             _httpContext = new DefaultHttpContext();
             _controller.ControllerContext = new ControllerContext

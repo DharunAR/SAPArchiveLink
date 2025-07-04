@@ -1,6 +1,4 @@
 ﻿using System.Globalization;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 namespace SAPArchiveLink
@@ -9,202 +7,165 @@ namespace SAPArchiveLink
     {
         private readonly IVerifier _verifier;
         private readonly ILogger<ContentServerRequestAuthenticator> _logger;
+        private readonly ICommandResponseFactory _responseFactory;
 
-        public ContentServerRequestAuthenticator(IVerifier verifier, ILogger<ContentServerRequestAuthenticator> logger)
+        private const string DefaultCharset = "UTF-8";
+        private const string ExpirationFormat = "yyyyMMddHHmmss";
+
+        private readonly HashSet<ALCommandTemplate> UnsupportedCommands = new()
         {
-            _verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
+            ALCommandTemplate.ADMINCONTREP,
+            ALCommandTemplate.APPENDNOTE,
+            ALCommandTemplate.GETANNOTATIONS,
+            ALCommandTemplate.GETNOTES,
+            ALCommandTemplate.STOREANNOTATIONS
+        };
+
+        public ContentServerRequestAuthenticator(IVerifier verifier, ILogger<ContentServerRequestAuthenticator> logger,
+                                                    ICommandResponseFactory responseFactory)
+        {
+            _verifier = verifier;
             _logger = logger;
+            _responseFactory = responseFactory;
         }
 
-        public X509Certificate2 CheckRequest(CommandRequest request, ICommand command, IArchiveCertificate certificates)
+        public RequestAuthResult CheckRequest(CommandRequest request, ICommand command, IArchiveCertificate certificates)
         {
-            _logger.LogDebug("Validating command {CommandName} with version {Version}", command.GetTemplate(), command.GetValue("pVersion"));
+            var pVersion = command.GetValue(ALParameter.VarPVersion);
+            _logger.LogDebug($"Validating command {command.GetTemplate()} with version {pVersion}");
 
-            string pVersion = command.GetValue(ALParameter.VarPVersion);
             if (command.GetTemplate() != ALCommandTemplate.ADMINCONTREP && !IsSupportedVersion(pVersion))
-            {
-                throw new ALException(ALException.AL_VERSION_NOT_SUPPORTED, ALException.AL_VERSION_NOT_SUPPORTED_STR,
-                    new object[] { pVersion, "0045, 0046, 0047" }, StatusCodes.Status400BadRequest);
-            }
+                return Fail("Unsupported protocol version", StatusCodes.Status400BadRequest);
 
-            if (command.GetTemplate() is ALCommandTemplate.ADMINCONTREP or ALCommandTemplate.APPENDNOTE
-                or ALCommandTemplate.GETANNOTATIONS or ALCommandTemplate.GETNOTES or ALCommandTemplate.STOREANNOTATIONS)
-            {
-                throw new ALException(ALException.AL_METHOD_NOT_SUPPORTED, ALException.AL_METHOD_NOT_SUPPORTED_STR,
-                    new object[] { command.GetTemplate() }, StatusCodes.Status501NotImplemented);
-            }
+            if (UnsupportedCommands.Contains(command.GetTemplate()))
+                return Fail($"Command {command.GetTemplate()} is not supported", StatusCodes.Status501NotImplemented);
 
             if (command.GetTemplate() == ALCommandTemplate.SIGNURL && !request.HttpRequest.IsHttps)
-            {
-                throw new ALException(ALException.AL_NON_SSL_ACCESS, ALException.AL_NON_SSL_ACCESS_STR,
-                    new object[] { command.GetValue(ALParameter.VarContRep) ?? "unknown" }, StatusCodes.Status403Forbidden);
-            }
+                return Fail("SIGNURL requires HTTPS", StatusCodes.Status400BadRequest);
 
-            ValidateContentHeadersIfNeeded(command, request.HttpRequest);
-            ValidateChecksumIfPresent(request);
-            ValidateOriginalLength(request, command);
+            if (!ValidateContentHeadersIfNeeded(command, request.HttpRequest))
+                return Fail("Invalid or missing Content headers", StatusCodes.Status400BadRequest);
 
             return CheckAuthentication(command, certificates);
         }
 
-        private X509Certificate2 CheckAuthentication(ICommand command, IArchiveCertificate certificates)
+        private RequestAuthResult CheckAuthentication(ICommand command, IArchiveCertificate certificates)
         {
             bool requiresSignature = !string.IsNullOrEmpty(command.GetValue(ALParameter.VarSecKey)) ||
-                                     !string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsPi)) ||
-                                     !string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsNode)) ||
-                                     command.GetTemplate() == ALCommandTemplate.SIGNURL;
+            !string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsPi)) ||
+            !string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsNode)) ||
+            command.GetTemplate() == ALCommandTemplate.SIGNURL;
 
             if (!requiresSignature)
-                return null;
+                return RequestAuthResult.Success();
 
             try
             {
-                var cert = VerifyUrl(command, certificates);
+                VerifyUrl(command, certificates);
 
-                if (command.GetValue(ALParameter.VarRmsPi) is not null or "" && !command.IsImmutable())
-                {
-                    throw new ALException(ALException.AL_UNEXPECTED_PARAMETER, ALException.AL_UNEXPECTED_PARAMETER_STR,
-                        new object[] { "rmspi|rmsnode", command.GetTemplate() }, StatusCodes.Status400BadRequest);
-                }
+                if (!string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsPi)) && !command.IsImmutable())
+                    return Fail($"{ALParameter.VarRmsPi} is set but command is not immutable", StatusCodes.Status403Forbidden);
 
-                return cert;
+                return RequestAuthResult.Success();
             }
             catch (Exception ex)
             {
-                throw new ALException(ALException.AL_SIGNED_URL_ERROR, ALException.AL_SIGNED_URL_ERROR_STR,
-                    new object[] { command.GetTemplate() }, StatusCodes.Status403Forbidden, ex);
+                _logger.LogError(ex, "Authentication verification failed");
+                return Fail("Authentication verification error: " + ex.Message, StatusCodes.Status403Forbidden);
             }
         }
 
-        private X509Certificate2 VerifyUrl(ICommand command, IArchiveCertificate certificates)
+        private void VerifyUrl(ICommand command, IArchiveCertificate certificates)
         {
             _verifier.SetCertificates(certificates);
 
-            string charset = command.GetURLCharset() ?? "UTF-8";
-            string secKey = command.GetValue(ALParameter.VarSecKey);
-            if (string.IsNullOrEmpty(secKey))
-                throw new ALException("MISSING_SIGNATURE", "Missing secKey parameter", null, StatusCodes.Status403Forbidden);
+            var charset = command.GetURLCharset() ?? DefaultCharset;
+            Encoding encoding;
+            try
+            {
+                encoding = Encoding.GetEncoding(charset);
+            }
+            catch (ArgumentException)
+            {
+                throw new InvalidOperationException($"Unsupported charset: {charset}");
+            }
 
-            string authId = command.GetValue(ALParameter.VarAuthId);
-            string expiration = command.GetValue(ALParameter.VarExpiration);
-            string accessModeStr = command.GetValue(ALParameter.VarAccessMode);
+            var secKey = command.GetValue(ALParameter.VarSecKey)
+            ?? throw new InvalidOperationException("Missing secKey");
+
+            var authId = command.GetValue(ALParameter.VarAuthId);
+            var expiration = command.GetValue(ALParameter.VarExpiration);
+            var accessModeStr = command.GetValue(ALParameter.VarAccessMode);
 
             if (string.IsNullOrEmpty(authId) || string.IsNullOrEmpty(expiration) || string.IsNullOrEmpty(accessModeStr))
-            {
-                throw new ALException(ALException.AL_SIGNED_URL_ERROR, ALException.AL_SIGNED_URL_ERROR_STR,
-                    new object[] { "Missing required signed URL fields" }, StatusCodes.Status403Forbidden);
-            }
+                throw new InvalidOperationException("Missing authId, expiration, or accessMode");
 
             CheckExpiration(expiration);
 
             if (!accessModeStr.Contains(command.GetAccessMode().ToString()))
-            {
-                throw new ALException("INVALID_ACCESSMODE", "Access mode not allowed for signed URL",
-                    new object[] { accessModeStr, command.GetAccessMode().ToString(), command.GetTemplate() }, StatusCodes.Status403Forbidden);
-            }
+                throw new UnauthorizedAccessException($"Access mode {command.GetAccessMode()} not permitted");
 
             _verifier.SetSignedData(Convert.FromBase64String(secKey));
             _verifier.SetRequiredPermission(SecurityUtils.AccessModeToInt(command.GetAccessMode()));
 
-            if (command is { })
-            {
-                string stringToSign = command.GetStringToSign(false, charset);
-                _verifier.VerifyAgainst(Encoding.GetEncoding(charset).GetBytes(stringToSign));
-            }
+            string stringToSign = command.GetStringToSign(false, charset);
+            _verifier.VerifyAgainst(encoding.GetBytes(stringToSign));
 
-            var cert = _verifier.GetCertificate() ?? throw new ALException("CERTIFICATE_MISSING", "No certificate found after verification", null, StatusCodes.Status403Forbidden);
+            var cert = _verifier.GetCertificate()
+            ?? throw new UnauthorizedAccessException("No valid certificate found");
 
             command.SetVerified();
             command.SetCertSubject(cert.Subject);
             command.SetImmutable();
 
-            _logger.LogInformation("Verified request signed by: {Subject}", cert.Subject);
-            return cert;
+            _logger.LogInformation($"Request verified. Subject: {cert.Subject}");
         }
 
-        private static void ValidateContentHeadersIfNeeded(ICommand command, HttpRequest request)
+        private bool ValidateContentHeadersIfNeeded(ICommand command, HttpRequest request)
         {
             if (command.IsHttpPOST() || command.IsHttpPUT())
             {
                 if (request.ContentLength is null or < 0)
-                    throw new ALException(ALException.AL_ERROR_MISSING_ATTRIBUTE, ALException.AL_ERROR_MISSING_ATTRIBUTE_STR,
-                        new object[] { "content-length" }, StatusCodes.Status400BadRequest);
-
-                if (string.IsNullOrEmpty(request.ContentType))
-                    throw new ALException(ALException.AL_ERROR_MISSING_ATTRIBUTE, ALException.AL_ERROR_MISSING_ATTRIBUTE_STR,
-                        new object[] { "content-type" }, StatusCodes.Status400BadRequest);
-            }
-        }
-
-        private void ValidateChecksumIfPresent(CommandRequest request)
-        {
-            var checksum = request.HttpRequest.Query["ixCheckSum"].FirstOrDefault()
-                           ?? request.HttpRequest.Headers["x-ix-checksum"].FirstOrDefault();
-
-            if (!string.IsNullOrEmpty(checksum))
-            {
-                var query = request.HttpRequest.QueryString.Value;
-                var computed = ComputeChecksum(query);
-
-                if (!checksum.Equals(computed, StringComparison.OrdinalIgnoreCase))
-                    throw new ALException("INVALID_CHECKSUM", "Checksum mismatch", new object[] { computed, checksum }, StatusCodes.Status400BadRequest);
-            }
-        }
-
-        private void ValidateOriginalLength(CommandRequest request, ICommand command)
-        {
-            if (request.HttpRequest.Headers.TryGetValue("x-original-length", out var value) &&
-                long.TryParse(value, out long originalLength) &&
-                (command.IsHttpPOST() || command.IsHttpPUT()))
-            {
-                var actualLength = request.HttpRequest.ContentLength ?? -1;
-                if (originalLength != actualLength)
                 {
-                    throw new ALException("ORIGINAL_LENGTH_MISMATCH", "Expected length {0}, got {1}",
-                        new object[] { originalLength, actualLength }, StatusCodes.Status400BadRequest);
+                    string err = "Content-Length header is missing or invalid.";
+                    _logger.LogError(err);
+                    return false;
                 }
             }
+            return true;
         }
 
         private void CheckExpiration(string expiration)
         {
-            if (DateTime.TryParseExact(expiration, "yyyyMMddHHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None, out var exp) &&
-                exp < DateTime.UtcNow)
+            if (DateTime.TryParseExact(expiration, ExpirationFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var exp))
             {
-                throw new ALException("EXPIRED_SIGNATURE", "The signature has expired at {0}", new object[] { exp }, StatusCodes.Status403Forbidden);
+                if (exp < DateTime.UtcNow)
+                    throw new UnauthorizedAccessException("Request has expired");
+            }
+            else
+            {
+                throw new FormatException("Invalid expiration format");
             }
         }
 
-        private string ComputeChecksum(string data)
-        {
-            using var sha256 = SHA256.Create();
-            var bytes = Encoding.UTF8.GetBytes(data ?? string.Empty);
-            return Convert.ToBase64String(sha256.ComputeHash(bytes));
-        }
+        private bool IsSupportedVersion(string pVersion) =>
+        !string.IsNullOrWhiteSpace(pVersion) && IsSupported(ParseVersion(pVersion));
 
-        private bool IsSupportedVersion(string pVersion)
+        private ALProtocolVersion ParseVersion(string version) => version switch
         {
-            if (!string.IsNullOrWhiteSpace(pVersion))
-            {
-                return IsSupported(pVersionParse(pVersion));
-            }
-            return false;
-        }
+            "0045" => ALProtocolVersion.OO45,
+            "0046" => ALProtocolVersion.OO46,
+            "0047" => ALProtocolVersion.OO47,
+            _ => ALProtocolVersion.Unsupported
+        };
 
-        private ALProtocolVersion pVersionParse(string version)
-        {
-            return version switch
-            {
-                "0045" => ALProtocolVersion.OO45,
-                "0046" => ALProtocolVersion.OO46,
-                "0047" => ALProtocolVersion.OO47,
-                _ => ALProtocolVersion.Unsupported
-            };
-        }
+        private bool IsSupported(ALProtocolVersion version) =>
+        version is ALProtocolVersion.OO45 or ALProtocolVersion.OO46 or ALProtocolVersion.OO47;
 
-        private bool IsSupported(ALProtocolVersion version)
+        private RequestAuthResult Fail(string message, int statusCode)
         {
-            return version is ALProtocolVersion.OO45 or ALProtocolVersion.OO46 or ALProtocolVersion.OO47;
+            var error = _responseFactory.CreateError(message, statusCode);
+            return RequestAuthResult.Fail(error);
         }
     }
 

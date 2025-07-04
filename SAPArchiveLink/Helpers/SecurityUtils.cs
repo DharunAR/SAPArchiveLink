@@ -5,6 +5,11 @@ namespace SAPArchiveLink
 {
     public static class SecurityUtils
     {
+        private static readonly HashSet<string> AttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".zip", ".exe", ".msi", ".bat", ".cmd", ".sh", ".apk", ".dmg", ".bin"
+        };
+
         public static bool NeedsSignature(ALCommand command, int serverProtectionLevel)
         {
             int accMode = AccessModeToInt(command.GetAccessMode());
@@ -93,6 +98,25 @@ namespace SAPArchiveLink
             }
 
             return protectionLevelStr.ToString();
+        }
+
+        /// <summary>
+        /// Generates a Content-Disposition header value based on the file name.
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static string GetContentDispositionValue(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+                throw new ArgumentException("File name must not be null or empty.", nameof(fileName));
+
+            var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
+            var dispositionType = (extension != null && AttachmentExtensions.Contains(extension)) ? "attachment" : "inline";
+
+            var sanitizedFileName = Path.GetFileName(fileName).Replace("\"", "");
+
+            return $"{dispositionType}; filename=\"{sanitizedFileName}\"";
         }
     }
 

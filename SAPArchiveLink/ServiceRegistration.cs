@@ -95,55 +95,12 @@ namespace SAPArchiveLink
         public static void RegisterTrimConfig(IServiceCollection services, IConfiguration configuration)
         {
             var configSection = configuration.GetSection("TRIMConfig");
-            var config = configSection.Get<TrimConfigSettings>();
-            if (config == null || string.IsNullOrWhiteSpace(config.WorkPath))
-            {
-                throw new InvalidOperationException("TRIMConfig section is missing, invalid, or WorkPath is not set.");
-            }
             services.Configure<TrimConfigSettings>(configSection);
+
+            // Register shared state and services
             services.AddSingleton<TrimInitialization>();
             services.AddSingleton<ISdkMessageProvider, SdkMessageProvider>();
-            services.AddScoped<IDownloadFileHandler>(sp => new DownloadFileHandler(config.WorkPath));
-        }
-
-        /// <summary>
-        /// Initialize Trim Application services
-        /// </summary>
-        /// <param name="trimConfigOptions"></param>
-        /// <param name="initState"></param>
-        public static void InitializeTrimService(IOptions<TrimConfigSettings> trimConfigOptions, TrimInitialization initState)
-        {
-            try
-            {
-                var trimConfig = trimConfigOptions.Value;
-                if (!string.IsNullOrWhiteSpace(trimConfig.BinariesLoadPath))
-                {
-                    TrimApplication.TrimBinariesLoadPath = trimConfig.BinariesLoadPath;
-                }
-                TrimApplication.SetAsWebService(trimConfig.WorkPath);
-                TrimApplication.Initialize();
-                initState.TrimInitialized();
-            }
-            catch (TrimException trimEx)
-            {
-                initState.FailInitialization(trimEx.Message);
-            }
-            catch (Exception ex)
-            {
-                initState.FailInitialization(GetFullExceptionMessage(ex));
-            }
-        }
-
-        private static string GetFullExceptionMessage(Exception ex)
-        {
-            var messages = new List<string>();
-            var current = ex;
-            while (current != null)
-            {
-                messages.Add(current.Message);
-                current = current.InnerException;
-            }
-            return string.Join(", ", messages);
+            services.AddScoped<IDownloadFileHandler, DownloadFileHandler>();
         }
     }
 }
