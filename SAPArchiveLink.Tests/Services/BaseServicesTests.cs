@@ -525,7 +525,7 @@ namespace SAPArchiveLink.Tests
         public async Task GetSapDocument_ReturnsData_WhenCompIdIsNullAndDataExists()
         {
             var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = null };
-            var component = new SapDocumentComponentModel { CompId = "data", Data = new MemoryStream() };
+            var component = new SapDocumentComponentModel { CompId = "data", Data = new MemoryStream(), FileName = "test.txt" };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("data")).Returns(true);
             recordMock.Setup(r => r.ExtractComponentById("data", true)).ReturnsAsync(component);
@@ -545,7 +545,7 @@ namespace SAPArchiveLink.Tests
         public async Task GetSapDocument_ReturnsData1_WhenCompIdIsNullAndData1Exists()
         {
             var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = null };
-            var component = new SapDocumentComponentModel { CompId = "data1", Data = new MemoryStream() };
+            var component = new SapDocumentComponentModel { CompId = "data1", Data = new MemoryStream(), FileName = "test.txt" };
             var recordMock = new Mock<IArchiveRecord>();
             recordMock.Setup(r => r.HasComponent("data")).Returns(false);
             recordMock.Setup(r => r.HasComponent("data1")).Returns(true);
