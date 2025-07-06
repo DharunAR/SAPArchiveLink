@@ -21,15 +21,18 @@ namespace SAPArchiveLink
                 try
                 {
                     var trimConfig = configMonitor.CurrentValue;
-
-                    if (!string.IsNullOrWhiteSpace(trimConfig.BinariesLoadPath))
+                    
+                    if (string.IsNullOrWhiteSpace(trimConfig.BinariesLoadPath))
+                    {
+                        TrimApplication.TrimBinariesLoadPath = null;
+                    }
+                    else
                     {
                         TrimApplication.TrimBinariesLoadPath = trimConfig.BinariesLoadPath;
                     }
-
-                    TrimApplication.SetAsWebService(trimConfig.WorkPath);
+                    
                     TrimApplication.Initialize();
-
+                    TrimApplication.SetAsWebService(trimConfig.WorkPath);
                     initState.TrimInitialized();
                 }
                 catch (TrimException trimEx)
