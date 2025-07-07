@@ -2,6 +2,7 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
+using System.Security.Cryptography.Xml;
 
 namespace SAPArchiveLink
 {
@@ -47,22 +48,41 @@ namespace SAPArchiveLink
             if (_signedData == null || _signedData.Length == 0)
                 throw new InvalidOperationException("Signed data must be set before verification.");
 
-
             try
             {
                 var signedCms = new SignedCms(new ContentInfo(data), detached: true);
                 signedCms.Decode(_signedData);
-              
-                var extraStore = new X509Certificate2Collection();
-                if (_rawCertificates != null)
-                    extraStore.AddRange(_rawCertificates); 
-                signedCms.CheckSignature(extraStore, true);
-                var signerCert = signedCms.SignerInfos[0].Certificate;
-                if (signerCert == null)
-                    throw new Exception("No certificate found in signer info.");
 
-                if (_certificates != null && signerCert.Thumbprint != _certificates.GetCertificate().Thumbprint)
-                    throw new Exception("Signer certificate does not match expected certificate.");
+                if (signedCms.SignerInfos.Count == 0)
+                    throw new Exception("No SignerInfo found");
+
+                var signerInfo = signedCms.SignerInfos[0];
+
+                // Try to match the certificate manually from trusted collection
+               
+                foreach (var cert in _rawCertificates)
+                {
+                    if (signerInfo.Certificate != null && cert.Thumbprint == signerInfo.Certificate.Thumbprint)
+                    {
+                        _verifiedCertificate = cert;
+                        break;
+                    }
+                    // Try to match issuer + serial
+                    var si = signerInfo.SignerIdentifier as SubjectIdentifier;
+                    if (si?.Type == SubjectIdentifierType.IssuerAndSerialNumber)
+                    {
+                        var issuerSerial = (X509IssuerSerial)si.Value;
+                        if (cert.Issuer == issuerSerial.IssuerName && cert.SerialNumber.Equals(issuerSerial.SerialNumber, StringComparison.OrdinalIgnoreCase))
+                        {
+                            _verifiedCertificate = cert;
+                            break;
+                        }
+                    }
+                }
+
+                if (_verifiedCertificate == null)
+                    throw new CryptographicException("Matching certificate not found in trusted set.");             
+
 
                 if (_certificates != null && _requiredPermission >= 0)
                 {
@@ -71,7 +91,7 @@ namespace SAPArchiveLink
                         throw new Exception("Permission denied: insufficient certificate rights.");
                 }
 
-                _verifiedCertificate = signerCert;
+                _verifiedCertificate.Verify();
             }
             catch (Exception)
             {

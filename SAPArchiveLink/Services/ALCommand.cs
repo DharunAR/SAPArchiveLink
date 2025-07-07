@@ -1,4 +1,7 @@
-﻿namespace SAPArchiveLink
+﻿using DocumentFormat.OpenXml.Office2016.Excel;
+using TRIM.SDK;
+
+namespace SAPArchiveLink
 {
     public class ALCommand : ICommand
     {
@@ -11,6 +14,7 @@
         private bool _isVerified;
         private string? _certSubject;
         private string _validationError = string.Empty;
+        private HttpRequest _httpRequest;
 
         public string ValidationError => _validationError;
         public bool IsValid => string.IsNullOrWhiteSpace(_validationError);
@@ -40,7 +44,7 @@
             string url = context.Url;
             _charset = context.Charset ?? "UTF-8";
             _parameters = new CommandParameters();
-
+            _httpRequest= context.HttpRequest;
             if (string.IsNullOrWhiteSpace(_httpMethod) || string.IsNullOrWhiteSpace(url))
             {
                 _template = ALCommandTemplate.Unknown;
@@ -90,9 +94,11 @@
         }
 
         public string GetStringToSign(bool includeSignature, string charset)
-        {
-            return _parameters.GetStringToSign(includeSignature, charset);
+        {           
+            return _parameters.GetStringToSign(includeSignature, charset,_httpRequest.Scheme.ToString(),_httpRequest.Host.ToString(),_httpRequest.Path);
         }
+
+      
 
         public string GetAccessMode()
         {
@@ -127,6 +133,21 @@
         public void SetCertSubject(string certSubject)
         {
             _certSubject = certSubject;
+        }
+
+        private static string getSignedUrl(string signedUrl,bool includeSignature)
+        {
+            var uri = new Uri(Uri.UnescapeDataString(signedUrl));
+            var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            if (!includeSignature)
+            {
+                queryParams.Remove("secKey");
+            }
+
+            string newQuery = queryParams.ToString(); // already URL-encoded
+
+            var baseUrl = $"{uri.Scheme}://{uri.Authority}{uri.AbsolutePath}";
+            return string.IsNullOrEmpty(newQuery) ? baseUrl : $"{baseUrl}?{newQuery}";
         }
     }
 }

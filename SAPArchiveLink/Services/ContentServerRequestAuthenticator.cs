@@ -84,41 +84,44 @@ namespace SAPArchiveLink
             try
             {
                 encoding = Encoding.GetEncoding(charset);
+                var secKey = command.GetValue(ALParameter.VarSecKey) ?? throw new InvalidOperationException("Missing secKey");
+
+                var authId = command.GetValue(ALParameter.VarAuthId);
+                var expiration = command.GetValue(ALParameter.VarExpiration);
+                var accessModeStr = command.GetValue(ALParameter.VarAccessMode);
+
+                if (string.IsNullOrEmpty(authId) || string.IsNullOrEmpty(expiration) || string.IsNullOrEmpty(accessModeStr))
+                    throw new InvalidOperationException("Missing authId, expiration, or accessMode");
+
+                CheckExpiration(expiration);
+
+                if (!accessModeStr.Contains(command.GetAccessMode().ToString()))
+                    throw new UnauthorizedAccessException($"Access mode {command.GetAccessMode()} not permitted");
+
+                _verifier.SetSignedData(Convert.FromBase64String(secKey));
+                _verifier.SetRequiredPermission(SecurityUtils.AccessModeToInt(command.GetAccessMode()));
+
+                string stringToSign = command.GetStringToSign(false, charset);
+                _verifier.VerifyAgainst(encoding.GetBytes(stringToSign));
+
+                var cert = _verifier.GetCertificate()
+                ?? throw new UnauthorizedAccessException("No valid certificate found");
+
+                command.SetVerified();
+                command.SetCertSubject(cert.Subject);
+                command.SetImmutable();
+
+                _logger.LogInformation($"Request verified. Subject: {cert.Subject}");
             }
             catch (ArgumentException)
             {
                 throw new InvalidOperationException($"Unsupported charset: {charset}");
             }
-
-            var secKey = command.GetValue(ALParameter.VarSecKey)
-            ?? throw new InvalidOperationException("Missing secKey");
-
-            var authId = command.GetValue(ALParameter.VarAuthId);
-            var expiration = command.GetValue(ALParameter.VarExpiration);
-            var accessModeStr = command.GetValue(ALParameter.VarAccessMode);
-
-            if (string.IsNullOrEmpty(authId) || string.IsNullOrEmpty(expiration) || string.IsNullOrEmpty(accessModeStr))
-                throw new InvalidOperationException("Missing authId, expiration, or accessMode");
-
-            CheckExpiration(expiration);
-
-            if (!accessModeStr.Contains(command.GetAccessMode().ToString()))
-                throw new UnauthorizedAccessException($"Access mode {command.GetAccessMode()} not permitted");
-
-            _verifier.SetSignedData(Convert.FromBase64String(secKey));
-            _verifier.SetRequiredPermission(SecurityUtils.AccessModeToInt(command.GetAccessMode()));
-
-            string stringToSign = command.GetStringToSign(false, charset);
-            _verifier.VerifyAgainst(encoding.GetBytes(stringToSign));
-
-            var cert = _verifier.GetCertificate()
-            ?? throw new UnauthorizedAccessException("No valid certificate found");
-
-            command.SetVerified();
-            command.SetCertSubject(cert.Subject);
-            command.SetImmutable();
-
-            _logger.LogInformation($"Request verified. Subject: {cert.Subject}");
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Verification failed");
+                throw new UnauthorizedAccessException("Verification failed: " + ex.Message);
+            }
         }
 
         private bool ValidateContentHeadersIfNeeded(ICommand command, HttpRequest request)

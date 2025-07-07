@@ -1,4 +1,6 @@
-﻿namespace SAPArchiveLink
+﻿using Microsoft.AspNetCore.Http;
+
+namespace SAPArchiveLink
 {
     public class CommandParameters
     {
@@ -41,16 +43,18 @@
 
             _parameters[key] = value;
         }
-
-        // Get all parameters for signing (used in GetStringToSign)
-        public string GetStringToSign(bool includeSignature, string charset)
-        {
+        public string GetStringToSign(bool includeSignature, string charset, string scheme, string hostName, string path)
+        {          
             var parametersToSign = _parameters
-                .Where(kv => !includeSignature || kv.Key != "secKey")
-                .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
-                .Select(kv => $"{kv.Key}={kv.Value}");
+    .Where(kv => includeSignature || !string.Equals(kv.Key, "secKey", StringComparison.OrdinalIgnoreCase))
+    .Select(kv => $"{kv.Key}={kv.Value}");
 
-            return string.Join("&", parametersToSign);
+            string queryString = string.Join("&", parametersToSign);
+
+            if (!string.IsNullOrEmpty(queryString))
+                queryString = "?" + queryString;
+
+            return $"{scheme}://{hostName}{path}{queryString}";
         }
     }
 }
