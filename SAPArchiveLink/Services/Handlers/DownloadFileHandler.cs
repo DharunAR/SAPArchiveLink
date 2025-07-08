@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 
 namespace SAPArchiveLink
@@ -9,12 +8,9 @@ namespace SAPArchiveLink
     {
         private readonly string _saveDirectory;
 
-        private readonly IOptionsMonitor<TrimConfigSettings> _config;
-
-        public DownloadFileHandler(IOptionsMonitor<TrimConfigSettings> config)
+        public DownloadFileHandler(string saveDirectory)
         {
-            _config = config;
-            _saveDirectory = config.CurrentValue.WorkPath ?? throw new InvalidOperationException("WorkPath is not set in TRIMConfig.");
+            _saveDirectory = saveDirectory;
         }
 
         private string NormalizeContentType(string contentType)
@@ -183,12 +179,16 @@ namespace SAPArchiveLink
             while ((section = await reader.ReadNextSectionAsync()) != null)
             {
                 string filePath = null;
+                string fileName = null;
                 if (ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var contentDisposition) &&
                     contentDisposition.DispositionType.Equals("form-data") &&
                     !string.IsNullOrEmpty(contentDisposition.FileName.Value))
                 {
-                    var fileName = Path.GetFileName(contentDisposition.FileName.Value.Trim('"'));
-                    filePath = Path.Combine(_saveDirectory, fileName);
+                    fileName = Path.GetFileName(contentDisposition.FileName.Value.Trim('"'));
+                    if (Path.HasExtension(fileName))
+                    {
+                        filePath = Path.Combine(_saveDirectory, fileName);
+                    }
                 }
 
                 if (section.Headers != null)
@@ -199,7 +199,7 @@ namespace SAPArchiveLink
                     section.Headers.TryGetValue("X-Content-Length", out var contentLength);
                     if (filePath == null)
                     {
-                        filePath = getFilePath(compId, contentTypeHeader.ToString());
+                        filePath = getFilePath(fileName == null ? compId : fileName, contentTypeHeader.ToString());
                     }
          
                     var buffered = new MemoryStream();

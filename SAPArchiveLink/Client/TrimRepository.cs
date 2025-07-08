@@ -78,7 +78,14 @@ namespace SAPArchiveLink
             sapRepoItem.setValidFrom(validFrom);
             sapRepoItem.setValidTill(validTill);
 
-            sapRepoConfigUserOptions.AddSapRepoItem(sapRepoItem);
+            if (GetArchiveCertificate(contRep) != null)
+            {
+                sapRepoConfigUserOptions.UpdateSapRepoItem(sapRepoItem);
+            }
+            else
+            {
+                sapRepoConfigUserOptions.AddSapRepoItem(sapRepoItem);
+            }
             sapRepoConfigUserOptions.Save();
             
         }

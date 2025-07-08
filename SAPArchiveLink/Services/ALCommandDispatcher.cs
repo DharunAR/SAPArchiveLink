@@ -45,6 +45,11 @@ namespace SAPArchiveLink
                 {
                     using var trimRepo = _databaseConnection.GetDatabase();
                     var archieveCertificate = trimRepo.GetArchiveCertificate(command.GetValue(ALParameter.VarContRep));
+                    if(archieveCertificate==null)
+                    {
+                        var errorResponse = _commandResponseFactory.CreateError($"Archive certificate not found for repository: {command.GetValue(ALParameter.VarContRep)}", StatusCodes.Status404NotFound);
+                        return new ArchiveLinkResult(errorResponse);
+                    }
                     var requestAuthResult = _authenticator.CheckRequest(request, command, archieveCertificate);
                     if (requestAuthResult != null && !requestAuthResult.IsAuthenticated)
                     {
