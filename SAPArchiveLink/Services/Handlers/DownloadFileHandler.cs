@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 
 namespace SAPArchiveLink
@@ -7,10 +8,12 @@ namespace SAPArchiveLink
     public class DownloadFileHandler: IDownloadFileHandler
     {
         private readonly string _saveDirectory;
+        private readonly IOptionsMonitor<TrimConfigSettings> _config;
 
-        public DownloadFileHandler(string saveDirectory)
+        public DownloadFileHandler(IOptionsMonitor<TrimConfigSettings> config)
         {
-            _saveDirectory = saveDirectory;
+            _config = config;
+            _saveDirectory = config.CurrentValue.WorkPath ?? throw new InvalidOperationException("WorkPath is not set in TRIMConfig.");
         }
 
         private string NormalizeContentType(string contentType)
