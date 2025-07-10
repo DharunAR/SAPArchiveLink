@@ -167,22 +167,22 @@ namespace SAPArchiveLink
 
             return null; // no charset found
         }
+
         private async Task<List<SapDocumentComponentModel>> ParseMultipartManuallyAsync(string contentType, Stream body)
         {
             var uploadedFiles = new List<SapDocumentComponentModel>();
-
             var boundary = GetBoundaryFromContentType(contentType);
             if (string.IsNullOrEmpty(boundary))
                 throw new InvalidOperationException("Boundary not found in Content-Type.");
 
             var reader = new MultipartReader(boundary, body);
-               
             MultipartSection? section;
 
             while ((section = await reader.ReadNextSectionAsync()) != null)
             {
-                string filePath = null;
-                string fileName = null;
+                string? filePath = null;
+                string? fileName = null;
+
                 if (ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var contentDisposition) &&
                     contentDisposition.DispositionType.Equals("form-data") &&
                     !string.IsNullOrEmpty(contentDisposition.FileName.Value))
@@ -197,20 +197,23 @@ namespace SAPArchiveLink
                 if (section.Headers != null)
                 {
                     section.Headers.TryGetValue("X-compId", out var compId);
+                    section.Headers.TryGetValue("X-docId", out var docId);
                     section.Headers.TryGetValue("Content-Type", out var contentTypeHeader);
                     section.Headers.TryGetValue("X-pVersion", out var pVersion);
                     section.Headers.TryGetValue("X-Content-Length", out var contentLength);
+
                     if (filePath == null)
                     {
-                        filePath = getFilePath(fileName == null ? compId : fileName, contentTypeHeader.ToString());
+                        filePath = getFilePath(fileName == null ? compId.FirstOrDefault() ?? string.Empty : fileName, contentTypeHeader.ToString());
                     }
-         
+
                     var buffered = new MemoryStream();
                     await section.Body.CopyToAsync(buffered);
                     buffered.Position = 0;
 
                     uploadedFiles.Add(new SapDocumentComponentModel
                     {
+                        DocId = docId.FirstOrDefault() ?? string.Empty,
                         CompId = compId.FirstOrDefault() ?? string.Empty,
                         Data = buffered,
                         FileName = filePath,
@@ -224,6 +227,7 @@ namespace SAPArchiveLink
 
             return uploadedFiles;
         }
+
         private string GetBoundaryFromContentType(string? contentType)
         {
             if (string.IsNullOrEmpty(contentType))
