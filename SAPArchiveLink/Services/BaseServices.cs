@@ -1,5 +1,6 @@
-﻿using System.Net;
-using System.Net.Mime;
+﻿using Microsoft.VisualBasic;
+using SAPArchiveLink.Resources;
+using System.Net;
 using System.Text;
 using TRIM.SDK;
 
@@ -59,7 +60,7 @@ public class BaseServices : IBaseServices
             }
             if (certBytes == null || certBytes.Length == 0)
             {
-                return _responseFactory.CreateError("Certificate cannot be recognized", StatusCodes.Status406NotAcceptable);
+                return _responseFactory.CreateError(Resource.CertificateCannotBeRecognized, StatusCodes.Status406NotAcceptable);
             }
 
             IArchiveCertificate? archiveCertificate = null;
@@ -69,7 +70,7 @@ public class BaseServices : IBaseServices
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Failed to parse certificate from byte array. AuthId: {putCertificateModel.AuthId}", ex);
+                _logger.LogError(string.Format(Resource.FailedToParseCertificate, putCertificateModel.AuthId), ex);
                 return _responseFactory.CreateError(ex.Message, StatusCodes.Status406NotAcceptable);
             }
 
@@ -85,11 +86,11 @@ public class BaseServices : IBaseServices
                     putCertificateModel.ContRep);
             }
 
-            return _responseFactory.CreateProtocolText("Certificate published");
+            return _responseFactory.CreateProtocolText(Resource.CertificatePublished);
         }
         catch (Exception ex)
         {
-            _logger.LogError("An error occurred while saving certificate.", ex);
+            _logger.LogError(Resource.ErrorSavingCertificate, ex);
             return _responseFactory.CreateError(ex.Message, StatusCodes.Status500InternalServerError);
         }
     }
@@ -180,7 +181,7 @@ public class BaseServices : IBaseServices
                 string? compId = GetComponentId(record);
                 if (string.IsNullOrWhiteSpace(compId))
                 {
-                    return _responseFactory.CreateError("No valid component found", StatusCodes.Status404NotFound);
+                    return _responseFactory.CreateError(Resource.NoValidComponentFound, StatusCodes.Status404NotFound);
                 }
                 sapDoc.CompId = compId;
             }
@@ -247,7 +248,7 @@ public class BaseServices : IBaseServices
                     foreach (SapDocumentComponentModel comp in components)
                     {
                         if (string.IsNullOrWhiteSpace(comp.CompId))
-                            return _responseFactory.CreateError("Component ID was not specified", StatusCodes.Status400BadRequest);
+                            return _responseFactory.CreateError(Resource.ComponentIdNotSpecified, StatusCodes.Status400BadRequest);
 
                         if (archiveRecord.HasComponent(comp.CompId))
                         {
@@ -257,7 +258,7 @@ public class BaseServices : IBaseServices
                         }
                         var filePath = await _downloadFileHandler.DownloadDocument(comp.Data, comp.FileName);
                         if (string.IsNullOrWhiteSpace(filePath))
-                            return _responseFactory.CreateError("Failed to save component file.", StatusCodes.Status400BadRequest);
+                            return _responseFactory.CreateError(Resource.FailedToSaveComponentFile, StatusCodes.Status400BadRequest);
 
                         archiveRecord.AddComponent(comp.CompId, filePath, comp.ContentType, comp.Charset, comp.PVersion);
                     }
@@ -271,7 +272,7 @@ public class BaseServices : IBaseServices
             CleanUpFiles(components);
         }
 
-        return _responseFactory.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created);
+        return _responseFactory.CreateProtocolText(Resource.ComponentCreatedSuccessfully, StatusCodes.Status201Created);
     }
 
     /// <summary>
@@ -309,7 +310,7 @@ public class BaseServices : IBaseServices
                         foreach (SapDocumentComponentModel model in components)
                         {
                             if (string.IsNullOrWhiteSpace(model.CompId))
-                                return _responseFactory.CreateError("Component ID was not specified", StatusCodes.Status400BadRequest);
+                                return _responseFactory.CreateError(Resource.ComponentIdNotSpecified, StatusCodes.Status400BadRequest);
 
                             IRecordSapComponent? recComp = archiveRecord.FindComponentById(model.CompId);
                             if (recComp == null)
@@ -320,7 +321,7 @@ public class BaseServices : IBaseServices
                             {
                                 var filePath = await _downloadFileHandler.DownloadDocument(model.Data, model.FileName);
                                 if (string.IsNullOrWhiteSpace(filePath))
-                                    return _responseFactory.CreateError("Failed to save component file.", StatusCodes.Status400BadRequest);
+                                    return _responseFactory.CreateError(Resource.FailedToSaveComponentFile, StatusCodes.Status400BadRequest);
                                 archiveRecord.UpdateComponent(recComp, model);
                             }
                         }
@@ -335,7 +336,7 @@ public class BaseServices : IBaseServices
         {
             CleanUpFiles(components);
         }
-        return _responseFactory.CreateProtocolText("Component(s) updated successfully.", StatusCodes.Status200OK);
+        return _responseFactory.CreateProtocolText(Resource.ComponentUpdatedSuccessfully, StatusCodes.Status200OK);
     }
 
     /// <summary>
@@ -366,10 +367,10 @@ public class BaseServices : IBaseServices
             }
             if (string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
-                //Delete document with all components
-                _logger.LogInformation($"Deleting document {sapDoc.DocId} and all associated components.");
+                //Delete document with all components              
+                _logger.LogInformation(string.Format(Resource.DocumentAndComponentsDeleted, sapDoc.DocId));
                 record.DeleteRecord();
-                return _responseFactory.CreateProtocolText($"Document {sapDoc.DocId} and all associated components deleted successfully");
+                return _responseFactory.CreateProtocolText(string.Format(Resource.DocumentAndComponentsDeleted, sapDoc.DocId));
             }
             else
             {
@@ -377,9 +378,9 @@ public class BaseServices : IBaseServices
                 {
                     record.SetRecordMetadata();
                     record.Save();
-                    return _responseFactory.CreateProtocolText($"Component {sapDoc.CompId} deleted successfully");
-                }
-                return _responseFactory.CreateError($"Component {sapDoc.CompId} not found in document {sapDoc.DocId}", StatusCodes.Status404NotFound);
+                    return _responseFactory.CreateProtocolText(string.Format(Resource.ComponentDeletedSuccessfully, sapDoc.CompId));
+                }                
+                return _responseFactory.CreateError(string.Format(Resource.ComponentNotFoundInDocument, sapDoc.CompId, sapDoc.DocId), StatusCodes.Status404NotFound);
             }
         }
     }
@@ -466,8 +467,9 @@ public class BaseServices : IBaseServices
             var extractor = TextExtractorFactory.GetExtractor(component.ContentType);
             if (extractor == null)
             {
-                _logger.LogError($"Unsupported content type in GetSearchResult: {component.ContentType}");
-                throw new NotSupportedException($"Unsupported content type: {component.ContentType}");
+                string error = string.Format(Resource.UnsupportedContentType, component.ContentType);
+                _logger.LogError(error);
+                throw new NotSupportedException(error);
             }
 
             try
@@ -485,7 +487,7 @@ public class BaseServices : IBaseServices
             catch (Exception ex)
             {
                 _logger.LogError($"Error during search in GetSearchResult. DocId: {sapSearchRequest.DocId}, CompId: {sapSearchRequest.CompId}, {ex}");
-                return _responseFactory.CreateError("An error occurred during search operation.");
+                return _responseFactory.CreateError(Resource.ErrorDuringSearch);
             }
         }        
 
@@ -517,7 +519,7 @@ public class BaseServices : IBaseServices
     /// <returns></returns>
     private ICommandResponse GetSingleComponentResponse(SapDocumentComponentModel component, SapDocumentRequest sapDoc, bool isInfo = false)
     {
-        _logger.LogInformation(isInfo ? "Creating Info Metadata for Single Component" : "Creating Document Content for Single Component");
+        _logger.LogInformation(isInfo ? Resource.CreatingInfoMetadataSingleComponent : Resource.CreatingDocumentContentSingleComponent);
         var response = !isInfo ? _responseFactory.CreateDocumentContent(component.Data, component.ContentType, StatusCodes.Status200OK, component.FileName)
             : _responseFactory.CreateInfoMetadata(new List<SapDocumentComponentModel>() { component });
 
@@ -535,7 +537,7 @@ public class BaseServices : IBaseServices
     /// <returns></returns>
     private ICommandResponse GetMultiPartResponse(List<SapDocumentComponentModel> multipartComponents, IArchiveRecord record, SapDocumentRequest sapDoc, bool isInfo = false)
     {
-        _logger.LogInformation(isInfo ? "Creating Info Metadata for MultiPart" : "Creating Document Content for MultiPart");
+        _logger.LogInformation(isInfo ? Resource.CreatingInfoMetadataMultiPart : Resource.CreatingDocumentContentMultiPart);
         var multipartResponse = !isInfo ? _responseFactory.CreateMultipartDocument(multipartComponents)
                                 : _responseFactory.CreateInfoMetadata(multipartComponents);
 
@@ -611,12 +613,12 @@ public class BaseServices : IBaseServices
     /// <returns></returns>
     private async Task<(Stream? Stream, long? Length, ICommandResponse? Error)> GetRangeStream(Stream originalStream, long contentLength, long fromOffset, long toOffset)
     {
-        _logger.LogInformation($"Get Document stream");
+        _logger.LogInformation(Resource.GetDocumentStream);
         if (fromOffset < 0 || toOffset < 0)
-            return (null, 0L, _responseFactory.CreateError("Offsets cannot be negative"));
+            return (null, 0L, _responseFactory.CreateError(Resource.OffsetsCannotBeNegative));
 
         if (fromOffset >= contentLength)
-            return (null, 0L, _responseFactory.CreateError("fromOffset is beyond component length"));
+            return (null, 0L, _responseFactory.CreateError(Resource.FromOffsetBeyondComponentLength));
 
         if (fromOffset < toOffset && toOffset <= contentLength)
         {
@@ -698,12 +700,12 @@ public class BaseServices : IBaseServices
         bool caseSensitive = false)
     {
         if (stream == null || !stream.CanRead)
-            throw new ArgumentException("Stream must be readable.");
+            throw new ArgumentException(Resource.StreamMustBeReadable);
 
         var content = extractor.ExtractText(stream);
 
         if (string.IsNullOrEmpty(searchText))
-            throw new ArgumentException("Search text must not be empty.");
+            throw new ArgumentException(Resource.SearchTextMustNotBeEmpty);
 
         // Normalize offsets
         toOffset = toOffset == -1 || toOffset > content.Length ? content.Length : toOffset;
