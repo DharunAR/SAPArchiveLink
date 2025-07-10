@@ -113,9 +113,6 @@ public class BaseServices : IBaseServices
             return _responseFactory.CreateError(combinedErrorMessage);
         }
 
-        //TODO to implement verification part
-        ValidateSignature(sapDoc);
-
         using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
         {
             _logger.LogInformation($"Fetching record for DocId: {sapDoc.DocId} and ContRep: {sapDoc.ContRep}");
@@ -164,8 +161,6 @@ public class BaseServices : IBaseServices
             return _responseFactory.CreateError(combinedErrorMessage);
         }
 
-        //TODO
-        ValidateSignature(sapDoc);
         using (ITrimRepository db = _databaseConnection.GetDatabase())
         {
             _logger.LogInformation($"Fetching record for DocId: {sapDoc.DocId} and ContRep: {sapDoc.ContRep}");
@@ -355,9 +350,6 @@ public class BaseServices : IBaseServices
             return _responseFactory.CreateError(combinedErrorMessage);
         }
 
-        //TODO
-        ValidateSignature(sapDoc);
-
         using (var db = _databaseConnection.GetDatabase())
         {
             var record = db.GetRecord(sapDoc.DocId, sapDoc.ContRep);
@@ -399,7 +391,6 @@ public class BaseServices : IBaseServices
             return _responseFactory.CreateError(message);
         }
 
-        ValidateSignature(sapDoc);
         bool isHtml = sapDoc.ResultAs?.Equals("html", StringComparison.OrdinalIgnoreCase) == true;
 
         using var trimRepo = _databaseConnection.GetDatabase();
@@ -575,12 +566,6 @@ public class BaseServices : IBaseServices
         multipartResponse.AddHeader("X-pVersion", sapDoc.PVersion);
 
         return multipartResponse;
-    }
-
-
-    private void ValidateSignature(SapDocumentRequest sapReq)
-    {
-        //TODO to implement verification part
     }
 
     /// <summary>
