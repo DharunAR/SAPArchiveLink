@@ -37,7 +37,7 @@
                         SecKey = command.GetValue(ALParameter.VarSecKey),
                         Charset = request.Headers["charset"].ToString(),
                         Version = request.Headers["version"].ToString(),
-                        DocProt = request.Headers["docprot"].ToString(),
+                        DocProt = command.GetValue(ALParameter.VarDocProt),
                         Components = group.ToList(),
                         ContentType = request.ContentType,
                         ContentLength = request.ContentLength?.ToString() ?? "0"

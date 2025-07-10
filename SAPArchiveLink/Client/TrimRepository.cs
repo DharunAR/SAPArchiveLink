@@ -86,8 +86,7 @@ namespace SAPArchiveLink
             {
                 sapRepoConfigUserOptions.AddSapRepoItem(sapRepoItem);
             }
-            sapRepoConfigUserOptions.Save();
-            
+            sapRepoConfigUserOptions.Save();            
         }
 
         public IArchiveCertificate GetArchiveCertificate(string contentRepo)

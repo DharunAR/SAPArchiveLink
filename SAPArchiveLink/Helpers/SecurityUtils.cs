@@ -1,14 +1,40 @@
-﻿using System.Net.Security;
+﻿using DocumentFormat.OpenXml.Drawing.Wordprocessing;
+using System.Net.Mail;
+using System.Net.Security;
 using System.Text;
 
 namespace SAPArchiveLink
 {
     public static class SecurityUtils
     {
-        private static readonly HashSet<string> AttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
+        const string Attachment = "attachment";
+        const string Inline = "inline";
+        private static readonly HashSet<string> SafeMimeTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            ".zip", ".exe", ".msi", ".bat", ".cmd", ".sh", ".apk", ".dmg", ".bin"
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         };
+
+        private static readonly HashSet<string> UnsafeExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+          ".html", ".htm", ".svg", ".xml", ".js", ".json", ".xhtml", ".jsp", ".php", ".mhtml"
+        };
+
+        public static bool IsSafeForInline(string contentType, string extension)
+        {
+            if (!string.IsNullOrEmpty(extension) && UnsafeExtensions.Contains(extension.ToLowerInvariant()))
+                return false;
+
+            if (string.IsNullOrWhiteSpace(contentType))
+                return false;
+
+            return SafeMimeTypes.Contains(contentType);
+        }
 
         public static bool NeedsSignature(ALCommand command, int serverProtectionLevel)
         {
@@ -106,16 +132,17 @@ namespace SAPArchiveLink
         /// <param name="fileName"></param>
         /// <returns></returns>
         /// <exception cref="ArgumentException"></exception>
-        public static string GetContentDispositionValue(string fileName)
+        public static string GetContentDispositionValue(string fileName, string mimeType, out bool addNoSniffHeader)
         {
             if (string.IsNullOrWhiteSpace(fileName))
                 throw new ArgumentException("File name must not be null or empty.", nameof(fileName));
 
-            var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
-            var dispositionType = (extension != null && AttachmentExtensions.Contains(extension)) ? "attachment" : "inline";
+            var extension = Path.GetExtension(fileName);
+            var dispositionType = IsSafeForInline(mimeType, extension) ? Inline : Attachment;
+
+            addNoSniffHeader = (dispositionType == Attachment);
 
             var sanitizedFileName = Path.GetFileName(fileName).Replace("\"", "");
-
             return $"{dispositionType}; filename=\"{sanitizedFileName}\"";
         }
     }

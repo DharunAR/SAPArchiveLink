@@ -1,7 +1,4 @@
-﻿using DocumentFormat.OpenXml.Office2016.Excel;
-using TRIM.SDK;
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public class ALCommand : ICommand
     {

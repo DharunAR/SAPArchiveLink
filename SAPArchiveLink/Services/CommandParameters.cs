@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public class CommandParameters
     {

@@ -8,28 +8,28 @@ namespace SAPArchiveLink
 {
     public class Verifier : IVerifier
     {
-        private IArchiveCertificate _certificates;
+        private IArchiveCertificate _certificate;
         private X509Certificate2Collection _rawCertificates; // Change type to X509Certificate2Collection
         private byte[] _signedData;
         private int _requiredPermission = -1;
         private X509Certificate2 _verifiedCertificate;
 
-        public void SetCertificates(IArchiveCertificate certificates)
+        public void SetCertificate(IArchiveCertificate certificate)
         {
-            _certificates = certificates;
+            _certificate = certificate;
             _rawCertificates = new X509Certificate2Collection(); // Initialize as a collection
-            if (certificates?.GetCertificate() != null)
+            if (certificate?.GetCertificate() != null)
             {
-                _rawCertificates.Add(certificates.GetCertificate()); // Add the certificate to the collection
+                _rawCertificates.Add(certificate.GetCertificate()); // Add the certificate to the collection
             }
         }
 
-        public void SetRawCertificates(X509Certificate2 certificates)
+        public void SetRawCertificates(X509Certificate2 certificate)
         {
             _rawCertificates = new X509Certificate2Collection(); // Initialize as a collection
-            if (certificates != null)
+            if (certificate != null)
             {
-                _rawCertificates.Add(certificates); // Add the certificate to the collection
+                _rawCertificates.Add(certificate); // Add the certificate to the collection
             }
         }
 
@@ -59,7 +59,7 @@ namespace SAPArchiveLink
                 var signerInfo = signedCms.SignerInfos[0];
 
                 // Try to match the certificate manually from trusted collection
-               
+
                 foreach (var cert in _rawCertificates)
                 {
                     if (signerInfo.Certificate != null && cert.Thumbprint == signerInfo.Certificate.Thumbprint)
@@ -81,12 +81,12 @@ namespace SAPArchiveLink
                 }
 
                 if (_verifiedCertificate == null)
-                    throw new CryptographicException("Matching certificate not found in trusted set.");             
+                    throw new CryptographicException("Matching certificate not found in trusted set.");
 
 
-                if (_certificates != null && _requiredPermission >= 0)
+                if (_certificate != null && _requiredPermission >= 0)
                 {
-                    int granted = _certificates.GetPermission();
+                    int granted = _certificate.GetPermission();
                     if ((granted & _requiredPermission) == 0)
                         throw new Exception("Permission denied: insufficient certificate rights.");
                 }
@@ -104,12 +104,12 @@ namespace SAPArchiveLink
                     if (cert == null)
                         throw new Exception("No certificate found in signer info.");
 
-                    if (_certificates != null && cert.Thumbprint != _certificates.GetCertificate().Thumbprint)
+                    if (_certificate != null && cert.Thumbprint != _certificate.GetCertificate().Thumbprint)
                         throw new Exception("Signer certificate does not match expected certificate.");
 
-                    if (_certificates != null && _requiredPermission >= 0)
+                    if (_certificate != null && _requiredPermission >= 0)
                     {
-                        int granted = _certificates.GetPermission();
+                        int granted = _certificate.GetPermission();
                         if ((granted & _requiredPermission) == 0)
                             throw new Exception("Permission denied: insufficient certificate rights.");
                     }

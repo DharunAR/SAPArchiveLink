@@ -77,7 +77,7 @@ namespace SAPArchiveLink
 
         private void VerifyUrl(ICommand command, IArchiveCertificate certificates)
         {
-            _verifier.SetCertificates(certificates);
+            _verifier.SetCertificate(certificates);
 
             var charset = command.GetURLCharset() ?? DefaultCharset;
             Encoding encoding;

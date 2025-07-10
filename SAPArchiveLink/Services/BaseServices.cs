@@ -164,6 +164,7 @@ public class BaseServices : IBaseServices
         using (ITrimRepository db = _databaseConnection.GetDatabase())
         {
             _logger.LogInformation($"Fetching record for DocId: {sapDoc.DocId} and ContRep: {sapDoc.ContRep}");
+            bool addNoSniff;
             var record = db.GetRecord(sapDoc.DocId, sapDoc.ContRep);
             if (record == null)
             {
@@ -199,7 +200,13 @@ public class BaseServices : IBaseServices
                 response.ContentType += $"; version={component.Version}";
             response.AddHeader("Content-Length", length.ToString());
 
-            response.AddHeader("Content-Disposition", SecurityUtils.GetContentDispositionValue(component.FileName));
+            //Handle Content-disposition
+            string contentDisposition = SecurityUtils.GetContentDispositionValue(component.FileName, response.ContentType?.Split(';')[0], out addNoSniff);
+            response.AddHeader("Content-Disposition", contentDisposition);
+            if (addNoSniff)
+            {
+                response.AddHeader("X-Content-Type-Options", "nosniff");
+            }
 
             return response;
         }
