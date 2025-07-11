@@ -13,6 +13,7 @@
         public string Status { get; set; }
         public string PVersion { get; set; }
         public Stream Data { get; set; }
-        public string FileName { get; set; }      
+        public string FileName { get; set; }
+        public IRecordSapComponent RecordSapComponent { get; set; }
     }
 }

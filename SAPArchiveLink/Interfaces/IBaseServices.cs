@@ -11,5 +11,6 @@
         Task<ICommandResponse> GetDocumentInfo(SapDocumentRequest sapDocumentRequest);
         Task<ICommandResponse> GetSearchResult(SapSearchRequestModel sapSearchRequest);
         Task<ICommandResponse> GetServerInfo(string contRep, string pVersion, string resultAs);
+        Task<ICommandResponse> AppendDocument(AppendSapDocCompModel sapDoc);
     }
 }

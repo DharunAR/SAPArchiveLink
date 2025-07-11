@@ -63,13 +63,22 @@ namespace SAPArchiveLink
         }
         public void UpdateComponent(IRecordSapComponent updatedComponent, SapDocumentComponentModel model)
         {
-            updatedComponent.ContentType = model.ContentType;
-            updatedComponent.Charset = model.Charset;
-            updatedComponent.ApplicationVersion = model.Version;
-            updatedComponent.ArchiveLinkVersion = model.PVersion;           
+            if (!string.IsNullOrEmpty(model.ContentType))
+                updatedComponent.ContentType = model.ContentType;
+
+            if (!string.IsNullOrEmpty(model.Charset))
+                updatedComponent.Charset = model.Charset;
+
+            if (!string.IsNullOrEmpty(model.Version))
+                updatedComponent.ApplicationVersion = model.Version;
+
+            if (!string.IsNullOrEmpty(model.PVersion))
+                updatedComponent.ArchiveLinkVersion = model.PVersion;
+
             updatedComponent.DateModified = TrimDateTime.Now;
-            updatedComponent.SetDocument(model.FileName);          
-           // return updatedComponent;            
+
+            if (!string.IsNullOrEmpty(model.FileName))
+                updatedComponent.SetDocument(model.FileName);                 
         }
 
         public void AddComponent(string compId, string version, string contentType, string charSet, string filePath)

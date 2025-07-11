@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualBasic;
-using SAPArchiveLink.Resources;
+﻿using SAPArchiveLink.Resources;
 using System.Net;
 using System.Text;
 using TRIM.SDK;
@@ -521,6 +520,74 @@ public class BaseServices : IBaseServices
             var infoResponse = BuildServerInfoResponse(serverInfo);
             return _responseFactory.CreateProtocolText(infoResponse);
         }
+    }
+
+    public async Task<ICommandResponse> AppendDocument(AppendSapDocCompModel sapDoc)
+    {
+        SapDocumentComponentModel[] components = Array.Empty<SapDocumentComponentModel>();
+        try
+        {
+            var validationResults = ModelValidator.Validate(sapDoc);
+            if (validationResults.Any())
+            {
+                var message = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
+                _logger.LogError($"Validation failed in GetSearchResult: {message}");
+                return _responseFactory.CreateError(message);
+            }
+
+            using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
+            {
+                _logger.LogInformation($"Fetching record for DocId: {sapDoc.DocId} and ContRep: {sapDoc.ContRep}");
+                IArchiveRecord? archiveRecord = trimRepo.GetRecord(sapDoc.DocId, sapDoc.ContRep);
+                if (archiveRecord == null)
+                {
+                    string errorMessage = _messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId });
+                    _logger.LogError(errorMessage);
+                    return _responseFactory.CreateError(errorMessage, StatusCodes.Status404NotFound);
+                }
+
+                if (!string.IsNullOrWhiteSpace(sapDoc.CompId))
+                {
+                    var component = await archiveRecord.ExtractComponentById(sapDoc.CompId);
+                    if (component == null)
+                    {
+                        string errorMessage = _messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId, sapDoc.DocId });
+                        _logger.LogError(errorMessage);
+                        return _responseFactory.CreateError(errorMessage, StatusCodes.Status404NotFound);
+                    }
+
+                    var appender = DocumentAppenderFactory.GetAppender(Path.GetExtension(component.FileName));
+                    if (appender == null)
+                    {
+                        string error = string.Format(Resource.UnsupportedContentType, component.ContentType);
+                        _logger.LogError(error);
+                        return _responseFactory.CreateError(error, StatusCodes.Status404NotFound);                     
+                    }
+                    var data = appender.AppendAsync(component.Data, sapDoc.StreamData);
+
+                    var filePath = await _downloadFileHandler.DownloadDocument(data.Result, component.FileName);
+                    components = new SapDocumentComponentModel[]
+                    {
+                        new SapDocumentComponentModel
+                        {
+                            FileName = filePath
+                        }
+                    };
+                    if (string.IsNullOrWhiteSpace(filePath))
+                        return _responseFactory.CreateError(Resource.FailedToSaveComponentFile, StatusCodes.Status400BadRequest);
+
+                    archiveRecord.UpdateComponent(component.RecordSapComponent, components[0]);
+                    archiveRecord.SetRecordMetadata();
+                    archiveRecord.Save();                    
+                }                
+            }
+        }
+        finally
+        {
+            CleanUpFiles(components);
+        }
+
+        return _responseFactory.CreateProtocolText(Resource.ComponentAppendedSuccessfully, StatusCodes.Status200OK);
     }
 
     #region Helper methods

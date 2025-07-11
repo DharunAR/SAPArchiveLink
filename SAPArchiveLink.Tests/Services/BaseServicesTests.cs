@@ -587,7 +587,7 @@ namespace SAPArchiveLink.Tests
         public async Task CreateRecord_ReturnsError_WhenValidationFails()
         {
             var model = new CreateSapDocumentModel { DocId = null, ContRep = null, CompId = null, PVersion = null, ContentLength = null };
-            var errorResponse = Mock.Of<ICommandResponse>();
+            var errorResponse = Mock.Of<ICommandResponse>();          
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
 
             var result = await _service.CreateRecord(model);
@@ -1406,7 +1406,7 @@ namespace SAPArchiveLink.Tests
 
         #endregion
 
-        #region Search ServiceTests
+        #region GetSearchResult
 
         [Test]
         public async Task GetSearchResult_ReturnsError_WhenValidationFails()
@@ -1544,6 +1544,291 @@ namespace SAPArchiveLink.Tests
 
             // Assert
             _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
+        }
+
+        #endregion
+
+        #region AppendDocument
+
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenModelIsInvalid()
+        {
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = null, // Required, so invalid
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "1.0",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            // Act
+            var result = await _service.AppendDocument(model);
+
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenRecordNotFound()
+        {
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "1.0",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns((IArchiveRecord)null);
+            var errorMessage = "Document doc1 not found";
+            _messageProviderMock.Setup(m => m.GetMessage(MessageIds.sap_documentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(errorMessage, StatusCodes.Status404NotFound)).Returns(errorResponse);
+
+            // Act
+            var result = await _service.AppendDocument(model);
+
+            // Assert
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenComponentIdIsNull()
+        {            
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = null,
+                PVersion = "1.0",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 })
+            };          
+
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(Mock.Of<ICommandResponse>());
+            
+            var result = await _service.AppendDocument(model);          
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("CompId is required.")), StatusCodes.Status400BadRequest), Times.Once);          
+        }
+
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenDocIdIsNull()
+        {
+            var model = new AppendSapDocCompModel
+            {
+                DocId = null,
+                ContRep = "rep1",
+                CompId = "compId",
+                PVersion = "1.0",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
+
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(Mock.Of<ICommandResponse>());
+
+            var result = await _service.AppendDocument(model);
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("docId is required.")), StatusCodes.Status400BadRequest), Times.Once);
+        }
+
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenContRepIsNull()
+        {
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "docId",
+                ContRep = null,
+                CompId = "compId",
+                PVersion = "1.0",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
+
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(Mock.Of<ICommandResponse>());
+
+            var result = await _service.AppendDocument(model);
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("contRep is required.")), StatusCodes.Status400BadRequest), Times.Once);
+        }
+
+        [Test]
+        public async Task AppendDocument_AppendsComponent_Successfully()
+        {
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "0046",
+                StreamData = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("this is to be appended data")),
+            };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "comp1",
+                ContentType = "text/plain",
+                ContentLength = 123,
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active",
+                PVersion = "0045",
+                Data = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("this is an original data")),
+                FileName = "file.txt",
+                RecordSapComponent = _recordSapComponentMock.Object
+
+            };           
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);    
+            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), StatusCodes.Status200OK, "UTF-8"))
+                .Returns(Mock.Of<ICommandResponse>());
+            DocumentAppenderFactory.Register(".txt", new TextDocumentAppender());
+
+            _downloadFileHandlerMock.Setup(h => h.DownloadDocument(It.IsAny<Stream>(), It.IsAny<string>()))
+             .ReturnsAsync("file.txt");
+            // Act
+            var result = await _service.AppendDocument(model);
+
+            // Assert
+            Assert.That(result, Is.Not.Null);
+            //_archiveRecordMock.Verify(r => r.UpdateComponent(component.RecordSapComponent, new SapDocumentComponentModel
+            //{
+            //    FileName = "file.txt"
+            //}), Times.Once);
+            _archiveRecordMock.Verify(r => r.SetRecordMetadata(), Times.Once);
+            _archiveRecordMock.Verify(r => r.Save(), Times.Once);            
+        }
+
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenFailed_InvalidFileType()
+        {
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "0045",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "comp1",
+                ContentType = "text/bin",
+                ContentLength = 123,
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active",
+                PVersion = "0045",
+                Data = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("this is an original data")),
+                FileName = "file.bin",
+                RecordSapComponent = _recordSapComponentMock.Object
+
+            };
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
+
+           // DocumentAppenderFactory.Register(".txt", new TextDocumentAppender());
+
+            //_downloadFileHandlerMock.Setup(h => h.DownloadDocument(It.IsAny<Stream>(), It.IsAny<string>()))
+            // .ReturnsAsync((string)null);
+            var errorResponse = Mock.Of<ICommandResponse>();
+
+            _responseFactoryMock.Setup(f => f.CreateError("Unsupported content type: text/bin", StatusCodes.Status404NotFound))
+                .Returns(errorResponse);
+         
+            var result = await _service.AppendDocument(model);
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("Unsupported content type: text/bin")), StatusCodes.Status404NotFound), Times.Once);
+
+        }
+
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenFailedToSaveComponentFile()
+        {
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "0045",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "comp1",
+                ContentType = "text/plain",
+                ContentLength = 123,
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active",
+                PVersion = "0045",
+                Data = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("this is an original data")),
+                FileName = "file.txt",
+                RecordSapComponent = _recordSapComponentMock.Object
+
+            };
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
+            DocumentAppenderFactory.Register(".txt", new TextDocumentAppender());
+            _downloadFileHandlerMock.Setup(h => h.DownloadDocument(model.StreamData, It.IsAny<string>()))
+                .ReturnsAsync((string)null);
+            var errorResponse = Mock.Of<ICommandResponse>();
+            errorResponse.StatusCode = StatusCodes.Status400BadRequest;
+
+            _responseFactoryMock.Setup(f => f.CreateError("Failed to save component file", StatusCodes.Status400BadRequest))
+                .Returns(errorResponse);
+
+            var result = await _service.AppendDocument(model);
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("Failed to save component file")), StatusCodes.Status400BadRequest), Times.Once);
+
+        }
+
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenFailed_ComponentIsNull()
+        {
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "0045",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "comp1",
+                ContentType = "text/plain",
+                ContentLength = 123,
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active",
+                PVersion = "0045",
+                Data = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("this is an original data")),
+                FileName = "file.txt",
+                RecordSapComponent = _recordSapComponentMock.Object
+
+            };
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync((SapDocumentComponentModel)null);
+
+            // Fix for CS0121: Specify the type explicitly in the ReturnsAsync method to resolve ambiguity.
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("comp1", true))
+               .ReturnsAsync((SapDocumentComponentModel?)null);
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
+        
+           
+            var errorResponse = Mock.Of<ICommandResponse>();
+            errorResponse.StatusCode = StatusCodes.Status400BadRequest;
+
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.AppendDocument(model);        
+                 
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);           
+
         }
 
         #endregion

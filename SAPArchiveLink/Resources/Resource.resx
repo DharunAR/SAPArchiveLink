@@ -192,4 +192,7 @@
   <data name="ContRepNotFound" xml:space="preserve">
     <value>Content repository {0} not found.</value>
   </data>
+  <data name="ComponentAppendedSuccessfully" xml:space="preserve">
+    <value>Component(s) appended successfully.</value>
+  </data>
 </root>

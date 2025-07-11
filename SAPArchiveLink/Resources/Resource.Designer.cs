@@ -79,6 +79,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Component(s) appended successfully..
+        /// </summary>
+        internal static string ComponentAppendedSuccessfully {
+            get {
+                return ResourceManager.GetString("ComponentAppendedSuccessfully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Component(s) created successfully..
         /// </summary>
         internal static string ComponentCreatedSuccessfully {
