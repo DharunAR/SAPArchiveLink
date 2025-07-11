@@ -10,5 +10,6 @@
         Task<ICommandResponse> DeleteSapDocument(SapDocumentRequest sapDoc);
         Task<ICommandResponse> GetDocumentInfo(SapDocumentRequest sapDocumentRequest);
         Task<ICommandResponse> GetSearchResult(SapSearchRequestModel sapSearchRequest);
+        Task<ICommandResponse> AppendDocument(AppendSapDocCompModel sapDoc);
     }
 }

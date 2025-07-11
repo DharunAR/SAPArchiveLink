@@ -76,6 +76,7 @@ namespace SAPArchiveLink
             services.AddTransient(typeof(ILogHelper<>), typeof(LogHelper<>));
             services.AddScoped<ICertificateFactory, CertificateFactory>();
             RegisterTextExtractors();
+            RegisterContentAppender();
         }
 
         private static void RegisterTextExtractors()
@@ -84,6 +85,13 @@ namespace SAPArchiveLink
             TextExtractorFactory.Register("application/pdf", new PdfTextExtractor());
             TextExtractorFactory.Register("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new ExcelTextExtractor());
             TextExtractorFactory.Register("application/vnd.openxmlformats-officedocument.wordprocessingml.document", new DocxTextExtractor());           
+        }
+        private static void RegisterContentAppender()
+        {
+            DocumentAppenderFactory.Register(".txt", new TextDocumentAppender());
+            DocumentAppenderFactory.Register(".pdf", new PdfDocumentAppender());
+            DocumentAppenderFactory.Register(".docx", new WordDocumentAppender());
+            DocumentAppenderFactory.Register(".xlxs", new ExcelDocumentAppender());           
         }
 
         /// <summary>

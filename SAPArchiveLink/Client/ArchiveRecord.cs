@@ -162,6 +162,7 @@ namespace SAPArchiveLink
                 component.Data = memoryStream;
                 component.Charset = sdkComponent.CharacterSet ?? "UTF-8";
                 component.FileName = extractDocument.FileName;
+                component.RecordSapComponent = new RecordSapComponentWrapper(sdkComponent);
             }
             return component;
         }
@@ -203,7 +204,7 @@ namespace SAPArchiveLink
             _log.LogInformation($"Updating component {component.ComponentId} in record {_record.SapDocumentId}");
             ComponentsAdapter.UpdateComponent(component, model);
         }
-        
+
         public void SetRecordMetadata()
         {
             _record.SapModifiedDate = TrimDateTime.Now;
