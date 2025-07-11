@@ -34,11 +34,11 @@ namespace SAPArchiveLink
             var pVersion = command.GetValue(ALParameter.VarPVersion);
             _logger.LogDebug($"Validating command {command.GetTemplate()} with version {pVersion}");
 
-            if (command.GetTemplate() != ALCommandTemplate.ADMINCONTREP && !IsSupportedVersion(pVersion))
-                return Fail("Unsupported protocol version", StatusCodes.Status400BadRequest);
-
             if (UnsupportedCommands.Contains(command.GetTemplate()))
                 return Fail($"Command {command.GetTemplate()} is not supported", StatusCodes.Status501NotImplemented);
+
+            if (!IsSupportedVersion(pVersion))
+                return Fail("Unsupported protocol version", StatusCodes.Status400BadRequest);
 
             if (command.GetTemplate() == ALCommandTemplate.SIGNURL && !request.HttpRequest.IsHttps)
                 return Fail("SIGNURL requires HTTPS", StatusCodes.Status400BadRequest);
@@ -151,7 +151,7 @@ namespace SAPArchiveLink
             }
         }
 
-        private bool IsSupportedVersion(string pVersion) =>
+        public bool IsSupportedVersion(string pVersion) =>
         !string.IsNullOrWhiteSpace(pVersion) && IsSupported(ParseVersion(pVersion));
 
         private ALProtocolVersion ParseVersion(string version) => version switch

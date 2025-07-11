@@ -21,7 +21,8 @@ namespace SAPArchiveLink
         {
             var skipAuthTemplates = new[]
             {
-                ALCommandTemplate.PUTCERT
+                ALCommandTemplate.PUTCERT,
+                ALCommandTemplate.SERVERINFO
             };
             var context = new CommandRequestContext(request.HttpRequest);
 
@@ -56,8 +57,17 @@ namespace SAPArchiveLink
                         return new ArchiveLinkResult(requestAuthResult.ErrorResponse);
                     }
                 }
-            }       
-          
+            }
+            else if (command.GetTemplate() == ALCommandTemplate.SERVERINFO)
+            {
+                var pVersion = command.GetValue(ALParameter.VarPVersion);
+                if (string.IsNullOrEmpty(pVersion) || !_authenticator.IsSupportedVersion(pVersion))
+                {
+                    var errorResponse = _commandResponseFactory.CreateError($"Unsupported or missing protocol version: {pVersion ?? "none"}", StatusCodes.Status400BadRequest);
+                    return new ArchiveLinkResult(errorResponse);
+                }
+            }
+
             var response = await ExecuteRequest(context, command);
 
             if (response.StatusCode == 307 && response.Headers.TryGetValue("Location", out string? locationUrl))

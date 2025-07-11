@@ -1,5 +1,4 @@
-﻿using DocumentFormat.OpenXml.Spreadsheet;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
 using Moq;
 using TRIM.SDK;
 
@@ -1407,6 +1406,8 @@ namespace SAPArchiveLink.Tests
 
         #endregion
 
+        #region Search ServiceTests
+
         [Test]
         public async Task GetSearchResult_ReturnsError_WhenValidationFails()
         {
@@ -1543,7 +1544,117 @@ namespace SAPArchiveLink.Tests
 
             // Assert
             _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
-        }     
+        }
 
+        #endregion
+
+        #region ServerInfo ServiceTests
+
+        [Test]
+        public async Task GetServerInfo_NoRepositoriesFound_ReturnsErrorResponse()
+        {
+            var contRep = "ABC";
+            var version = "0046";
+            var resultAs = "text";
+
+            var emptyServerInfo = new ServerInfoModel();
+
+            _trimRepoMock.Setup(repo => repo.GetServerInfo(version, contRep))
+                         .Returns(emptyServerInfo);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status404NotFound))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetServerInfo(contRep, version, resultAs);
+
+            _loggerMock.Verify(l => l.LogError(It.IsAny<string>(), null), Times.Once);
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains(contRep)), StatusCodes.Status404NotFound), Times.Once);
+            Assert.That(result, Is.EqualTo(expectedResponse));
+        }
+
+
+        [Test]
+        public async Task GetServerInfo_WithHtmlResult_ReturnsHtmlResponse()
+        {
+            var contRep = "XYZ";
+            var version = "0046";
+            var resultAs = "html";
+
+            var serverInfo = new ServerInfoModel
+            {
+                ServerVendorId = "VendorX",
+                ServerVersion = "1.0",
+                ServerBuild = "123",
+                ServerStatusDescription = "Running",
+                PVersion = version,
+                ContentRepositories = new List<ContentRepositoryInfoModel>
+                {
+                    new ContentRepositoryInfoModel
+                    {
+                        ContRep = "XYZ",
+                        ContRepDescription = "Main Repo",
+                        ContRepStatus = "Online",
+                        ContRepStatusDescription = "Available",
+                        PVersion = version
+                    }
+                }
+            };
+
+            _trimRepoMock.Setup(repo => repo.GetServerInfo(version, contRep)).Returns(serverInfo);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateHtmlReport(It.Is<string>(html => html.Contains("Content Manager SAP ArchiveLink Status")), StatusCodes.Status200OK, "UTF-8"))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetServerInfo(contRep, version, resultAs);
+
+            _responseFactoryMock.Verify(f => f.CreateHtmlReport(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
+            Assert.That(result, Is.EqualTo(expectedResponse));
+        }
+
+
+        [Test]
+        public async Task GetServerInfo_WithTextResult_ReturnsProtocolTextResponse()
+        {
+            var contRep = "XYZ";
+            var version = "0046";
+            string resultAs = null;
+
+            var serverInfo = new ServerInfoModel
+            {
+                ServerVendorId = "VendorY",
+                ServerVersion = "2.1",
+                ServerBuild = "321",
+                PVersion = version,
+                ContentRepositories = new List<ContentRepositoryInfoModel>
+                {
+                    new ContentRepositoryInfoModel
+                    {
+                        ContRep = "XYZ",
+                        ContRepDescription = "Secondary Repo",
+                        ContRepStatus = "Online",
+                        ContRepStatusDescription = "Stable",
+                        PVersion = version
+                    }
+                }
+            };
+
+            _trimRepoMock.Setup(repo => repo.GetServerInfo(version, contRep)).Returns(serverInfo);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateProtocolText(It.Is<string>(s => s.Contains("serverStatus=") && s.Contains("contRep=")), StatusCodes.Status200OK, "UTF-8"))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetServerInfo(contRep, version, resultAs);
+
+            _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), StatusCodes.Status200OK, "UTF-8"), Times.Once);
+            Assert.That(result, Is.EqualTo(expectedResponse));
+        }
+
+        #endregion
     }
 }

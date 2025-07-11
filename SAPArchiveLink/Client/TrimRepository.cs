@@ -6,6 +6,9 @@ namespace SAPArchiveLink
 {
     public class TrimRepository : ITrimRepository
     {
+        private const string EnabledStatus = "Enabled";
+        private const string DisabledStatus = "Disabled";
+
         private readonly Database _db;
         private readonly TrimConfigSettings _trimConfig;
         private readonly ILoggerFactory _loggerFactory;
@@ -92,18 +95,75 @@ namespace SAPArchiveLink
         public IArchiveCertificate GetArchiveCertificate(string contentRepo)
         {
             SapRepoConfigUserOptions sapRepoConfigUserOptions = new SapRepoConfigUserOptions(_db);
-            ApiSapRepoItemList list = sapRepoConfigUserOptions.SapRepos;
-            foreach (SapRepoItem item in list)
+            SapRepoItem? item = FindSapRepoItem(contentRepo, sapRepoConfigUserOptions);
+            if (item != null)
             {
-                if (item.ArchiveDataID == contentRepo)
-                {
-                   bool isEnabed= sapRepoConfigUserOptions.getIsEnabled(item.ArchiveDataID);
-                    byte[] certBytes = Convert.FromBase64String(item.Content);
-                    var certificate = new X509Certificate2(certBytes);
-                    return new ArchiveCertificate(certificate, item.AuthId,item.Permissions, isEnabed);
-                }
+                bool isEnabed = sapRepoConfigUserOptions.getIsEnabled(item.ArchiveDataID);
+                byte[] certBytes = Convert.FromBase64String(item.Content);
+                var certificate = new X509Certificate2(certBytes);
+                return new ArchiveCertificate(certificate, item.AuthId, item.Permissions, isEnabed);
             }
             return null;
+        }
+
+        /// <summary>
+        /// Retrieves server information and content repository details.
+        /// </summary>
+        /// <param name="protocolVersion">The protocol version of the client.</param>
+        /// <param name="contentRepositoryId">The content repository ID to filter by, or empty to retrieve all repositories.</param>
+        /// <returns>A ServerInfoModel containing server and repository details.</returns>
+        public ServerInfoModel GetServerInfo(string pVersion, string contRep)
+        {
+            string serverVersion = TrimApplication.SoftwareVersion;
+            string vendorId = TrimApplication.SDKVersion.ToString() ?? string.Empty;
+            string buildNo = serverVersion.Contains('.') ? serverVersion.Split('.').LastOrDefault() ?? string.Empty : string.Empty;
+
+            var infoModel = new ServerInfoModel
+            {
+                ServerVendorId = vendorId,
+                ServerVersion = serverVersion,
+                ServerBuild = buildNo,
+                PVersion = pVersion,
+                ServerDate = TrimDateTime.Now.ToDateTimeUTC().ToString("yyyyy-MM-dd"),
+                ServerTime = TrimDateTime.Now.ToDateTimeUTC().ToString("HH:MM:ss")
+            };
+
+            var sapRepoConfigUserOptions = new SapRepoConfigUserOptions(_db);
+
+            if (string.IsNullOrWhiteSpace(contRep))
+            {
+                foreach (var item in sapRepoConfigUserOptions.SapRepos)
+                {
+                    infoModel.ContentRepositories.Add(CreateContentRepositoryInfoModel(item, pVersion, sapRepoConfigUserOptions));
+                }
+            }
+            else
+            {
+                var item = FindSapRepoItem(contRep, sapRepoConfigUserOptions);
+                if (item != null)
+                {
+                    infoModel.ContentRepositories.Add(CreateContentRepositoryInfoModel(item, pVersion, sapRepoConfigUserOptions));
+                }   
+            }
+
+            return infoModel;
+        }
+
+        private ContentRepositoryInfoModel CreateContentRepositoryInfoModel(SapRepoItem item, string pVersion, SapRepoConfigUserOptions sapRepoConfigUserOptions)
+        {
+            return new ContentRepositoryInfoModel
+            {
+                ContRep = item.ArchiveDataID,
+                ContRepDescription = item.AuthId,
+                ContRepStatus = sapRepoConfigUserOptions.getIsEnabled(item.ArchiveDataID) ? EnabledStatus : DisabledStatus,
+                PVersion = pVersion
+            };
+        }
+
+        private SapRepoItem? FindSapRepoItem(string contentRepo, SapRepoConfigUserOptions sapRepoConfigUserOptions)
+        {
+            ApiSapRepoItemList repoList = sapRepoConfigUserOptions.SapRepos;
+            return repoList?.FirstOrDefault(item => item.ArchiveDataID == contentRepo);
         }
     }
 }

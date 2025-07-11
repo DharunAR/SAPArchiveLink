@@ -14,6 +14,7 @@ public class BaseServices : IBaseServices
     private ISdkMessageProvider _messageProvider;
     const string COMP_DATA = "data";
     const string COMP_DATA1 = "data1";
+    const string HTML_FORMAT = "html";
     private ICertificateFactory _certificateFactory;
 
     public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection,
@@ -398,7 +399,7 @@ public class BaseServices : IBaseServices
             return _responseFactory.CreateError(message);
         }
 
-        bool isHtml = sapDoc.ResultAs?.Equals("html", StringComparison.OrdinalIgnoreCase) == true;
+        bool isHtml = sapDoc.ResultAs?.Equals(HTML_FORMAT, StringComparison.OrdinalIgnoreCase) == true;
 
         using var trimRepo = _databaseConnection.GetDatabase();
         var recordAdapter = trimRepo.GetRecord(sapDoc.DocId, sapDoc.ContRep);
@@ -490,6 +491,36 @@ public class BaseServices : IBaseServices
         }        
 
         return _responseFactory.CreateProtocolText(searchResult);
+    }
+
+    /// <summary>
+    /// Retrieves server information and content repository details.
+    /// </summary>
+    /// <param name="contRep"></param>
+    /// <param name="pVersion"></param>
+    /// <param name="resultAs"></param>
+    /// <returns></returns>
+    public async Task<ICommandResponse> GetServerInfo(string contRep, string pVersion, string resultAs)
+    {
+        using var trimRepo = _databaseConnection.GetDatabase();
+        var serverInfo = trimRepo.GetServerInfo(pVersion, contRep);
+
+        if (serverInfo.ContentRepositories.Count == 0)
+        {
+            string errorMessage = string.IsNullOrWhiteSpace(contRep) ? Resource.NoContRepFound : string.Format(Resource.ContRepNotFound, contRep);
+            _logger.LogError(errorMessage);
+            return _responseFactory.CreateError(errorMessage, StatusCodes.Status404NotFound);
+        }
+        if (resultAs?.Equals(HTML_FORMAT, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            var html = BuildServerInfoHtmlResponse(serverInfo);
+            return _responseFactory.CreateHtmlReport(html);
+        }
+        else
+        {
+            var infoResponse = BuildServerInfoResponse(serverInfo);
+            return _responseFactory.CreateProtocolText(infoResponse);
+        }
     }
 
     #region Helper methods
@@ -736,6 +767,55 @@ public class BaseServices : IBaseServices
             result.Append(offset).Append(';');
 
         return result.ToString();
+    }
+
+    private string BuildServerInfoResponse(ServerInfoModel model)
+    {
+        var sb = new StringBuilder();
+
+        sb.Append($"serverStatus=\"{model.ServerStatus}\";");
+        sb.Append($"serverVendorId=\"{model.ServerVendorId}\";");
+        sb.Append($"serverVersion=\"{model.ServerVersion}\";");
+        sb.Append($"serverBuild=\"{model.ServerBuild}\";");
+        sb.Append($"serverTime=\"{model.ServerTime}\";");
+        sb.Append($"serverDate=\"{model.ServerDate}\";");
+        sb.Append($"serverStatusDescription=\"{model.ServerStatusDescription}\";");
+        sb.Append($"pVersion=\"{model.PVersion}\";\r\n");
+
+        foreach (var repo in model.ContentRepositories)
+        {
+            sb.Append($"contRep=\"{repo.ContRep}\";");
+            sb.Append($"contRepDescription=\"{repo.ContRepDescription}\";");
+            sb.Append($"contRepStatus=\"{repo.ContRepStatus}\";");
+            sb.Append($"contRepStatusDescription=\"{repo.ContRepStatusDescription}\";");
+            sb.Append($"pVersion=\"{repo.PVersion}\";\r\n");
+        }
+
+        return sb.ToString();
+    }
+
+    private string BuildServerInfoHtmlResponse(ServerInfoModel model)
+    {
+        var html = new StringBuilder();
+
+        html.Append("<html><body>");
+        html.Append("<h1>Content Manager SAP ArchiveLink Status</h1>");
+        html.Append($"<p>Status: {model.ServerStatus}</p>");
+        html.Append($"<p>Vendor: {model.ServerVendorId}</p>");
+        html.Append($"<p>Version: {model.ServerVersion}</p>");
+        html.Append($"<p>Build: {model.ServerBuild}</p>");
+        html.Append($"<p>Time: {model.ServerTime}</p>");
+        html.Append($"<p>Date: {model.ServerDate}</p>");
+        html.Append($"<p>Description: {model.ServerStatusDescription}</p>");
+        html.Append("<h2>Repositories</h2><ul>");
+
+        foreach (var repo in model.ContentRepositories)
+        {
+            html.Append($"<li>{repo.ContRep} - {repo.ContRepDescription} ({repo.ContRepStatus})</li>");
+        }
+
+        html.Append("</ul></body></html>");
+        return html.ToString();
     }
 
     #endregion
