@@ -496,6 +496,14 @@ public class BaseServices : IBaseServices
         SapDocumentComponentModel[] components = Array.Empty<SapDocumentComponentModel>();
         try
         {
+            var validationResults = ModelValidator.Validate(sapDoc);
+            if (validationResults.Any())
+            {
+                var message = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
+                _logger.LogError($"Validation failed in GetSearchResult: {message}");
+                return _responseFactory.CreateError(message);
+            }
+
             using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
             {
                 _logger.LogInformation($"Fetching record for DocId: {sapDoc.DocId} and ContRep: {sapDoc.ContRep}");
@@ -522,7 +530,7 @@ public class BaseServices : IBaseServices
                     {
                         string error = string.Format(Resource.UnsupportedContentType, component.ContentType);
                         _logger.LogError(error);
-                        throw new NotSupportedException(error);
+                        return _responseFactory.CreateError(error, StatusCodes.Status404NotFound);                     
                     }
                     var data = appender.AppendAsync(component.Data, sapDoc.StreamData);
 
