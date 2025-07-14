@@ -133,6 +133,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Content repository {0} not found..
+        /// </summary>
+        internal static string ContRepNotFound {
+            get {
+                return ResourceManager.GetString("ContRepNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Creating Document Content for MultiPart.
         /// </summary>
         internal static string CreatingDocumentContentMultiPart {
@@ -228,6 +237,15 @@ namespace SAPArchiveLink.Resources {
         internal static string GetDocumentStream {
             get {
                 return ResourceManager.GetString("GetDocumentStream", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No content repositories found..
+        /// </summary>
+        internal static string NoContRepFound {
+            get {
+                return ResourceManager.GetString("NoContRepFound", resourceCulture);
             }
         }
         
