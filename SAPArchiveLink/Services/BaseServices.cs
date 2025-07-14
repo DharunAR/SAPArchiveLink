@@ -46,18 +46,19 @@ public class BaseServices : IBaseServices
             }
 
             byte[] certBytes;
+
+            if (putCertificateModel.Stream == null || !putCertificateModel.Stream.CanRead)
+            {
+                return _responseFactory.CreateError("Certificate stream is null or unreadable", StatusCodes.Status406NotAcceptable);
+            }
+
             using (var memoryStream = new MemoryStream())
             {
-                byte[] buffer = new byte[2048];
-                int bytesRead;
-                while ((bytesRead = await putCertificateModel.Stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
-                {
-                    await memoryStream.WriteAsync(buffer, 0, bytesRead);
-                }
-
+                await putCertificateModel.Stream.CopyToAsync(memoryStream);
                 certBytes = memoryStream.ToArray();
             }
-            if (certBytes == null || certBytes.Length == 0)
+
+            if (certBytes.Length == 0)
             {
                 return _responseFactory.CreateError(Resource.CertificateCannotBeRecognized, StatusCodes.Status406NotAcceptable);
             }
