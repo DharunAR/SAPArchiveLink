@@ -1,6 +1,4 @@
 ﻿
-using Microsoft.Extensions.Options;
-
 namespace SAPArchiveLink
 {
     public class CounterFlusher
