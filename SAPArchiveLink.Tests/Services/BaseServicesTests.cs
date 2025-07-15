@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Moq;
+using SAPArchiveLink.Services;
 using TRIM.SDK;
 
 namespace SAPArchiveLink.Tests
@@ -17,7 +18,10 @@ namespace SAPArchiveLink.Tests
         private Mock<ISdkMessageProvider> _messageProviderMock;
         private Mock<ICertificateFactory> _certificateFactoryMock;
         private Mock<IArchiveCertificate> _archiveCertificateMock;
+        private CounterService _counterService;
         private BaseServices _service;
+        private Mock<ICounterCache> _cacheMock;
+        private ArchiveCounter _testCounter;
 
         [SetUp]
         public void SetUp()
@@ -33,6 +37,13 @@ namespace SAPArchiveLink.Tests
             _certificateFactoryMock = new Mock<ICertificateFactory>();
             _archiveCertificateMock = new Mock<IArchiveCertificate>();
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(_trimRepoMock.Object);
+            _cacheMock = new Mock<ICounterCache>();
+            _testCounter = new ArchiveCounter();
+
+            _cacheMock.Setup(c => c.GetOrCreate(It.IsAny<string>()))
+                      .Returns(_testCounter);
+
+            _counterService = new CounterService(_cacheMock.Object);
 
             _service = new BaseServices(
                 _loggerMock.Object,
@@ -40,7 +51,8 @@ namespace SAPArchiveLink.Tests
                 _dbConnectionMock.Object,
                 _downloadFileHandlerMock.Object,
                 _messageProviderMock.Object,
-                _certificateFactoryMock.Object
+                _certificateFactoryMock.Object,
+                _counterService
             );
         }
 
