@@ -33,7 +33,7 @@ namespace SAPArchiveLink
                 Charset = request.Charset,
                 HttpRequest = request.HttpRequest
             });
-
+            var repository = command.GetValue(ALParameter.VarContRep);
             if (!command.IsValid)
             {
                 var errorResponse = _commandResponseFactory.CreateError($"Bad request: {command.ValidationError}", StatusCodes.Status400BadRequest);
@@ -42,16 +42,21 @@ namespace SAPArchiveLink
 
             if (!skipAuthTemplates.Contains(command.GetTemplate()))
             {
-                if (!string.IsNullOrEmpty(command.GetValue(ALParameter.VarContRep)))
+                if (!string.IsNullOrEmpty(repository))
                 {
                     using var trimRepo = _databaseConnection.GetDatabase();
-                    var archieveCertificate = trimRepo.GetArchiveCertificate(command.GetValue(ALParameter.VarContRep));
-                    if(archieveCertificate==null)
+                    var archiveCertificate = trimRepo.GetArchiveCertificate(repository);
+                    if(archiveCertificate==null)
                     {
-                        var errorResponse = _commandResponseFactory.CreateError($"Archive certificate not found for repository: {command.GetValue(ALParameter.VarContRep)}", StatusCodes.Status404NotFound);
+                        var errorResponse = _commandResponseFactory.CreateError($"Archive certificate not found for repository: {repository}", StatusCodes.Status404NotFound);
                         return new ArchiveLinkResult(errorResponse);
                     }
-                    var requestAuthResult = _authenticator.CheckRequest(request, command, archieveCertificate);
+                    if (!archiveCertificate.IsEnabled())
+                    {
+                        var errorResponse = _commandResponseFactory.CreateError($"Archive certificate is not enabled for repository: {repository}", StatusCodes.Status403Forbidden);
+                        return new ArchiveLinkResult(errorResponse);
+                    }
+                    var requestAuthResult = _authenticator.CheckRequest(request, command, archiveCertificate);
                     if (requestAuthResult != null && !requestAuthResult.IsAuthenticated)
                     {
                         return new ArchiveLinkResult(requestAuthResult.ErrorResponse);
