@@ -19,6 +19,7 @@ public class BaseServices : IBaseServices
     const string HTML_FORMAT = "html";
     private ICertificateFactory _certificateFactory; 
     private readonly CounterService _counterService;
+    const int _counterCount = 1;
 
     public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection,
         IDownloadFileHandler downloadFileHandler, ISdkMessageProvider messageProvider, ICertificateFactory certificateFactory, CounterService counterService)
@@ -213,7 +214,7 @@ public class BaseServices : IBaseServices
             {
                 response.AddHeader("X-Content-Type-Options", "nosniff");
             }
-
+            _counterService.UpdateCounter(sapDoc.ContRep, CounterType.View, _counterCount);
             return response;
         }
     }
@@ -380,9 +381,10 @@ public class BaseServices : IBaseServices
             }
             if (string.IsNullOrWhiteSpace(sapDoc.CompId))
             {
-                //Delete document with all components              
+                //Delete document with all components
                 _logger.LogInformation(string.Format(Resource.DocumentAndComponentsDeleted, sapDoc.DocId));
                 record.DeleteRecord();
+                _counterService.UpdateCounter(sapDoc.ContRep, CounterType.Delete, _counterCount);
                 return _responseFactory.CreateProtocolText(string.Format(Resource.DocumentAndComponentsDeleted, sapDoc.DocId));
             }
             else
@@ -391,6 +393,7 @@ public class BaseServices : IBaseServices
                 {
                     record.SetRecordMetadata();
                     record.Save();
+                    _counterService.UpdateCounter(sapDoc.ContRep, CounterType.Delete, _counterCount);
                     return _responseFactory.CreateProtocolText(string.Format(Resource.ComponentDeletedSuccessfully, sapDoc.CompId));
                 }                
                 return _responseFactory.CreateError(string.Format(Resource.ComponentNotFoundInDocument, sapDoc.CompId, sapDoc.DocId), StatusCodes.Status404NotFound);
@@ -634,7 +637,7 @@ public class BaseServices : IBaseServices
             : _responseFactory.CreateInfoMetadata(new List<SapDocumentComponentModel>() { component });
 
         AddSingleComponentHeaders(component, sapDoc, response);
-
+        _counterService.UpdateCounter(sapDoc.ContRep, CounterType.View, _counterCount);
         return response;
     }
 
@@ -652,7 +655,7 @@ public class BaseServices : IBaseServices
                                 : _responseFactory.CreateInfoMetadata(multipartComponents);
 
         AddMultiPartHeaders(multipartComponents, record, sapDoc, multipartResponse);
-
+        _counterService.UpdateCounter(sapDoc.ContRep, CounterType.View, _counterCount);
         return multipartResponse;
     }
 
@@ -755,7 +758,7 @@ public class BaseServices : IBaseServices
             AddSingleComponentHeaders(components[0], doc, response);
         else
             AddMultiPartHeaders(components, record, doc, response);
-
+        _counterService.UpdateCounter(doc.ContRep, CounterType.View, _counterCount);
         return response;
     }
 

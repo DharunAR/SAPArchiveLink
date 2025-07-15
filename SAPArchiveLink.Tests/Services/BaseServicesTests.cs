@@ -8,6 +8,7 @@ namespace SAPArchiveLink.Tests
     public class BaseServicesTests
     {
         private Mock<ILogHelper<BaseServices>> _loggerMock;
+        private Mock<ILogHelper<CounterService>> _counterLoggerMock;
         private Mock<ICommandResponseFactory> _responseFactoryMock;
         private Mock<IDatabaseConnection> _dbConnectionMock;
         private Mock<IDownloadFileHandler> _downloadFileHandlerMock;
@@ -17,12 +18,15 @@ namespace SAPArchiveLink.Tests
         private Mock<ISdkMessageProvider> _messageProviderMock;
         private Mock<ICertificateFactory> _certificateFactoryMock;
         private Mock<IArchiveCertificate> _archiveCertificateMock;
+        private Mock<ICounterCache> _counterCacheMock;
+        private CounterService _counterService;
         private BaseServices _service;
 
         [SetUp]
         public void SetUp()
         {
             _loggerMock = new Mock<ILogHelper<BaseServices>>();
+            _counterLoggerMock = new Mock<ILogHelper<CounterService>>();
             _responseFactoryMock = new Mock<ICommandResponseFactory>();
             _dbConnectionMock = new Mock<IDatabaseConnection>();
             _trimRepoMock = new Mock<ITrimRepository>();
@@ -32,7 +36,10 @@ namespace SAPArchiveLink.Tests
             _messageProviderMock = new Mock<ISdkMessageProvider>();
             _certificateFactoryMock = new Mock<ICertificateFactory>();
             _archiveCertificateMock = new Mock<IArchiveCertificate>();
+            _counterCacheMock = new Mock<ICounterCache>();
+            _counterService = new CounterService(_counterCacheMock.Object, _counterLoggerMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(_trimRepoMock.Object);
+            _counterCacheMock.Setup(c => c.GetOrCreate(It.IsAny<string>())).Returns(new ArchiveCounter());
 
             _service = new BaseServices(
                 _loggerMock.Object,
@@ -40,7 +47,8 @@ namespace SAPArchiveLink.Tests
                 _dbConnectionMock.Object,
                 _downloadFileHandlerMock.Object,
                 _messageProviderMock.Object,
-                _certificateFactoryMock.Object
+                _certificateFactoryMock.Object, 
+                _counterService
             );
         }
 
@@ -359,7 +367,6 @@ namespace SAPArchiveLink.Tests
                 Version = "1.0"
             };
             var recordMock = new Mock<IArchiveRecord>();
-            // Remove HasComponent setup
             recordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
             var repoMock = new Mock<ITrimRepository>();
             repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
@@ -372,8 +379,8 @@ namespace SAPArchiveLink.Tests
             var result = await _service.GetSapDocument(sapDoc);
 
             Assert.That(result, Is.EqualTo(expectedResponse.Object));
+            _counterCacheMock.Verify(c => c.GetOrCreate("rep"), Times.AtLeastOnce);
         }
-
 
         [Test]
         public async Task GetSapDocument_ReturnsError_WhenFromOffsetBeyondContentLength()
@@ -579,6 +586,36 @@ namespace SAPArchiveLink.Tests
             Assert.That(result, Is.EqualTo(errorResponse));
         }
 
+        [Test]
+        public async Task GetSapDocument_CounterServiceThrows_DoesNotAffectResponse()
+        {
+            var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = "comp1" };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "comp1",
+                ContentType = "application/pdf",
+                ContentLength = 100,
+                Data = new MemoryStream(new byte[] { 1, 2, 3 }),
+                FileName = "file.pdf"
+            };
+            var recordMock = new Mock<IArchiveRecord>();
+            recordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
+            var repoMock = new Mock<ITrimRepository>();
+            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
+            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+
+            var expectedResponse = new Mock<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateDocumentContent(It.IsAny<Stream>(), component.ContentType, StatusCodes.Status200OK, component.FileName))
+                .Returns(expectedResponse.Object);
+
+            _counterCacheMock.Setup(c => c.GetOrCreate("rep")).Throws(new Exception("Counter error"));
+
+            var result = await _service.GetSapDocument(sapDoc);
+
+            Assert.That(result, Is.EqualTo(expectedResponse.Object));
+        }
+
+
         #endregion
 
         #region CreateRecord ServiceTests
@@ -607,9 +644,9 @@ namespace SAPArchiveLink.Tests
                 PVersion = "1",
                 ContentLength = "10",
                 Components = new List<SapDocumentComponentModel>
-        {
-            new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
-        }
+                {
+                    new SapDocumentComponentModel { CompId = "comp", FileName = "file.txt", Data = new MemoryStream(new byte[] { 1, 2 }) }
+                }
             };
             var repoMock = new Mock<ITrimRepository>();
             var recordMock = new Mock<IArchiveRecord>();
@@ -626,6 +663,7 @@ namespace SAPArchiveLink.Tests
 
             _responseFactoryMock.Verify(f => f.CreateProtocolText("Component(s) created successfully.", StatusCodes.Status201Created, "UTF-8"), Times.Once);
             Assert.That(result, Is.EqualTo(expectedResponse));
+            _counterCacheMock.Verify(c => c.GetOrCreate("rep"), Times.AtLeastOnce);
         }
 
         [Test]
