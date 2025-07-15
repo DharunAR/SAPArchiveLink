@@ -15,7 +15,6 @@ namespace SAPArchiveLink
         {
             _trimConfig = config.CurrentValue;
             _loggerFactory = loggerFactory;
-            Database.AllowAccessFromMultipleThreads = true;
         }
 
         public ITrimRepository GetDatabase()

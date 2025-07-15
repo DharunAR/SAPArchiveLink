@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using SAPArchiveLink.Interfaces;
 using SAPArchiveLink.Services;
 using TRIM.SDK;
 
@@ -69,12 +71,18 @@ namespace SAPArchiveLink
             services.AddScoped<ICommandHandler, DistributeContentCommandHandler>();
             services.AddScoped<ICommandHandler, GetContentCommandHandler>();
 
+            services.AddScoped<IDatabaseConnection, DatabaseConnection>();
 
-            services.AddScoped<IDatabaseConnection, DatabaseConnection>();         
             services.AddSingleton<ICommandResponseFactory, CommandResponseFactory>();
             services.AddScoped<IBaseServices, BaseServices>();
             services.AddTransient(typeof(ILogHelper<>), typeof(LogHelper<>));
             services.AddScoped<ICertificateFactory, CertificateFactory>();
+
+            services.AddSingleton<ICounterCache, InMemoryCounterCache>();
+            services.AddSingleton<CounterFlusher>();
+            services.AddHostedService<CounterFlushHostedService>();
+            services.AddSingleton<CounterService>();
+
             RegisterTextExtractors();
             RegisterContentAppender();
         }

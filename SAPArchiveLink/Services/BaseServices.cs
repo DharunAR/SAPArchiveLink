@@ -1,4 +1,7 @@
-﻿using SAPArchiveLink.Resources;
+﻿using DocumentFormat.OpenXml.Bibliography;
+using DocumentFormat.OpenXml.EMMA;
+using SAPArchiveLink.Resources;
+using SAPArchiveLink.Services;
 using System.Net;
 using System.Text;
 using TRIM.SDK;
@@ -14,10 +17,11 @@ public class BaseServices : IBaseServices
     const string COMP_DATA = "data";
     const string COMP_DATA1 = "data1";
     const string HTML_FORMAT = "html";
-    private ICertificateFactory _certificateFactory;
+    private ICertificateFactory _certificateFactory; 
+    private readonly CounterService _counterService;
 
     public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection,
-        IDownloadFileHandler downloadFileHandler, ISdkMessageProvider messageProvider, ICertificateFactory certificateFactory)
+        IDownloadFileHandler downloadFileHandler, ISdkMessageProvider messageProvider, ICertificateFactory certificateFactory, CounterService counterService)
     {
         _logger = helperLogger;
         _responseFactory = commandResponseFactory;
@@ -25,6 +29,7 @@ public class BaseServices : IBaseServices
         _downloadFileHandler = downloadFileHandler;
         _messageProvider = messageProvider;
         _certificateFactory = certificateFactory;
+        _counterService = counterService;
     }
 
     /// <summary>
@@ -222,6 +227,7 @@ public class BaseServices : IBaseServices
     public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel model, bool isMultipart = false)
     {
         SapDocumentComponentModel[] components = [];
+        int _count = 0;
         try
         {
             var validationResults = ModelValidator.Validate(model, !isMultipart);
@@ -264,10 +270,13 @@ public class BaseServices : IBaseServices
                             return _responseFactory.CreateError(Resource.FailedToSaveComponentFile, StatusCodes.Status400BadRequest);
 
                         archiveRecord.AddComponent(comp.CompId, filePath, comp.ContentType, comp.Charset, comp.PVersion);
+                        _count++;
                     }
                 }
                 archiveRecord.SetRecordMetadata();
                 archiveRecord.Save();
+                _counterService.UpdateCounter(model.ContRep, CounterType.Create,_count);           
+               _logger.LogInformation($"Record created successfully for DocId: {model.DocId}, ContRep: {model.ContRep} with {_count} components.");
             }
         }
         finally
@@ -287,6 +296,7 @@ public class BaseServices : IBaseServices
     public async Task<ICommandResponse> UpdateRecord(CreateSapDocumentModel createSapDocumentModels, bool isMultipart = false)
     {
         SapDocumentComponentModel[] components = [];
+        int _count = 0;
         try
         {
             var validationResults = ModelValidator.Validate(createSapDocumentModels);
@@ -327,10 +337,13 @@ public class BaseServices : IBaseServices
                                     return _responseFactory.CreateError(Resource.FailedToSaveComponentFile, StatusCodes.Status400BadRequest);
                                 archiveRecord.UpdateComponent(recComp, model);
                             }
+                            _count++;
                         }
                     }
                     archiveRecord.SetRecordMetadata();
                     archiveRecord.Save();
+                    _counterService.UpdateCounter(createSapDocumentModels.ContRep, CounterType.Update, _count);
+                    _logger.LogInformation($"Record updated successfully for DocId: {createSapDocumentModels.DocId}, ContRep: {createSapDocumentModels.ContRep} with {_count} components.");
                 }
             }
         }

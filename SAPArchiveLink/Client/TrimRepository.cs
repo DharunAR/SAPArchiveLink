@@ -149,6 +149,11 @@ namespace SAPArchiveLink
             return infoModel;
         }
 
+        public void SaveCounters(string archiveId, ArchiveCounter counter)
+        {
+            Console.WriteLine($"[Save] {archiveId}: Create={counter.CreateCount}, Delete={counter.DeleteCount}, Update={counter.UpdateCount}, View={counter.ViewCount}");
+        }
+
         private ContentRepositoryInfoModel CreateContentRepositoryInfoModel(SapRepoItem item, string pVersion, SapRepoConfigUserOptions sapRepoConfigUserOptions)
         {
             return new ContentRepositoryInfoModel

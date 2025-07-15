@@ -34,6 +34,7 @@ namespace SAPArchiveLink
                     TrimApplication.Initialize();
                     TrimApplication.SetAsWebService(trimConfig.WorkPath);
                     initState.TrimInitialized();
+                    Database.AllowAccessFromMultipleThreads = true;
                 }
                 catch (TrimException trimEx)
                 {
