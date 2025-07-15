@@ -151,7 +151,19 @@ namespace SAPArchiveLink
 
         public void SaveCounters(string archiveId, ArchiveCounter counter)
         {
-            Console.WriteLine($"[Save] {archiveId}: Create={counter.CreateCount}, Delete={counter.DeleteCount}, Update={counter.UpdateCount}, View={counter.ViewCount}");
+            SapRepoCounters counters = new SapRepoCounters(_db);
+            ApiSapRepoCounterItemList list = new ApiSapRepoCounterItemList();
+
+            SapRepoCounter count = new SapRepoCounter();
+            count.setArchiveDataID(archiveId);
+            count.incrementCreateCounter(counter.CreateCount);
+            count.incrementDeleteCounter(counter.DeleteCount);
+            count.incrementUpdateCounter(counter.UpdateCount);
+            count.incrementViewCounter(counter.ViewCount);
+            list.Add(count);
+
+            counters.IncrementCounters(list);
+            counters.Save();          
         }
 
         private ContentRepositoryInfoModel CreateContentRepositoryInfoModel(SapRepoItem item, string pVersion, SapRepoConfigUserOptions sapRepoConfigUserOptions)

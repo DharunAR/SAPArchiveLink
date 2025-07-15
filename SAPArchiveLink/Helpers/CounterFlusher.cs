@@ -28,17 +28,23 @@ namespace SAPArchiveLink
             {
                 foreach (var kvp in _cache.GetAll())
                 {
-                    using (var scope = _scopeFactory.CreateScope())
+                    var counter = kvp.Value;
+                 
+                    if (counter.CreateCount > 0 || counter.DeleteCount > 0 ||
+                        counter.UpdateCount > 0 || counter.ViewCount > 0)
                     {
-                        var _databaseConnection = scope.ServiceProvider.GetRequiredService<IDatabaseConnection>();
-                        using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
+                        using (var scope = _scopeFactory.CreateScope())
                         {
-                            trimRepo.SaveCounters(kvp.Key, kvp.Value);
-                        }
-                           
-                    }
+                            var _databaseConnection = scope.ServiceProvider.GetRequiredService<IDatabaseConnection>();
+                            using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
+                            {
+                                trimRepo.SaveCounters(kvp.Key, kvp.Value);
+                            }
 
-                    _cache.Reset(kvp.Key);
+                        }
+
+                        _cache.Reset(kvp.Key);
+                    }
                 }
             }
             else
