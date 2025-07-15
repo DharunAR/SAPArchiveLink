@@ -1,7 +1,4 @@
-﻿using DocumentFormat.OpenXml.Bibliography;
-using DocumentFormat.OpenXml.EMMA;
-using SAPArchiveLink.Resources;
-using SAPArchiveLink.Services;
+﻿using SAPArchiveLink.Resources;
 using System.Net;
 using System.Text;
 using TRIM.SDK;

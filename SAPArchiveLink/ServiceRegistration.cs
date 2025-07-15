@@ -1,10 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using SAPArchiveLink.Interfaces;
-using SAPArchiveLink.Services;
-using TRIM.SDK;
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public static class ServiceRegistration
     {

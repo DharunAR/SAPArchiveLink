@@ -1,15 +1,15 @@
 ﻿using Microsoft.Extensions.Options;
 
-namespace SAPArchiveLink.Services
+namespace SAPArchiveLink
 {
     public class CounterFlushHostedService : IHostedService, IDisposable
     {
-        private readonly ILogger<CounterFlushHostedService> _logger;
+        private readonly ILogHelper<CounterFlushHostedService> _logger;
         private readonly IServiceScopeFactory _scopeFactory;
         private Timer? _timer;
         private readonly IOptionsMonitor<TrimConfigSettings> config;
         public CounterFlushHostedService(
-            ILogger<CounterFlushHostedService> logger,
+            ILogHelper<CounterFlushHostedService> logger,
             IServiceScopeFactory scopeFactory, IOptionsMonitor<TrimConfigSettings> config)
         {
             _logger = logger;

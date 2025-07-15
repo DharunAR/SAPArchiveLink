@@ -1,4 +1,4 @@
-﻿namespace SAPArchiveLink.Services
+﻿namespace SAPArchiveLink
 {
     public class CertificateFactory : ICertificateFactory
     {
