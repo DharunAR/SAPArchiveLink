@@ -72,10 +72,10 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
-        public void UpdateCounter_ShouldThrow_WhenInvalidCounterType()
+        public void UpdateCounter_HandleException_WhenInvalidCounterType()
         {
-            Assert.That(() => _service.UpdateCounter("R1", (CounterType)999, 1),
-                Throws.TypeOf<ArgumentOutOfRangeException>());
+            Assert.DoesNotThrow(() =>
+                _service.UpdateCounter("R1", (CounterType)999, 1));
         }
     }
 }
