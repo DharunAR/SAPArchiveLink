@@ -49,11 +49,7 @@ namespace SAPArchiveLink.Tests
             serviceProviderMock.Setup(x => x.GetService(typeof(CounterFlusher)))
              .Returns(new CounterFlusher(cacheMock.Object, scopeFactoryMock.Object, trimInit, flusherLoggerMock.Object));
 
-
-            var optionsMock = new Mock<IOptionsMonitor<TrimConfigSettings>>();
-            optionsMock.Setup(o => o.CurrentValue).Returns(new TrimConfigSettings());
-
-            var hostedService = new CounterFlushHostedService(loggerMock.Object, scopeFactoryMock.Object, optionsMock.Object);
+            var hostedService = new CounterFlushHostedService(loggerMock.Object, scopeFactoryMock.Object);
        
             var flushMethod = typeof(CounterFlushHostedService)
       .GetMethod("FlushCounters", BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(object) }, null);
@@ -69,13 +65,10 @@ namespace SAPArchiveLink.Tests
         {
             var loggerMock = new Mock<ILogHelper<CounterFlushHostedService>>();
             var scopeFactoryMock = new Mock<IServiceScopeFactory>();
-            var optionsMock = new Mock<IOptionsMonitor<TrimConfigSettings>>();
-            optionsMock.Setup(o => o.CurrentValue).Returns(new TrimConfigSettings());
 
             var hostedService = new CounterFlushHostedService(
                 loggerMock.Object,
-                scopeFactoryMock.Object,
-                optionsMock.Object
+                scopeFactoryMock.Object
             );
 
             await hostedService.StartAsync(CancellationToken.None);

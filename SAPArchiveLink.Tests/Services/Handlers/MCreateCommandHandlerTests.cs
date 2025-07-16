@@ -40,10 +40,10 @@ namespace SAPArchiveLink.Tests
             var httpRequest = new Mock<HttpRequest>();
 
             var headers = new HeaderDictionary
- {
- { "charset", "UTF-8" },
- { "version", "1.0" }
- };
+            {
+                { "charset", "UTF-8" },
+                { "version", "1.0" }
+            };
 
             var bodyStream = new MemoryStream(Encoding.UTF8.GetBytes("dummy body"));
 
