@@ -9,14 +9,16 @@ namespace SAPArchiveLink
     {
         private readonly string _saveDirectory;
         private readonly IOptionsMonitor<TrimConfigSettings> _config;
+        ILogHelper<DownloadFileHandler> _logHelper;
 
-        public DownloadFileHandler(IOptionsMonitor<TrimConfigSettings> config)
+        public DownloadFileHandler(IOptionsMonitor<TrimConfigSettings> config,ILogHelper<DownloadFileHandler> logHelper)
         {
             _config = config;
-            _saveDirectory = config.CurrentValue.WorkPath ?? throw new InvalidOperationException("WorkPath is not set in TRIMConfig.");
+            _saveDirectory = _config.CurrentValue.WorkPath ?? throw new InvalidOperationException("WorkPath is not set in TRIMConfig.");
+            _logHelper = logHelper ?? throw new ArgumentNullException(nameof(logHelper));
         }
 
-        private string NormalizeContentType(string contentType)
+        private static string NormalizeContentType(string contentType)
         {
             if (contentType.StartsWith("Content-Type:", StringComparison.OrdinalIgnoreCase))
                 return contentType.Substring("Content-Type:".Length).Trim();
@@ -24,8 +26,7 @@ namespace SAPArchiveLink
         }
 
         public async Task<List<SapDocumentComponentModel>> HandleRequestAsync(string contentType, Stream body, string docId)
-        {
-            var uploadedFiles = new List<SapDocumentComponentModel>();
+        {          
             contentType = NormalizeContentType(contentType);
 
             try
@@ -45,20 +46,20 @@ namespace SAPArchiveLink
 
                 if (string.IsNullOrEmpty(contentType) || !contentType.Contains("multipart/form-data"))
                 {
-                    uploadedFiles = await ParseSinglepartManuallyAsync(contentType, body, docId);
+                   return await ParseSinglepartManuallyAsync(contentType, body, docId);
                 }
                 else
                 {
-                    uploadedFiles = await ParseMultipartManuallyAsync(contentType, body);
+                   return await ParseMultipartManuallyAsync(contentType, body);
                 }
 
             }
             catch(Exception ex)
             {
+                _logHelper?.LogError($"Error while processing SAP document with content type: {contentType}", ex);
                 throw;
             }
-
-            return uploadedFiles;
+            
         }
 
         /// <summary>
@@ -100,7 +101,7 @@ namespace SAPArchiveLink
 
         }
 
-        private string? GetExtensionFromContentType(string contentType)
+        private static string? GetExtensionFromContentType(string contentType)
         {
             var provider = new FileExtensionContentTypeProvider();
 
@@ -138,6 +139,7 @@ namespace SAPArchiveLink
             }
             catch
             {
+                //ignore any exceptions here, as we are just trying to parse a single part
             }
 
             return Task.FromResult(uploadedFiles);
@@ -149,7 +151,7 @@ namespace SAPArchiveLink
             return Path.Combine(_saveDirectory, fileName);
         }
 
-        private string ExtractCharset(string xContentType)
+        private static string ExtractCharset(string xContentType)
         {
             if (string.IsNullOrEmpty(xContentType))
                 return null;
@@ -228,7 +230,7 @@ namespace SAPArchiveLink
             return uploadedFiles;
         }
 
-        private string GetBoundaryFromContentType(string? contentType)
+        private static string GetBoundaryFromContentType(string? contentType)
         {
             if (string.IsNullOrEmpty(contentType))
             {
@@ -258,8 +260,6 @@ namespace SAPArchiveLink
                     }
                 }
             }
-        }
-
-       
+        }       
     }
 }

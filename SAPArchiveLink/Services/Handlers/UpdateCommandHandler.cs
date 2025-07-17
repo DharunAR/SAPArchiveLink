@@ -6,9 +6,9 @@ namespace SAPArchiveLink
     {
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.UPDATE_PUT;
 
-        private ICommandResponseFactory _responseFactory;
-        private IBaseServices _baseService;
-        private IDownloadFileHandler _downloadFileHandler;
+        private readonly ICommandResponseFactory _responseFactory;
+        private readonly IBaseServices _baseService;
+        private readonly IDownloadFileHandler _downloadFileHandler;
 
         public UpdateCommandHandler(ICommandResponseFactory responseFactory, IBaseServices baseService, IDownloadFileHandler fileHandleRequest)
         {

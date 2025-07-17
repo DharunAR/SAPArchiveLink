@@ -74,7 +74,7 @@ namespace SAPArchiveLink.Tests
             await result.ExecuteResultAsync(_context);
 
             var output = GetOutputBytes();
-            CollectionAssert.AreEqual(contentBytes, output);
+            Assert.That(output, Is.EqualTo(contentBytes));
         }
 
         [Test]
@@ -95,11 +95,11 @@ namespace SAPArchiveLink.Tests
             await result.ExecuteResultAsync(_context);
 
             var output = GetOutputText();
-            StringAssert.Contains("--BOUND123", output);
-            StringAssert.Contains("Content-Type: application/pdf; charset=utf-8; version=1.0", output);
-            StringAssert.Contains("X-compId: Comp1", output);
-            StringAssert.Contains("PART DATA", output);
-            StringAssert.Contains("--BOUND123--", output);
+            Assert.That(output, Does.Contain("--BOUND123"));
+            Assert.That(output, Does.Contain("Content-Type: application/pdf; charset=utf-8; version=1.0"));
+            Assert.That(output, Does.Contain("X-compId: Comp1"));
+            Assert.That(output, Does.Contain("PART DATA"));
+            Assert.That(output, Does.Contain("--BOUND123--"));
         }
 
         [Test]
@@ -121,8 +121,8 @@ namespace SAPArchiveLink.Tests
             await result.ExecuteResultAsync(_context);
 
             var output = GetOutputText();
-            StringAssert.Contains("--BOUND999", output);
-            StringAssert.DoesNotContain("PART DATA", output); // No content expected
+            Assert.That(output, Does.Contain("--BOUND999"));
+            Assert.That(output, Does.Not.Contain("PART DATA")); // No content expected
         }
 
         [Test]
@@ -181,8 +181,8 @@ namespace SAPArchiveLink.Tests
                 Version = "1.0",
                 ContentLength = data?.Length ?? 0,
                 CompId = "Comp1",
-                CreationDate = new DateTime(2024, 6, 1, 8, 30, 0),
-                ModifiedDate = new DateTime(2024, 6, 1, 9, 0, 0),
+                CreationDate = new DateTime(2024, 6, 1, 8, 30, 0, DateTimeKind.Utc),
+                ModifiedDate = new DateTime(2024, 6, 1, 9, 0, 0, DateTimeKind.Utc),
                 Status = "COMPLETE",
                 PVersion = "v1",
                 FileName = ""

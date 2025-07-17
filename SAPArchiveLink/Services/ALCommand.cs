@@ -2,7 +2,7 @@
 {
     public class ALCommand : ICommand
     {
-        private ALCommandTemplate _template;
+        private readonly ALCommandTemplate _template;
         private readonly string? _httpMethod;
         private readonly CommandParameters _parameters;
         private readonly string _accessMode;
@@ -10,8 +10,8 @@
         private bool _isImmutable;
         private bool _isVerified;
         private string? _certSubject;
-        private string _validationError = string.Empty;
-        private HttpRequest _httpRequest;
+        private readonly string _validationError = string.Empty;
+        private readonly HttpRequest _httpRequest;
 
         public string ValidationError => _validationError;
         public bool IsValid => string.IsNullOrWhiteSpace(_validationError);
