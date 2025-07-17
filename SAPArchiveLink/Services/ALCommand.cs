@@ -130,21 +130,6 @@
         public void SetCertSubject(string certSubject)
         {
             _certSubject = certSubject;
-        }
-
-        private static string getSignedUrl(string signedUrl,bool includeSignature)
-        {
-            var uri = new Uri(Uri.UnescapeDataString(signedUrl));
-            var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
-            if (!includeSignature)
-            {
-                queryParams.Remove("secKey");
-            }
-
-            string newQuery = queryParams.ToString(); // already URL-encoded
-
-            var baseUrl = $"{uri.Scheme}://{uri.Authority}{uri.AbsolutePath}";
-            return string.IsNullOrEmpty(newQuery) ? baseUrl : $"{baseUrl}?{newQuery}";
-        }
+        }              
     }
 }

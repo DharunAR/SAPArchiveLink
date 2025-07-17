@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using NLog;
+using System.Globalization;
 using System.Text;
 
 namespace SAPArchiveLink
@@ -31,8 +32,8 @@ namespace SAPArchiveLink
 
         public RequestAuthResult CheckRequest(CommandRequest request, ICommand command, IArchiveCertificate certificates)
         {
-            var pVersion = command.GetValue(ALParameter.VarPVersion);
-            _logger.LogDebug($"Validating command {command.GetTemplate()} with version {pVersion}");
+            var pVersion = command.GetValue(ALParameter.VarPVersion);        
+            _logger.LogDebug("Validating command {CommandTemplate} with version {Version}", command.GetTemplate(), pVersion);
 
             if (UnsupportedCommands.Contains(command.GetTemplate()))
                 return Fail($"Command {command.GetTemplate()} is not supported", StatusCodes.Status501NotImplemented);
@@ -111,7 +112,7 @@ namespace SAPArchiveLink
                 command.SetCertSubject(cert.Subject);
                 command.SetImmutable();
 
-                _logger.LogInformation($"Request verified. Subject: {cert.Subject}");
+                _logger.LogInformation("Request verified. Subject: {Subject}", cert.Subject);
             }
             catch (ArgumentException)
             {
@@ -126,21 +127,19 @@ namespace SAPArchiveLink
 
         private bool ValidateContentHeadersIfNeeded(ICommand command, HttpRequest request)
         {
-            if (command.IsHttpPOST() || command.IsHttpPUT())
+            if ((command.IsHttpPOST() || command.IsHttpPUT()) && (request.ContentLength is null or < 0))
             {
-                if (request.ContentLength is null or < 0)
-                {
-                    string err = "Content-Length header is missing or invalid.";
-                    _logger.LogError(err);
-                    return false;
-                }
+                const string errorMessage = "Content-Length header is missing or invalid.";
+                _logger.LogError(errorMessage);
+                return false;
             }
+
             return true;
         }
 
         private void CheckExpiration(string expiration)
         {
-            if (DateTime.TryParseExact(expiration, ExpirationFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var exp))
+            if (DateTime.TryParseExact(expiration, ExpirationFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var exp))
             {
                 if (exp < DateTime.UtcNow)
                     throw new UnauthorizedAccessException("Request has expired");

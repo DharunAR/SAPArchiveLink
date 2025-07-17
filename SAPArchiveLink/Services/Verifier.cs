@@ -1,4 +1,6 @@
 ﻿
+using DocumentFormat.OpenXml.Spreadsheet;
+using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
@@ -13,7 +15,7 @@ namespace SAPArchiveLink
         private byte[] _signedData;
         private int _requiredPermission = -1;
         private X509Certificate2 _verifiedCertificate;
-
+   
         public void SetCertificate(IArchiveCertificate certificate)
         {
             _certificate = certificate;
@@ -54,7 +56,7 @@ namespace SAPArchiveLink
                 signedCms.Decode(_signedData);
 
                 if (signedCms.SignerInfos.Count == 0)
-                    throw new Exception("No SignerInfo found");
+                    throw new InvalidOperationException("No SignerInfo found");
 
                 var signerInfo = signedCms.SignerInfos[0];
 
@@ -68,11 +70,13 @@ namespace SAPArchiveLink
                         break;
                     }
                     // Try to match issuer + serial
-                    var si = signerInfo.SignerIdentifier as SubjectIdentifier;
-                    if (si?.Type == SubjectIdentifierType.IssuerAndSerialNumber)
+                    var si = signerInfo.SignerIdentifier;
+                    if (si?.Type == SubjectIdentifierType.IssuerAndSerialNumber && si.Value is X509IssuerSerial issuerSerial)
                     {
-                        var issuerSerial = (X509IssuerSerial)si.Value;
-                        if (cert.Issuer == issuerSerial.IssuerName && cert.SerialNumber.Equals(issuerSerial.SerialNumber, StringComparison.OrdinalIgnoreCase))
+                        bool issuerMatches = cert.Issuer == issuerSerial.IssuerName;
+                        bool serialMatches = cert.SerialNumber.Equals(issuerSerial.SerialNumber, StringComparison.OrdinalIgnoreCase);
+
+                        if (issuerMatches && serialMatches)
                         {
                             _verifiedCertificate = cert;
                             break;
@@ -88,7 +92,7 @@ namespace SAPArchiveLink
                 {
                     int granted = _certificate.GetPermission();
                     if ((granted & _requiredPermission) == 0)
-                        throw new Exception("Permission denied: insufficient certificate rights.");
+                        throw new UnauthorizedAccessException("Permission denied: insufficient certificate rights.");
                 }
 
                 _verifiedCertificate.Verify();
@@ -98,25 +102,26 @@ namespace SAPArchiveLink
                 try
                 {
                     var cert = new X509Certificate2(_signedData);
-                    cert.Verify();
+                    if (!cert.Verify())
+                        throw new CryptographicException("Certificate verification failed.");
                     _verifiedCertificate = cert;
 
                     if (cert == null)
-                        throw new Exception("No certificate found in signer info.");
+                        throw new InvalidOperationException("No certificate found in signer info.");
 
                     if (_certificate != null && cert.Thumbprint != _certificate.GetCertificate().Thumbprint)
-                        throw new Exception("Signer certificate does not match expected certificate.");
+                        throw new SecurityException("Signer certificate does not match expected certificate.");
 
                     if (_certificate != null && _requiredPermission >= 0)
                     {
                         int granted = _certificate.GetPermission();
                         if ((granted & _requiredPermission) == 0)
-                            throw new Exception("Permission denied: insufficient certificate rights.");
+                            throw new UnauthorizedAccessException("Permission denied: insufficient certificate rights.");
                     }
                 }
                 catch (Exception fallbackEx)
                 {
-                    throw new Exception("Both PKCS#7 and X.509 verification failed.", fallbackEx);
+                    throw new CryptographicException("Both PKCS#7 and X.509 verification failed.", fallbackEx);
                 }
             }
         }

@@ -25,12 +25,12 @@ namespace SAPArchiveLink.Controllers
         {
             try
             {
-                string queryString = Request.QueryString.Value??"";
-                if (string.IsNullOrEmpty(queryString))
+                string queryString = Request.QueryString.Value?.TrimStart('?') ?? "";
+
+                if (string.IsNullOrWhiteSpace(queryString))
                 {
                     return BadRequest("Query string is required.");
                 }
-                queryString = queryString.StartsWith("?") ? queryString.Substring(1) : queryString;
 
                 string contentType = Request.ContentType ?? "";
                 string charset = "UTF-8";
