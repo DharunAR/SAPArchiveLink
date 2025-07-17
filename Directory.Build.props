@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <!-- Assembly versioning -->
+    <AssemblyVersion>10.6.300.0</AssemblyVersion>
+    <FileVersion>10.6.300.267</FileVersion>
+    <InformationalVersion>10.6.300.267</InformationalVersion>
+
+    <!-- Assembly metadata -->
+    <Company>Open Text</Company>
+    <Product>Content Manager SAP ArchiveLink</Product>
+    <Copyright>Copyright 1994 - 2025 Open Text</Copyright>
+    <Trademark></Trademark>
+  </PropertyGroup>
+</Project>
