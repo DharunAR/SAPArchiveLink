@@ -124,13 +124,10 @@ namespace SAPArchiveLink
         {
             try
             {
-                if (_fileHandler != null)
+                // If a file handler is provided, delete the file after writing to the response
+                if (_fileHandler != null && !string.IsNullOrWhiteSpace(fileName) && File.Exists(fileName))
                 {
-                    // If a file handler is provided, delete the file after writing to the response
-                    if (!string.IsNullOrWhiteSpace(fileName) && File.Exists(fileName))
-                    {
-                        _fileHandler.DeleteFile(fileName);
-                    }
+                    _fileHandler.DeleteFile(fileName);
                 }
             }
             catch (Exception)

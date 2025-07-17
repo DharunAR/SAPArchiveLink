@@ -61,6 +61,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Content Manager SAP ArchiveLink service is running..
+        /// </summary>
+        internal static string ArchiveLinkRunning {
+            get {
+                return ResourceManager.GetString("ArchiveLinkRunning", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Certificate cannot be recognized.
         /// </summary>
         internal static string CertificateCannotBeRecognized {
@@ -268,6 +277,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Ok.
+        /// </summary>
+        internal static string Ok {
+            get {
+                return ResourceManager.GetString("Ok", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Search text must not be empty..
         /// </summary>
         internal static string SearchTextMustNotBeEmpty {
@@ -277,11 +295,29 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Internal Server Error.
+        /// </summary>
+        internal static string ServerError {
+            get {
+                return ResourceManager.GetString("ServerError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stream must be readable..
         /// </summary>
         internal static string StreamMustBeReadable {
             get {
                 return ResourceManager.GetString("StreamMustBeReadable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to An unexpected error occured: {0}.
+        /// </summary>
+        internal static string UnExpectedError {
+            get {
+                return ResourceManager.GetString("UnExpectedError", resourceCulture);
             }
         }
         

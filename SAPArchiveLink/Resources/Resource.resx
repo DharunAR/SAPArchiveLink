@@ -195,4 +195,16 @@
   <data name="ComponentAppendedSuccessfully" xml:space="preserve">
     <value>Component(s) appended successfully.</value>
   </data>
+  <data name="ArchiveLinkRunning" xml:space="preserve">
+    <value>Content Manager SAP ArchiveLink service is running.</value>
+  </data>
+  <data name="Ok" xml:space="preserve">
+    <value>Ok</value>
+  </data>
+  <data name="ServerError" xml:space="preserve">
+    <value>Internal Server Error</value>
+  </data>
+  <data name="UnExpectedError" xml:space="preserve">
+    <value>An unexpected error occured: {0}</value>
+  </data>
 </root>

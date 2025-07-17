@@ -17,7 +17,6 @@ namespace SAPArchiveLink.Tests
         private Mock<IRecordSapComponent> _recordSapComponentMock;
         private Mock<ISdkMessageProvider> _messageProviderMock;
         private Mock<ICertificateFactory> _certificateFactoryMock;
-        private Mock<IArchiveCertificate> _archiveCertificateMock;
         private Mock<ICounterCache> _counterCacheMock;
         private CounterService _counterService;
         private BaseServices _service;
@@ -35,7 +34,6 @@ namespace SAPArchiveLink.Tests
             _recordSapComponentMock = new Mock<IRecordSapComponent>();
             _messageProviderMock = new Mock<ISdkMessageProvider>();
             _certificateFactoryMock = new Mock<ICertificateFactory>();
-            _archiveCertificateMock = new Mock<IArchiveCertificate>();
             _counterCacheMock = new Mock<ICounterCache>();
             _counterService = new CounterService(_counterCacheMock.Object, _counterLoggerMock.Object);
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(_trimRepoMock.Object);
@@ -57,7 +55,6 @@ namespace SAPArchiveLink.Tests
         [Test]
         public async Task PutCert_ReturnsError_WhenModelIsInvalid()
         {
-            // Arrange
             var model = new PutCertificateModel
             {
                 AuthId = null, // Required, so invalid
@@ -66,16 +63,13 @@ namespace SAPArchiveLink.Tests
                 Stream = new MemoryStream()
             };
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(Mock.Of<ICommandResponse>());
-            // Act
-            var result = await _service.PutCert(model);
-            // Assert
+             await _service.PutCert(model);
             _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("authId is required.")), StatusCodes.Status400BadRequest), Times.Once);
         }
 
         [Test]
         public async Task PutCert_ReturnsError_WhenCertificateCannotBeRecognized()
         {
-            // Arrange
             var model = new PutCertificateModel
             {
                 AuthId = "auth",
@@ -84,16 +78,13 @@ namespace SAPArchiveLink.Tests
                 Stream = new MemoryStream(new byte[0])
             };
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(Mock.Of<ICommandResponse>());
-       
-            var result = await _service.PutCert(model);
-            // Assert
+            await _service.PutCert(model);
             _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("Certificate cannot be recognized")), StatusCodes.Status406NotAcceptable), Times.AtLeastOnce);
         }
 
         [Test]
         public async Task PutCert_WithValiddata__ReturnsError_WhenCertificateCannotBeRecognized()
         {
-            // Arrange
             var model = new PutCertificateModel
             {
                 AuthId = "auth",
@@ -103,14 +94,12 @@ namespace SAPArchiveLink.Tests
             };
             _trimRepoMock.Setup(f => f.SaveCertificate(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<IArchiveCertificate>(), It.IsAny<string>())).Throws(new InvalidOperationException("An error occurred while saving certificate."));
 
-            var result = await _service.PutCert(model);
-            // Assert
+            await _service.PutCert(model);
             _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("An error occurred while saving certificate.")), StatusCodes.Status500InternalServerError), Times.AtLeastOnce);
         }
         [Test]
         public async Task PutCert_Success_ReturnsProtocolText()
         {
-            // Arrange
             var model = new PutCertificateModel
             {
                 AuthId = "auth",
@@ -126,13 +115,9 @@ namespace SAPArchiveLink.Tests
                            c.getIssuerName() == "Mock Issuer" &&
                            c.ValidTill() == "2030-01-01"));
 
-
-           // var archiveCert = ArchiveCertificate.FromByteArray(new byte[] { 1, 2, 3 });
             _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), 200, It.IsAny<string>())).Returns(Mock.Of<ICommandResponse>());
             _trimRepoMock.Setup(r => r.SaveCertificate(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<ArchiveCertificate>(), It.IsAny<string>()));
-            // Act
-            var result = await _service.PutCert(model);
-            // Assert
+            await _service.PutCert(model);
             _responseFactoryMock.Verify(f => f.CreateProtocolText("Certificate published", 200, It.IsAny<string>()), Times.Once);
         }
 
@@ -1730,10 +1715,6 @@ namespace SAPArchiveLink.Tests
 
             // Assert
             Assert.That(result, Is.Not.Null);
-            //_archiveRecordMock.Verify(r => r.UpdateComponent(component.RecordSapComponent, new SapDocumentComponentModel
-            //{
-            //    FileName = "file.txt"
-            //}), Times.Once);
             _archiveRecordMock.Verify(r => r.SetRecordMetadata(), Times.Once);
             _archiveRecordMock.Verify(r => r.Save(), Times.Once);            
         }
@@ -1766,11 +1747,6 @@ namespace SAPArchiveLink.Tests
             };
             _archiveRecordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
             _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
-
-           // DocumentAppenderFactory.Register(".txt", new TextDocumentAppender());
-
-            //_downloadFileHandlerMock.Setup(h => h.DownloadDocument(It.IsAny<Stream>(), It.IsAny<string>()))
-            // .ReturnsAsync((string)null);
             var errorResponse = Mock.Of<ICommandResponse>();
 
             _responseFactoryMock.Setup(f => f.CreateError("Unsupported content type: text/bin", StatusCodes.Status404NotFound))

@@ -1,22 +1,31 @@
-﻿using SAPArchiveLink.Resources;
+﻿using DocumentFormat.OpenXml.Drawing.Spreadsheet;
+using SAPArchiveLink.Resources;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
+using System.Web;
 using TRIM.SDK;
+using System.Linq;
 
 namespace SAPArchiveLink;
 public class BaseServices : IBaseServices
 {
+
+    #region Properties
+
     private readonly ILogHelper<BaseServices> _logger;
     private readonly IDatabaseConnection _databaseConnection;
-    private ICommandResponseFactory _responseFactory;
-    private IDownloadFileHandler _downloadFileHandler;
-    private ISdkMessageProvider _messageProvider;
+    private readonly ICommandResponseFactory _responseFactory;
+    private readonly IDownloadFileHandler _downloadFileHandler;
+    private readonly ISdkMessageProvider _messageProvider;
+    private readonly ICertificateFactory _certificateFactory; 
+    private readonly CounterService _counterService;
+    
+    const int _counterCount = 1;
     const string COMP_DATA = "data";
     const string COMP_DATA1 = "data1";
     const string HTML_FORMAT = "html";
-    private ICertificateFactory _certificateFactory; 
-    private readonly CounterService _counterService;
-    const int _counterCount = 1;
+    #endregion
 
     public BaseServices(ILogHelper<BaseServices> helperLogger, ICommandResponseFactory commandResponseFactory, IDatabaseConnection databaseConnection,
         IDownloadFileHandler downloadFileHandler, ISdkMessageProvider messageProvider, ICertificateFactory certificateFactory, CounterService counterService)
@@ -38,11 +47,11 @@ public class BaseServices : IBaseServices
     /// <param name="contRepId"></param>
     /// <param name="permissions"></param>
     /// <returns></returns>
-    public async Task<ICommandResponse> PutCert(PutCertificateModel putCertificateModel)
+    public async Task<ICommandResponse> PutCert(PutCertificateModel model)
     {
         try
         {
-            var validationResults = ModelValidator.Validate(putCertificateModel);
+            var validationResults = ModelValidator.Validate(model);
             if (validationResults.Any())
             {
                 string combinedErrorMessage = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
@@ -51,14 +60,14 @@ public class BaseServices : IBaseServices
 
             byte[] certBytes;
 
-            if (putCertificateModel.Stream == null || !putCertificateModel.Stream.CanRead)
+            if (model.Stream == null || !model.Stream.CanRead)
             {
                 return _responseFactory.CreateError("Certificate stream is null or unreadable", StatusCodes.Status406NotAcceptable);
             }
 
             using (var memoryStream = new MemoryStream())
             {
-                await putCertificateModel.Stream.CopyToAsync(memoryStream);
+                await model.Stream.CopyToAsync(memoryStream);
                 certBytes = memoryStream.ToArray();
             }
 
@@ -74,20 +83,20 @@ public class BaseServices : IBaseServices
             }
             catch (Exception ex)
             {
-                _logger.LogError(string.Format(Resource.FailedToParseCertificate, putCertificateModel.AuthId), ex);
+                _logger.LogError(string.Format(Resource.FailedToParseCertificate, model.AuthId), ex);
                 return _responseFactory.CreateError(ex.Message, StatusCodes.Status406NotAcceptable);
             }
 
-            int protectionLevel = !string.IsNullOrWhiteSpace(putCertificateModel.Permissions)
-             ? SecurityUtils.AccessModeToInt(putCertificateModel.Permissions)
+            int protectionLevel = !string.IsNullOrWhiteSpace(model.Permissions)
+             ? SecurityUtils.AccessModeToInt(model.Permissions)
              : -1;
             using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
             {
                 trimRepo.SaveCertificate
-                    (putCertificateModel.AuthId,
+                    (model.AuthId,
                     protectionLevel,
                     archiveCertificate,
-                    putCertificateModel.ContRep);
+                    model.ContRep);
             }
 
             return _responseFactory.CreateProtocolText(Resource.CertificatePublished);
@@ -103,12 +112,12 @@ public class BaseServices : IBaseServices
     /// Retrieves either a single document component (if 'compId' is provided)
     /// or all components using multipart/form-data.
     /// </summary>
-    /// <param name="sapDoc"></param>
+    /// <param name="sapDocumentRequest"></param>
     /// <returns>Response includes all required ArchiveLink headers and binary content</returns>
-    public async Task<ICommandResponse> DocGetSapComponents(SapDocumentRequest sapDoc)
+    public async Task<ICommandResponse> DocGetSapComponents(SapDocumentRequest sapDocumentRequest)
     {
-        _logger.LogInformation($"DocGet request for DocId: {sapDoc.DocId}, ContRep: {sapDoc.ContRep}");
-        var validationResults = ModelValidator.Validate(sapDoc);
+        _logger.LogInformation($"DocGet request for DocId: {sapDocumentRequest.DocId}, ContRep: {sapDocumentRequest.ContRep}");
+        var validationResults = ModelValidator.Validate(sapDocumentRequest);
         if (validationResults.Any())
         {
             var allErrorMessages = validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error").ToList();
@@ -119,31 +128,31 @@ public class BaseServices : IBaseServices
 
         using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
         {
-            _logger.LogInformation($"Fetching record for DocId: {sapDoc.DocId} and ContRep: {sapDoc.ContRep}");
-            IArchiveRecord recordAdapter = trimRepo.GetRecord(sapDoc.DocId, sapDoc.ContRep);
+            _logger.LogInformation($"Fetching record for DocId: {sapDocumentRequest.DocId} and ContRep: {sapDocumentRequest.ContRep}");
+            IArchiveRecord? recordAdapter = trimRepo.GetRecord(sapDocumentRequest.DocId, sapDocumentRequest.ContRep);
             if (recordAdapter == null)
             {
-                string errorMessage = _messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDoc.DocId });
+                string errorMessage = _messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { sapDocumentRequest.DocId });
                 _logger.LogError(errorMessage);
                 return _responseFactory.CreateError(errorMessage, StatusCodes.Status404NotFound);
             }
             // Handle single component response
-            if (!string.IsNullOrWhiteSpace(sapDoc.CompId))
+            if (!string.IsNullOrWhiteSpace(sapDocumentRequest.CompId))
             {
-                var component = await recordAdapter.ExtractComponentById(sapDoc.CompId);
+                var component = await recordAdapter.ExtractComponentById(sapDocumentRequest.CompId);
                 if (component == null)
                 {
-                    string errorMessage = _messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDoc.CompId, sapDoc.DocId });
+                    string errorMessage = _messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { sapDocumentRequest.CompId, sapDocumentRequest.DocId });
                     _logger.LogError(errorMessage);
                     return _responseFactory.CreateError(errorMessage, StatusCodes.Status404NotFound);
                 }
 
-                return GetSingleComponentResponse(component, sapDoc);
+                return GetSingleComponentResponse(component, sapDocumentRequest);
             }
 
             // Handle multipart response (multiple components)
             var multipartComponents = await recordAdapter.ExtractAllComponents();
-            return GetMultiPartResponse(multipartComponents, recordAdapter, sapDoc);
+            return GetMultiPartResponse(multipartComponents, recordAdapter, sapDocumentRequest);
         }
     }
 
@@ -219,16 +228,16 @@ public class BaseServices : IBaseServices
     /// <summary>
     /// Creates a new SAP document record.
     /// </summary>
-    /// <param name="model"></param>
+    /// <param name="createSapDocumentModel"></param>
     /// <param name="isMultipart"></param>
     /// <returns></returns>
-    public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel model, bool isMultipart = false)
+    public async Task<ICommandResponse> CreateRecord(CreateSapDocumentModel createSapDocumentModel, bool isMultipart = false)
     {
         SapDocumentComponentModel[] components = [];
         int _count = 0;
         try
         {
-            var validationResults = ModelValidator.Validate(model, !isMultipart);
+            var validationResults = ModelValidator.Validate(createSapDocumentModel, !isMultipart);
 
             if (validationResults.Any())
             {
@@ -239,19 +248,19 @@ public class BaseServices : IBaseServices
             using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
             {
                 // Get existing record if it exists
-                var archiveRecord = trimRepo.GetRecord(model.DocId, model.ContRep);
+                var archiveRecord = trimRepo.GetRecord(createSapDocumentModel.DocId, createSapDocumentModel.ContRep);
                 if (archiveRecord is null)
                 {
-                    _logger.LogInformation($"Creating new archive record for DocId: {model.DocId}, ContRep: {model.ContRep}");
-                    archiveRecord = trimRepo.CreateRecord(model);
+                    _logger.LogInformation($"Creating new archive record for DocId: {createSapDocumentModel.DocId}, ContRep: {createSapDocumentModel.ContRep}");
+                    archiveRecord = trimRepo.CreateRecord(createSapDocumentModel);
                     if (archiveRecord == null)
-                        return _responseFactory.CreateError($"Failed to create archive record in {model.ContRep}.");
+                        return _responseFactory.CreateError($"Failed to create archive record in {createSapDocumentModel.ContRep}.");
                 }
 
                 // Handle single/multiple components
-                if (model.Components != null)
+                if (createSapDocumentModel.Components != null)
                 {
-                    components = isMultipart ? model.Components.ToArray() : new[] { model.Components.First() };
+                    components = isMultipart ? createSapDocumentModel.Components.ToArray() : new[] { createSapDocumentModel.Components[0] };
                     foreach (SapDocumentComponentModel comp in components)
                     {
                         if (string.IsNullOrWhiteSpace(comp.CompId))
@@ -259,7 +268,7 @@ public class BaseServices : IBaseServices
 
                         if (archiveRecord.HasComponent(comp.CompId))
                         {
-                            string errorMessage = _messageProvider.GetMessage(MessageIds.sap_componentExists, new string[] { comp.CompId, model.DocId });
+                            string errorMessage = _messageProvider.GetMessage(MessageIds.sap_componentExists, new string[] { comp.CompId, createSapDocumentModel.DocId });
                             _logger.LogError(errorMessage);
                             return _responseFactory.CreateError(errorMessage, StatusCodes.Status403Forbidden);
                         }
@@ -273,8 +282,8 @@ public class BaseServices : IBaseServices
                 }
                 archiveRecord.SetRecordMetadata();
                 archiveRecord.Save();
-                _counterService.UpdateCounter(model.ContRep, CounterType.Create,_count);           
-               _logger.LogInformation($"Record created successfully for DocId: {model.DocId}, ContRep: {model.ContRep} with {_count} components.");
+                _counterService.UpdateCounter(createSapDocumentModel.ContRep, CounterType.Create,_count);           
+               _logger.LogInformation($"Record created successfully for DocId: {createSapDocumentModel.DocId}, ContRep: {createSapDocumentModel.ContRep} with {_count} components.");
             }
         }
         finally
@@ -288,16 +297,16 @@ public class BaseServices : IBaseServices
     /// <summary>
     /// Updates an existing SAP document record with new components.
     /// </summary>
-    /// <param name="createSapDocumentModels"></param>
+    /// <param name="createSapDocumentModel"></param>
     /// <param name="isMultipart"></param>
     /// <returns></returns>
-    public async Task<ICommandResponse> UpdateRecord(CreateSapDocumentModel createSapDocumentModels, bool isMultipart = false)
+    public async Task<ICommandResponse> UpdateRecord(CreateSapDocumentModel createSapDocumentModel, bool isMultipart = false)
     {
         SapDocumentComponentModel[] components = [];
         int _count = 0;
         try
         {
-            var validationResults = ModelValidator.Validate(createSapDocumentModels);
+            var validationResults = ModelValidator.Validate(createSapDocumentModel);
 
             if (validationResults.Any())
             {
@@ -307,17 +316,17 @@ public class BaseServices : IBaseServices
             using (ITrimRepository trimRepo = _databaseConnection.GetDatabase())
             {
                 // Get existing record if it exists
-                var archiveRecord = trimRepo.GetRecord(createSapDocumentModels.DocId, createSapDocumentModels.ContRep);
+                var archiveRecord = trimRepo.GetRecord(createSapDocumentModel.DocId, createSapDocumentModel.ContRep);
                 if (archiveRecord is null)
                 {
-                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { createSapDocumentModels.DocId }));
+                    return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, new string[] { createSapDocumentModel.DocId }));
                 }
                 else
                 {
                     // Handle single/multiple components
-                    if (createSapDocumentModels.Components != null)
+                    if (createSapDocumentModel.Components != null)
                     {
-                        components = isMultipart ? createSapDocumentModels.Components.ToArray() : new[] { createSapDocumentModels.Components.First() };
+                        components = isMultipart ? createSapDocumentModel.Components.ToArray() : new[] { createSapDocumentModel.Components[0] };
                         foreach (SapDocumentComponentModel model in components)
                         {
                             if (string.IsNullOrWhiteSpace(model.CompId))
@@ -326,7 +335,7 @@ public class BaseServices : IBaseServices
                             IRecordSapComponent? recComp = archiveRecord.FindComponentById(model.CompId);
                             if (recComp == null)
                             {
-                                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { model.CompId, createSapDocumentModels.DocId }), StatusCodes.Status404NotFound);
+                                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, new string[] { model.CompId, createSapDocumentModel.DocId }), StatusCodes.Status404NotFound);
                             }
                             else
                             {
@@ -340,8 +349,8 @@ public class BaseServices : IBaseServices
                     }
                     archiveRecord.SetRecordMetadata();
                     archiveRecord.Save();
-                    _counterService.UpdateCounter(createSapDocumentModels.ContRep, CounterType.Update, _count);
-                    _logger.LogInformation($"Record updated successfully for DocId: {createSapDocumentModels.DocId}, ContRep: {createSapDocumentModels.ContRep} with {_count} components.");
+                    _counterService.UpdateCounter(createSapDocumentModel.ContRep, CounterType.Update, _count);
+                    _logger.LogInformation($"Record updated successfully for DocId: {createSapDocumentModel.DocId}, ContRep: {createSapDocumentModel.ContRep} with {_count} components.");
                 }
             }
         }
@@ -401,44 +410,44 @@ public class BaseServices : IBaseServices
     /// <summary>
     /// Get Document Info from ArchiveLink repository.
     /// </summary>
-    /// <param name="sapDoc"></param>
+    /// <param name="sapDocumentRequest"></param>
     /// <returns></returns>
-    public async Task<ICommandResponse> GetDocumentInfo(SapDocumentRequest sapDoc)
+    public async Task<ICommandResponse> GetDocumentInfo(SapDocumentRequest sapDocumentRequest)
     {
-        var validationResults = ModelValidator.Validate(sapDoc);
+        var validationResults = ModelValidator.Validate(sapDocumentRequest);
         if (validationResults.Any())
         {
             var message = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
             return _responseFactory.CreateError(message);
         }
 
-        bool isHtml = sapDoc.ResultAs?.Equals(HTML_FORMAT, StringComparison.OrdinalIgnoreCase) == true;
+        bool isHtml = sapDocumentRequest.ResultAs?.Equals(HTML_FORMAT, StringComparison.OrdinalIgnoreCase) == true;
 
         using var trimRepo = _databaseConnection.GetDatabase();
-        var recordAdapter = trimRepo.GetRecord(sapDoc.DocId, sapDoc.ContRep);
+        var recordAdapter = trimRepo.GetRecord(sapDocumentRequest.DocId, sapDocumentRequest.ContRep);
         if (recordAdapter == null)
-            return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, [sapDoc.DocId]), StatusCodes.Status404NotFound);
+            return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_documentNotFound, [sapDocumentRequest.DocId]), StatusCodes.Status404NotFound);
 
-        if (!string.IsNullOrWhiteSpace(sapDoc.CompId))
+        if (!string.IsNullOrWhiteSpace(sapDocumentRequest.CompId))
         {
-            var component = await recordAdapter.ExtractComponentById(sapDoc.CompId, extractContent: false);
+            var component = await recordAdapter.ExtractComponentById(sapDocumentRequest.CompId, extractContent: false);
             if (component == null)
-                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, [sapDoc.CompId, sapDoc.DocId]), StatusCodes.Status404NotFound);
+                return _responseFactory.CreateError(_messageProvider.GetMessage(MessageIds.sap_componentNotFound, [sapDocumentRequest.CompId, sapDocumentRequest.DocId]), StatusCodes.Status404NotFound);
 
             if (isHtml)
-                return CreateHtmlResponse(sapDoc, [component], recordAdapter);
+                return CreateHtmlResponse(sapDocumentRequest, [component], recordAdapter);
 
-            return GetSingleComponentResponse(component, sapDoc, true);
+            return GetSingleComponentResponse(component, sapDocumentRequest, true);
         }
 
         if (isHtml)
         {
             var components = recordAdapter.GetAllComponents();
-            return CreateHtmlResponse(sapDoc, components, recordAdapter);
+            return CreateHtmlResponse(sapDocumentRequest, components, recordAdapter);
         }
 
         var multipartComponents = await recordAdapter.ExtractAllComponents(extractContent: false);
-        return GetMultiPartResponse(multipartComponents, recordAdapter, sapDoc, true);
+        return GetMultiPartResponse(multipartComponents, recordAdapter, sapDocumentRequest, true);
     }
 
     /// <summary>
@@ -604,6 +613,56 @@ public class BaseServices : IBaseServices
         return _responseFactory.CreateProtocolText(Resource.ComponentAppendedSuccessfully, StatusCodes.Status200OK);
     }
 
+    /// <summary>
+    /// Performs an attribute search on a specific document component.
+    /// </summary>
+    /// <param name="searchRequest"></param>
+    /// <returns></returns>
+    public async Task<ICommandResponse> GetAttrSearchResult(SapSearchRequestModel searchRequest)
+    {
+        _logger.LogInformation($"Executing attrSearch for DocId: {searchRequest.DocId}");
+
+        var validationResults = ModelValidator.Validate(searchRequest);
+        if (validationResults.Any())
+        {
+            var message = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
+            return _responseFactory.CreateError(message);
+        }
+
+        using var trimRepo = _databaseConnection.GetDatabase();
+        var record = trimRepo.GetRecord(searchRequest.DocId, searchRequest.ContRep);
+        if (record == null)
+        {
+            var message = _messageProvider.GetMessage(MessageIds.sap_documentNotFound, new[] { searchRequest.DocId });
+            return _responseFactory.CreateError(message, StatusCodes.Status404NotFound);
+        }
+
+        var component = await record.ExtractComponentById(searchRequest.CompId, extractContent: true);
+        if (component == null)
+        {
+            var message = _messageProvider.GetMessage(MessageIds.sap_componentNotFound, new[] { searchRequest.CompId, searchRequest.DocId });
+            return _responseFactory.CreateError(message, StatusCodes.Status404NotFound);
+        }
+
+        if (!FindAttributeMatches(
+            component.Data,
+            searchRequest.Pattern,
+            searchRequest.CaseSensitive,
+            searchRequest.NumResults,
+            searchRequest.FromOffset,
+            searchRequest.ToOffset,
+            searchRequest.PVersion,
+            out var result,
+            out var error,
+            out var errorStatus))
+        {
+            return _responseFactory.CreateError(error ?? "Search failed", errorStatus ?? StatusCodes.Status500InternalServerError);
+        }
+
+        return _responseFactory.CreateProtocolText(result);
+    }
+
+
     #region Helper methods
 
     /// <summary>
@@ -612,12 +671,9 @@ public class BaseServices : IBaseServices
     /// <param name="components"></param>
     private void CleanUpFiles(SapDocumentComponentModel[] components)
     {
-        foreach (var comp in components)
+        foreach (var comp in components.Where(comp => !string.IsNullOrWhiteSpace(comp.FileName)))
         {
-            if (!string.IsNullOrWhiteSpace(comp.FileName))
-            {
-                _downloadFileHandler.DeleteFile(comp.FileName);
-            }
+            _downloadFileHandler.DeleteFile(comp.FileName);
         }
     }
 
@@ -651,12 +707,12 @@ public class BaseServices : IBaseServices
         var multipartResponse = !isInfo ? _responseFactory.CreateMultipartDocument(multipartComponents)
                                 : _responseFactory.CreateInfoMetadata(multipartComponents);
 
-        AddMultiPartHeaders(multipartComponents, record, sapDoc, multipartResponse);
+        AddMultiPartHeaders(record, sapDoc, multipartResponse);
         _counterService.UpdateCounter(sapDoc.ContRep, CounterType.View, _counterCount);
         return multipartResponse;
     }
 
-    private ICommandResponse AddSingleComponentHeaders(SapDocumentComponentModel component, SapDocumentRequest sapDoc, ICommandResponse response)
+    private void AddSingleComponentHeaders(SapDocumentComponentModel component, SapDocumentRequest sapDoc, ICommandResponse response)
     {
         response.AddHeader("X-compId", component.CompId);
         response.AddHeader("X-Content-Length", component.ContentLength.ToString());
@@ -668,11 +724,9 @@ public class BaseServices : IBaseServices
         response.AddHeader("X-pVersion", component.PVersion ?? sapDoc.PVersion);
         response.AddHeader("X-docId", sapDoc.DocId);
         response.AddHeader("X-contRep", sapDoc.ContRep);
-
-        return response;
     }
 
-    private ICommandResponse AddMultiPartHeaders(List<SapDocumentComponentModel> multipartComponents, IArchiveRecord record, SapDocumentRequest sapDoc, ICommandResponse multipartResponse)
+    private void AddMultiPartHeaders(IArchiveRecord record, SapDocumentRequest sapDoc, ICommandResponse multipartResponse)
     {
         multipartResponse.AddHeader("X-dateC", record.DateCreated.ToUniversalTime().ToString("yyyy-MM-dd"));
         multipartResponse.AddHeader("X-timeC", record.DateCreated.ToUniversalTime().ToString("HH:mm:ss"));
@@ -683,8 +737,6 @@ public class BaseServices : IBaseServices
         multipartResponse.AddHeader("X-docId", sapDoc.DocId);
         multipartResponse.AddHeader("X-docStatus", "online");
         multipartResponse.AddHeader("X-pVersion", sapDoc.PVersion);
-
-        return multipartResponse;
     }
 
     /// <summary>
@@ -754,7 +806,7 @@ public class BaseServices : IBaseServices
         if (components.Count == 1)
             AddSingleComponentHeaders(components[0], doc, response);
         else
-            AddMultiPartHeaders(components, record, doc, response);
+            AddMultiPartHeaders(record, doc, response);
         _counterService.UpdateCounter(doc.ContRep, CounterType.View, _counterCount);
         return response;
     }
@@ -897,6 +949,165 @@ public class BaseServices : IBaseServices
 
         html.Append("</ul></body></html>");
         return html.ToString();
+    }
+
+    private bool FindAttributeMatches(Stream stream, string pattern, bool caseSensitive, int maxResults, int fromOffset, int toOffset, string pVersion,
+                                        out string result, out string? errorMessage, out int? errorStatus)
+    {
+        result = string.Empty;
+        errorMessage = null;
+        errorStatus = null;
+
+        try
+        {
+            using var reader = new StreamReader(stream, leaveOpen: false);
+            var dainLines = new List<(long Offset, long Length, string Data)>();
+            const int MAX_LINES = 100000;
+            int lineCount = 0;
+
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (++lineCount > MAX_LINES)
+                {
+                    errorMessage = "Description file too large";
+                    errorStatus = StatusCodes.Status400BadRequest;
+                    return false;
+                }
+
+                var parts = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 3) continue;
+
+                if (parts[2].StartsWith("DKEY", StringComparison.OrdinalIgnoreCase) && parts.Length >= 6)
+                {
+                    // DKEY parsing skipped
+                    continue;
+                }
+                else if (parts[2].StartsWith("DAIN", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (long.TryParse(parts[0], out var offset) &&
+                        long.TryParse(parts[1], out var length))
+                    {
+                        string rawData;
+
+                        // Case where DAIN data is embedded in parts[2]
+                        if (parts.Length == 3 && parts[2].Length > 4)
+                        {
+                            rawData = parts[2].Substring(4);
+                        }
+                        else
+                        {
+                            // Combine all tokens after the first three
+                            rawData = string.Join(' ', parts.Skip(3));
+
+                            if (rawData.StartsWith("DAIN"))
+                                rawData = rawData.Substring(4); // strip leading "DAIN"
+                        }
+
+                        dainLines.Add((offset, length, rawData));
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Skipping invalid DAIN line: {line}");
+                    }
+                }
+            }
+
+            _logger.LogInformation($"Parsed {dainLines.Count} DAIN lines");
+
+            if (dainLines.Count == 0)
+            {
+                result = "0;";
+                return true;
+            }
+
+            var separator = pVersion == "0047" ? '_' : '#';
+            var decodedPattern = HttpUtility.UrlDecode(pattern)?.Replace(' ', '+');
+            var patternParts = decodedPattern.Split(separator, StringSplitOptions.RemoveEmptyEntries);
+
+            var searchCriteria = new List<(int Offset, int Length, string Value)>();
+            foreach (var part in patternParts)
+            {
+                var segments = part.Split('+', 3);
+                if (segments.Length != 3) continue;
+
+                if (int.TryParse(segments[0], out var offset) &&
+                    int.TryParse(segments[1], out var length) &&
+                    !string.IsNullOrEmpty(segments[2]))
+                {
+                    searchCriteria.Add((offset, length, segments[2]));
+                }
+            }
+
+            if (!searchCriteria.Any())
+            {
+                errorMessage = "Invalid pattern format";
+                errorStatus = StatusCodes.Status400BadRequest;
+                return false;
+            }
+
+            var isForward = fromOffset <= toOffset;
+            var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+            var matches = new List<(long Offset, long Length)>();
+
+            foreach (var (offset, length, data) in dainLines)
+            {
+                bool inRange = isForward
+                    ? offset >= fromOffset && (toOffset == -1 || offset <= toOffset)
+                    : offset <= fromOffset && (toOffset == -1 || offset >= toOffset);
+
+                if (!inRange) continue;
+
+                bool matched = true;
+                foreach (var (searchOffset, searchLength, searchValue) in searchCriteria)
+                {
+                    if (data.Length < searchOffset + searchLength)
+                    {
+                        matched = false;
+                        break;
+                    }
+
+                    var actualValue = data.Substring(searchOffset, searchLength);
+                    if (!actualValue.Equals(searchValue, comparison))
+                    {
+                        matched = false;
+                        break;
+                    }
+                }
+
+                if (matched)
+                {
+                    matches.Add((offset, length));
+                    if (matches.Count >= maxResults)
+                        break;
+                }
+            }
+
+            matches = isForward
+                ? matches.OrderBy(m => m.Offset).ToList()
+                : matches.OrderByDescending(m => m.Offset).ToList();
+
+            var sb = new StringBuilder(matches.Count * 20 + 10);
+            sb.Append(matches.Count).Append(';');
+            foreach (var (offset, length) in matches)
+                sb.Append(offset).Append(';').Append(length).Append(';');
+
+            result = sb.ToString();
+            _logger.LogInformation($"Found {matches.Count} matches in range [{fromOffset}, {toOffset}]");
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            result = "0;";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Error in FindAttributeMatches", ex);
+            errorMessage = "Error during component search";
+            errorStatus = StatusCodes.Status500InternalServerError;
+            return false;
+        }
     }
 
     #endregion

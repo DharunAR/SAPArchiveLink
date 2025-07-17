@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using SAPArchiveLink.Resources;
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace SAPArchiveLink.Controllers
@@ -29,7 +31,12 @@ namespace SAPArchiveLink.Controllers
 
                 if (string.IsNullOrWhiteSpace(queryString))
                 {
-                    return BadRequest("Query string is required.");
+                    return Ok(new ArchiveLinkStatusResponse()
+                    {
+                        Message = Resource.ArchiveLinkRunning,
+                        Status = Resource.Ok,
+                        Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString()
+                    });
                 }
 
                 string contentType = Request.ContentType ?? "";
@@ -56,7 +63,7 @@ namespace SAPArchiveLink.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { error = "An unexpected error occurred.", details = ex.Message });
+                return StatusCode(StatusCodes.Status500InternalServerError, new ArchiveLinkStatusResponse(){ Message = string.Format(Resource.UnExpectedError, ex.Message), Status = Resource.ServerError });
             }
         }
     }

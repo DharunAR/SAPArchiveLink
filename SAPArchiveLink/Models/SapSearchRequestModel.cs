@@ -19,7 +19,6 @@ namespace SAPArchiveLink
             set => _pattern = Uri.UnescapeDataString(value);
         }
 
-        [Required(ErrorMessage = "Component ID (compId) is required.")]
         public required string CompId { get; set; }
 
         [Required(ErrorMessage = "Primary version (pVersion) is required.")]
@@ -43,6 +42,12 @@ namespace SAPArchiveLink
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
+            if (validationContext.Items.TryGetValue("IsValidationRequired", out var flag) && flag is bool IsValidationRequired && IsValidationRequired
+                 && string.IsNullOrWhiteSpace(CompId))
+            {
+                yield return new ValidationResult("Component ID (CompId) is required.", new[] { nameof(CompId) });
+            }
+
             if (!string.IsNullOrWhiteSpace(SecKey))
             {
                 if (string.IsNullOrWhiteSpace(AccessMode))

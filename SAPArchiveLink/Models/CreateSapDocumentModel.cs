@@ -40,10 +40,10 @@ namespace SAPArchiveLink
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
 
-            if (validationContext.Items.TryGetValue("IsValidationRequired", out var flag) && flag is bool IsValidationRequired && IsValidationRequired)
-            {              
-                if (string.IsNullOrWhiteSpace(CompId))
-                    yield return new ValidationResult("CompId is required.", new[] { nameof(CompId) });              
+            if (validationContext.Items.TryGetValue("IsValidationRequired", out var flag) && flag is bool IsValidationRequired && IsValidationRequired
+                && string.IsNullOrWhiteSpace(CompId))
+            {
+                yield return new ValidationResult("CompId is required.", new[] { nameof(CompId) });
             }
 
             if (!string.IsNullOrWhiteSpace(SecKey))
@@ -57,12 +57,6 @@ namespace SAPArchiveLink
                 if (string.IsNullOrWhiteSpace(Expiration))
                     yield return new ValidationResult("Expiration is required when SecKey is provided.", new[] { nameof(Expiration) });
             }
-
-
-            //if (!string.IsNullOrWhiteSpace(SecKey) && string.IsNullOrWhiteSpace(AccessMode))
-            //{
-            //    yield return new ValidationResult("AccessMode is required when SecKey is provided.", new[] { nameof(AccessMode) });
-            //}
         }
     }
 }
