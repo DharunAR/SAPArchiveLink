@@ -193,7 +193,7 @@ namespace SAPArchiveLink
         /// <returns></returns>
         public bool IsSAPLicenseEnabled()
         {
-            return _db.IsModuleLicensed(LicenseTypes.SAP);
+           return _db.IsProductFeatureActivated(ProductFeatures.SAPintegration);           
         }
 
         private ContentRepositoryInfoModel CreateContentRepositoryInfoModel(SapRepoItem item, string pVersion, SapRepoConfigUserOptions sapRepoConfigUserOptions)
