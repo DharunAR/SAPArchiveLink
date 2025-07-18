@@ -6,11 +6,17 @@ namespace SAPArchiveLink
 {
     public class WordDocumentAppender: IDocumentAppender
     {
-        public async Task<Stream> AppendAsync(Stream existingDocStream, Stream newDocStream)
+        /// <summary>
+        /// Appends the content of a new Word document stream to an existing Word document stream.
+        /// </summary>
+        /// <param name="existingStream"></param>
+        /// <param name="newContentStream"></param>
+        /// <returns></returns>
+        public async Task<Stream> AppendAsync(Stream existingStream, Stream newContentStream)
         {
             // Copy existing document stream into a memory stream
             var outputStream = new MemoryStream();
-            await existingDocStream.CopyToAsync(outputStream);
+            await existingStream.CopyToAsync(outputStream);
             outputStream.Position = 0;
 
             using (var mainDoc = WordprocessingDocument.Open(outputStream, true))
@@ -19,7 +25,7 @@ namespace SAPArchiveLink
 
                 // Read the new document stream into memory to prevent locking issues
                 var newDocMemory = new MemoryStream();
-                await newDocStream.CopyToAsync(newDocMemory);
+                await newContentStream.CopyToAsync(newDocMemory);
                 newDocMemory.Position = 0;
 
                 using (var newDoc = WordprocessingDocument.Open(newDocMemory, false))

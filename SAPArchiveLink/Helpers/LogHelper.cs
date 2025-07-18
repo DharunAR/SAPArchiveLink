@@ -9,19 +9,19 @@
             _logger = logger;
         }
 
-        public void LogInformation(string message)
+        public void LogInformation(string message, params object[] args)
         {
-            _logger.LogInformation(message);
+            _logger.LogInformation(message,args);
         }
 
-        public void LogWarning(string message)
+        public void LogWarning(string message, params object[] args)
         {
-            _logger.LogWarning(message);
+            _logger.LogWarning(message,args);
         }
 
-        public void LogError(string message, Exception? ex = null)
+        public void LogError(string message, Exception? ex = null, params object[] args)
         {
-            _logger.LogError(ex, message);
+            _logger.LogError(ex, message,args);
         }
     }
 }

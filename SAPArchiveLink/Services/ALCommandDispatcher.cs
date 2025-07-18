@@ -38,13 +38,19 @@ namespace SAPArchiveLink
             {
                 var errorResponse = _commandResponseFactory.CreateError($"Bad request: {command.ValidationError}", StatusCodes.Status400BadRequest);
                 return new ArchiveLinkResult(errorResponse);
-            }           
+            }
+
+            using var trimRepo = _databaseConnection.GetDatabase();
+            if (trimRepo.IsSAPLicenseEnabled())
+            {
+                var errorRes = _commandResponseFactory.CreateError("SAP license is not enabled.", StatusCodes.Status403Forbidden);
+                return new ArchiveLinkResult(errorRes);
+            }
 
             if (!skipAuthTemplates.Contains(command.GetTemplate()))
             {
                 if (!string.IsNullOrEmpty(repository))
-                {
-                    using var trimRepo = _databaseConnection.GetDatabase();
+                {                   
                     var archiveCertificate = trimRepo.GetArchiveCertificate(repository);
                     if(archiveCertificate==null)
                     {

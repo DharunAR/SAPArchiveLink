@@ -5,6 +5,12 @@ namespace SAPArchiveLink
 {
     public class ExcelDocumentAppender: IDocumentAppender
     {
+        /// <summary>
+        /// Appends the content of an additional Excel workbook to an existing one.
+        /// </summary>
+        /// <param name="original"></param>
+        /// <param name="additional"></param>
+        /// <returns></returns>
         public async Task<Stream> AppendAsync(Stream original, Stream additional)
         {
             // Load original and additional workbooks into memory streams

@@ -9,21 +9,13 @@ namespace SAPArchiveLink
     {
         const string Attachment = "attachment";
         const string Inline = "inline";
-        private static readonly HashSet<string> SafeMimeTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-          "application/pdf",
-          "image/jpeg",
-          "image/png",
-          "image/gif",
-          "image/webp",
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        };
 
-        private static readonly HashSet<string> UnsafeExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-          ".html", ".htm", ".svg", ".xml", ".js", ".json", ".xhtml", ".jsp", ".php", ".mhtml"
-        };
+        /// <summary>
+        /// Determines if a file is safe to be displayed inline in a browser based on its content type and file extension.
+        /// </summary>
+        /// <param name="contentType"></param>
+        /// <param name="extension"></param>
+        /// <returns></returns>
 
         public static bool IsSafeForInline(string contentType, string extension)
         {
@@ -36,6 +28,12 @@ namespace SAPArchiveLink
             return SafeMimeTypes.Contains(contentType);
         }
 
+        /// <summary>
+        /// Determines if a command requires a signature based on its access mode and the server's protection level
+        /// </summary>
+        /// <param name="command"></param>
+        /// <param name="serverProtectionLevel"></param>
+        /// <returns></returns>
         public static bool NeedsSignature(ALCommand command, int serverProtectionLevel)
         {
             int accMode = AccessModeToInt(command.GetAccessMode());
@@ -145,6 +143,22 @@ namespace SAPArchiveLink
             var sanitizedFileName = Path.GetFileName(fileName).Replace("\"", "");
             return $"{dispositionType}; filename=\"{sanitizedFileName}\"";
         }
+
+        private static readonly HashSet<string> SafeMimeTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        };
+
+        private static readonly HashSet<string> UnsafeExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+          ".html", ".htm", ".svg", ".xml", ".js", ".json", ".xhtml", ".jsp", ".php", ".mhtml"
+        };
     }
 
 }

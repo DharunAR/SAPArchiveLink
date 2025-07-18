@@ -39,9 +39,8 @@ namespace SAPArchiveLink
                 db.AlternateWorkgroupServerPort = _trimConfig.WGSAlternatePort;
             }
 
-            if (db.IsValid)
-                db.Connect();
-
+            if (db.IsValid)             
+                db.Connect();          
             return new TrimRepository(db, _trimConfig, _loggerFactory);
         }
     }

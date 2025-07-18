@@ -13,7 +13,7 @@
         /// <returns>A list of validation results. Empty if valid.</returns>  
         public static List<ValidationResult> Validate<T>(T model, bool isValidationReq = true)
         {
-            if (model == null)
+            if (EqualityComparer<T>.Default.Equals(model, default))
             {
                 throw new ArgumentNullException(nameof(model), "The model instance cannot be null.");
             }

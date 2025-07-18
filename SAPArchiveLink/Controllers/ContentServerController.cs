@@ -18,7 +18,6 @@ namespace SAPArchiveLink.Controllers
             _authenticator = authenticator;
         }
 
-
         [HttpGet]
         [HttpPost]
         [HttpPut]

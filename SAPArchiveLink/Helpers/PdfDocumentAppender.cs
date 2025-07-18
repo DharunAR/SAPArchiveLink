@@ -6,14 +6,20 @@ namespace SAPArchiveLink
 {
     public class PdfDocumentAppender: IDocumentAppender
     {
-        public async Task<Stream> AppendAsync(Stream original, Stream additional)
+        /// <summary>
+        /// Asynchronously appends the content of a new PDF stream to an existing PDF stream.
+        /// </summary>
+        /// <param name="existingStream"></param>
+        /// <param name="newContentStream"></param>
+        /// <returns></returns>
+        public async Task<Stream> AppendAsync(Stream existingStream, Stream newContentStream)
         {
             // Read streams into memory asynchronously (required if original/additional are non-seekable like HttpRequest.Body)
             var originalCopy = new MemoryStream();
             var additionalCopy = new MemoryStream();
 
-            await original.CopyToAsync(originalCopy);
-            await additional.CopyToAsync(additionalCopy);
+            await existingStream.CopyToAsync(originalCopy);
+            await newContentStream.CopyToAsync(additionalCopy);
 
             originalCopy.Position = 0;
             additionalCopy.Position = 0;

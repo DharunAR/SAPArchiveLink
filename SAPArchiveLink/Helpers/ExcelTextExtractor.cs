@@ -5,6 +5,11 @@ namespace SAPArchiveLink
 {
     public class ExcelTextExtractor : ITextExtractor
     {
+        /// <summary>
+        /// Extracts text from an Excel file stream and returns it as a string.
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <returns></returns>
         public string ExtractText(Stream stream)
         {
             var sb = new StringBuilder();

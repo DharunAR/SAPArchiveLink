@@ -19,6 +19,13 @@ namespace SAPArchiveLink
             _loggerFactory = loggerFactory;
         }
 
+        /// <summary>
+        /// Retrieves an archive record based on the document ID and content repository.
+        /// </summary>
+        /// <param name="docId"></param>
+        /// <param name="contRep"></param>
+        /// <returns></returns>
+
         public IArchiveRecord? GetRecord(string docId, string contRep)
         {
             var tmos = new TrimMainObjectSearch(_db, BaseObjectTypes.Record);
@@ -39,6 +46,11 @@ namespace SAPArchiveLink
             return null;
         }
 
+        /// <summary>
+        /// Creates a new archive record based on the provided model.
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
         public IArchiveRecord? CreateRecord(CreateSapDocumentModel model)
         {
             return ArchiveRecord.CreateNewArchiveRecord(_db, _trimConfig, new LogHelper<ArchiveRecord>(_loggerFactory.CreateLogger<ArchiveRecord>()), model);
@@ -91,6 +103,11 @@ namespace SAPArchiveLink
             sapRepoConfigUserOptions.Save();            
         }
 
+        /// <summary>
+        /// Retrieves the archive certificate for a given content repository.
+        /// </summary>
+        /// <param name="contentRepo"></param>
+        /// <returns></returns>
         public IArchiveCertificate GetArchiveCertificate(string contentRepo)
         {
             SapRepoConfigUserOptions sapRepoConfigUserOptions = new SapRepoConfigUserOptions(_db);
@@ -148,6 +165,11 @@ namespace SAPArchiveLink
             return infoModel;
         }
 
+        /// <summary>
+        /// Saves counters for a specific archive ID.
+        /// </summary>
+        /// <param name="archiveId"></param>
+        /// <param name="counter"></param>
         public void SaveCounters(string archiveId, ArchiveCounter counter)
         {
             SapRepoCounters counters = new SapRepoCounters(_db);
@@ -165,6 +187,15 @@ namespace SAPArchiveLink
             counters.Save();          
         }
 
+        /// <summary>
+        /// Checks if the SAP license is enabled in the database.
+        /// </summary>
+        /// <returns></returns>
+        public bool IsSAPLicenseEnabled()
+        {
+            return _db.IsModuleLicensed(LicenseTypes.SAP);
+        }
+
         private ContentRepositoryInfoModel CreateContentRepositoryInfoModel(SapRepoItem item, string pVersion, SapRepoConfigUserOptions sapRepoConfigUserOptions)
         {
             return new ContentRepositoryInfoModel
@@ -180,6 +211,6 @@ namespace SAPArchiveLink
         {
             ApiSapRepoItemList repoList = sapRepoConfigUserOptions.SapRepos;
             return repoList?.FirstOrDefault(item => item.ArchiveDataID == contentRepo);
-        }
+        }              
     }
 }
