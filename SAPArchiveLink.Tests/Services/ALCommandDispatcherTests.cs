@@ -30,6 +30,7 @@ namespace SAPArchiveLink.Tests
             _dispatcher = new ALCommandDispatcher(_mockRegistry.Object, _mockResponseFactory.Object, _mockFileHandler.Object, _dbConnectionMock.Object);
             _trimRepositoryMock = new Mock<ITrimRepository>();
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(_trimRepositoryMock.Object);
+            _trimRepositoryMock.Setup(r => r.IsSAPLicenseEnabled()).Returns(true);
             _archiveCertificateMock = new Mock<IArchiveCertificate>();
             _contentServerRequestAuthenticator = new Mock<ContentServerRequestAuthenticator>(
                 Mock.Of<IVerifier>(),

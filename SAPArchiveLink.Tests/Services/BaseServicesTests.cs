@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Moq;
+using System.Text;
 using TRIM.SDK;
 
 namespace SAPArchiveLink.Tests
@@ -1952,6 +1953,204 @@ namespace SAPArchiveLink.Tests
 
             _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), StatusCodes.Status200OK, "UTF-8"), Times.Once);
             Assert.That(result, Is.EqualTo(expectedResponse));
+        }
+
+        #endregion
+
+        #region AttrSearch ServiceTests
+
+        [Test]
+        public async Task GetAttrSearchResult_ShouldReturnMatch_WhenValidPatternProvided()
+        {
+            var descriptionData = @"
+73 138 DAIN00100010147119BrothersInc
+211 120 DAIN001000020147129ObelixInc
+";
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(descriptionData));
+
+            var searchRequest = new SapSearchRequestModel
+            {
+                ContRep = "ST",
+                DocId = "SAP_descr",
+                CompId = "descr",
+                Pattern = "0+3+001",
+                CaseSensitive = false,
+                NumResults = 2,
+                FromOffset = 0,
+                ToOffset = -1,
+                PVersion = "0045"
+            };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "descr",
+                ContentType = "text/plain",
+                ContentLength = 123,
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active",
+                PVersion = "0045",
+                Data = stream,
+                FileName = "file.txt"
+            };
+
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("descr", true)).ReturnsAsync(component);
+
+            _trimRepoMock
+                .Setup(r => r.GetRecord("SAP_descr", "ST"))
+                .Returns(_archiveRecordMock.Object);
+
+            _responseFactoryMock
+                .Setup(f => f.CreateProtocolText("2;73;138;211;120;", StatusCodes.Status200OK, "UTF-8"))
+                .Returns(Mock.Of<ICommandResponse>());
+
+            var result = await _service.GetAttrSearchResult(searchRequest);
+
+            Assert.That(result, Is.Not.Null);
+            _responseFactoryMock.Verify(f => f.CreateProtocolText("2;73;138;211;120;", StatusCodes.Status200OK, "UTF-8"), Times.Once);
+        }
+
+        [Test]
+        public async Task GetAttrSearchResult_ShouldReturnZero_WhenNoMatchingLinesFound()
+        {
+            var descriptionData = @"
+73 138 DAIN99900010147119OtherName
+211 120 DAIN999000020147129WrongName
+";
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(descriptionData));
+
+            var searchRequest = new SapSearchRequestModel
+            {
+                ContRep = "ST",
+                DocId = "SAP_descr",
+                CompId = "descr",
+                Pattern = "0+3+001",
+                CaseSensitive = false,
+                NumResults = 1,
+                FromOffset = 0,
+                ToOffset = -1,
+                PVersion = "0045"
+            };
+
+            var component = new SapDocumentComponentModel { Data = stream, PVersion = "0045" };
+
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("descr", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("SAP_descr", "ST")).Returns(_archiveRecordMock.Object);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateProtocolText("0;", StatusCodes.Status200OK, "UTF-8"))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetAttrSearchResult(searchRequest);
+
+            Assert.That(result, Is.SameAs(expectedResponse));
+        }
+
+        [Test]
+        public async Task GetAttrSearchResult_ShouldReturnBadRequest_WhenPatternFormatIsInvalid()
+        {
+            var invalidPattern = "invalid+pattern+string";
+            var searchRequest = new SapSearchRequestModel
+            {
+                ContRep = "ST",
+                DocId = "SAP_descr",
+                CompId = "descr",
+                Pattern = invalidPattern,
+                CaseSensitive = false,
+                NumResults = 1,
+                FromOffset = 0,
+                ToOffset = -1,
+                PVersion = "0045"
+            };
+
+            var component = new SapDocumentComponentModel
+            {
+                Data = new MemoryStream(Encoding.UTF8.GetBytes("73 138 DAINbadline")),
+                PVersion = "0045"
+            };
+
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("descr", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("SAP_descr", "ST")).Returns(_archiveRecordMock.Object);
+
+            var expectedError = "Invalid pattern format";
+            var expectedResponse = Mock.Of<ICommandResponse>();
+
+            _responseFactoryMock
+                .Setup(f => f.CreateError(expectedError, StatusCodes.Status400BadRequest))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetAttrSearchResult(searchRequest);
+
+            Assert.That(result, Is.SameAs(expectedResponse));
+        }
+
+        [Test]
+        public async Task GetAttrSearchResult_ShouldReturnNotFound_WhenRecordIsMissing()
+        {
+            var searchRequest = new SapSearchRequestModel
+            {
+                ContRep = "ST",
+                DocId = "SAP_descr",
+                CompId = "descr",
+                Pattern = "0+3+001",
+                CaseSensitive = false,
+                NumResults = 1,
+                FromOffset = 0,
+                ToOffset = -1,
+                PVersion = "0045"
+            };
+
+            _trimRepoMock.Setup(r => r.GetRecord("SAP_descr", "ST")).Returns((IArchiveRecord?)null);
+
+            var errorMessage = "Document SAP_descr not found";
+            var errorResponse = Mock.Of<ICommandResponse>();
+
+            _messageProviderMock
+                .Setup(p => p.GetMessage(MessageIds.sap_documentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+
+            _responseFactoryMock
+                .Setup(f => f.CreateError(errorMessage, StatusCodes.Status404NotFound))
+                .Returns(errorResponse);
+
+            var result = await _service.GetAttrSearchResult(searchRequest);
+
+            Assert.That(result, Is.SameAs(errorResponse));
+        }
+
+        [Test]
+        public async Task GetAttrSearchResult_ShouldReturnNotFound_WhenComponentIsMissing()
+        {
+            var searchRequest = new SapSearchRequestModel
+            {
+                ContRep = "ST",
+                DocId = "SAP_descr",
+                CompId = "descr",
+                Pattern = "0+3+001",
+                CaseSensitive = false,
+                NumResults = 1,
+                FromOffset = 0,
+                ToOffset = -1,
+                PVersion = "0045"
+            };
+
+            _trimRepoMock.Setup(r => r.GetRecord("SAP_descr", "ST")).Returns(_archiveRecordMock.Object);
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("descr", true)).ReturnsAsync((SapDocumentComponentModel?)null);
+
+            var errorMessage = "Component descr not found for document SAP_descr";
+            var errorResponse = Mock.Of<ICommandResponse>();
+
+            _messageProviderMock
+                .Setup(p => p.GetMessage(MessageIds.sap_componentNotFound, It.IsAny<string[]>()))
+                .Returns(errorMessage);
+
+            _responseFactoryMock
+                .Setup(f => f.CreateError(errorMessage, StatusCodes.Status404NotFound))
+                .Returns(errorResponse);
+
+            var result = await _service.GetAttrSearchResult(searchRequest);
+
+            Assert.That(result, Is.SameAs(errorResponse));
         }
 
         #endregion
