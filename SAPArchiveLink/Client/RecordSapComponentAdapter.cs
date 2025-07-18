@@ -2,6 +2,9 @@
 
 namespace SAPArchiveLink
 {
+    /// <summary>
+    /// Adapter class for handling SAP components in the Record SDK.
+    /// </summary>
     public class RecordSapComponentsAdapter
     {
         private readonly RecordSapComponents _sdkComponents;
@@ -11,6 +14,10 @@ namespace SAPArchiveLink
             _sdkComponents = sdkComponents;
         }
 
+        /// <summary>
+        /// Retrieves all components associated with the SAP document.
+        /// </summary>
+        /// <returns></returns>
         public List<SapDocumentComponentModel> GetAllComponents()
         {
             var components = new List<SapDocumentComponentModel>();
@@ -21,6 +28,11 @@ namespace SAPArchiveLink
             return components;
         }
 
+        /// <summary>
+        /// Retrieves a specific component by its ID.
+        /// </summary>
+        /// <param name="compId"></param>
+        /// <returns></returns>
         public SapDocumentComponentModel? GetComponentById(string compId)
         {
             foreach (RecordSapComponent sdkComponent in _sdkComponents)
@@ -33,6 +45,11 @@ namespace SAPArchiveLink
             return null;
         }
 
+        /// <summary>
+        /// finds a component by its ID and returns it as an IRecordSapComponent.
+        /// </summary>
+        /// <param name="compId"></param>
+        /// <returns></returns>
         public IRecordSapComponent? FindComponentById(string compId)
         {
             foreach (RecordSapComponent sdkComponent in _sdkComponents)
@@ -45,22 +62,12 @@ namespace SAPArchiveLink
             return null;
         }
 
-        private SapDocumentComponentModel MapToSapDocumentComponentModel(RecordSapComponent sdkComponent)
-        {
-            return new SapDocumentComponentModel
-            {
-                CompId = sdkComponent.ComponentId,
-                ContentType = sdkComponent.ContentType,
-                Charset = sdkComponent.CharacterSet,
-                Version = sdkComponent.ApplicationVersion,
-                ContentLength = sdkComponent.Bytes,
-                CreationDate = sdkComponent.ArchiveDate,
-                ModifiedDate = sdkComponent.DateModified,
-                Status = "online",
-                PVersion = sdkComponent.ArchiveLinkVersion,
-                FileName = sdkComponent.FileName
-            };
-        }
+        /// <summary>
+        /// Updates the properties of an existing SAP component based on the provided model.
+        /// </summary>
+        /// <param name="updatedComponent"></param>
+        /// <param name="model"></param>
+
         public void UpdateComponent(IRecordSapComponent updatedComponent, SapDocumentComponentModel model)
         {
             if (!string.IsNullOrEmpty(model.ContentType))
@@ -81,6 +88,14 @@ namespace SAPArchiveLink
                 updatedComponent.SetDocument(model.FileName);                 
         }
 
+        /// <summary>
+        /// Adds a new SAP component to the record with the specified properties.
+        /// </summary>
+        /// <param name="compId"></param>
+        /// <param name="version"></param>
+        /// <param name="contentType"></param>
+        /// <param name="charSet"></param>
+        /// <param name="filePath"></param>
         public void AddComponent(string compId, string version, string contentType, string charSet, string filePath)
         {
             var now = TrimDateTime.Now;
@@ -93,6 +108,23 @@ namespace SAPArchiveLink
             sapComponent.ArchiveDate = now;
             sapComponent.DateModified = now;
             sapComponent.SetDocument(filePath);
+        }
+
+        private SapDocumentComponentModel MapToSapDocumentComponentModel(RecordSapComponent sdkComponent)
+        {
+            return new SapDocumentComponentModel
+            {
+                CompId = sdkComponent.ComponentId,
+                ContentType = sdkComponent.ContentType,
+                Charset = sdkComponent.CharacterSet,
+                Version = sdkComponent.ApplicationVersion,
+                ContentLength = sdkComponent.Bytes,
+                CreationDate = sdkComponent.ArchiveDate,
+                ModifiedDate = sdkComponent.DateModified,
+                Status = "online",
+                PVersion = sdkComponent.ArchiveLinkVersion,
+                FileName = sdkComponent.FileName
+            };
         }
     }
 }

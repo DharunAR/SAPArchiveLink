@@ -17,6 +17,10 @@ namespace SAPArchiveLink
             _loggerFactory = loggerFactory;
         }
 
+        /// <summary>
+        /// Creates and returns a new instance of ITrimRepository connected to the specified database.
+        /// </summary>
+        /// <returns></returns>
         public ITrimRepository GetDatabase()
         {
             var db = new Database
