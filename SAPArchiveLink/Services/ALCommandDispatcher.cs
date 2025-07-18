@@ -47,26 +47,23 @@ namespace SAPArchiveLink
                 return new ArchiveLinkResult(errorRes);
             }
 
-            if (!skipAuthTemplates.Contains(command.GetTemplate()))
+            if (!skipAuthTemplates.Contains(command.GetTemplate()) && !string.IsNullOrEmpty(repository))
             {
-                if (!string.IsNullOrEmpty(repository))
-                {                   
-                    var archiveCertificate = trimRepo.GetArchiveCertificate(repository);
-                    if(archiveCertificate==null)
-                    {
-                        var errorResponse = _commandResponseFactory.CreateError($"Archive certificate not found for repository: {repository}", StatusCodes.Status404NotFound);
-                        return new ArchiveLinkResult(errorResponse);
-                    }
-                    if (!archiveCertificate.IsEnabled())
-                    {
-                        var errorResponse = _commandResponseFactory.CreateError($"Archive certificate is not enabled for repository: {repository}", StatusCodes.Status403Forbidden);
-                        return new ArchiveLinkResult(errorResponse);
-                    }
-                    var requestAuthResult = _authenticator.CheckRequest(request, command, archiveCertificate);
-                    if (requestAuthResult != null && !requestAuthResult.IsAuthenticated)
-                    {
-                        return new ArchiveLinkResult(requestAuthResult.ErrorResponse);
-                    }
+                var archiveCertificate = trimRepo.GetArchiveCertificate(repository);
+                if (archiveCertificate == null)
+                {
+                    var errorResponse = _commandResponseFactory.CreateError($"Archive certificate not found for repository: {repository}", StatusCodes.Status404NotFound);
+                    return new ArchiveLinkResult(errorResponse);
+                }
+                if (!archiveCertificate.IsEnabled())
+                {
+                    var errorResponse = _commandResponseFactory.CreateError($"Archive certificate is not enabled for repository: {repository}", StatusCodes.Status403Forbidden);
+                    return new ArchiveLinkResult(errorResponse);
+                }
+                var requestAuthResult = _authenticator.CheckRequest(request, command, archiveCertificate);
+                if (requestAuthResult != null && !requestAuthResult.IsAuthenticated)
+                {
+                    return new ArchiveLinkResult(requestAuthResult.ErrorResponse);
                 }
             }
             else if (command.GetTemplate() == ALCommandTemplate.SERVERINFO)

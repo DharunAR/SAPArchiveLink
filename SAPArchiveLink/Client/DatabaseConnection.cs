@@ -27,11 +27,27 @@ namespace SAPArchiveLink
             {
                 Id = _trimConfig.DatabaseId,
                 WorkgroupServerName = _trimConfig.WGSName,
-                WorkgroupServerPort = _trimConfig.WGSPort
+                WorkgroupServerPort = _trimConfig.WGSPort,
+                IsSingleHopClient = true
             };
 
+            if (!string.IsNullOrWhiteSpace(_trimConfig.ClientId) && !string.IsNullOrWhiteSpace(_trimConfig.ClientSecret))
+            {
+                if (string.IsNullOrWhiteSpace(_trimConfig.TrustedUser))
+                {
+                    throw new TrimException("TrustedUser must be set when using ClientId and ClientSecret for authentication.");
+                }
+                db.SetAuthenticationCredentials(_trimConfig.ClientId, _trimConfig.ClientSecret);
+            }
+
             if (!string.IsNullOrWhiteSpace(_trimConfig.TrustedUser))
+            {
                 db.TrustedUser = _trimConfig.TrustedUser;
+            }
+            else
+            {
+                db.TrustedUser = "TRIMSERVICES";
+            }
 
             if (!string.IsNullOrWhiteSpace(_trimConfig.WGSAlternateName))
             {
@@ -39,8 +55,13 @@ namespace SAPArchiveLink
                 db.AlternateWorkgroupServerPort = _trimConfig.WGSAlternatePort;
             }
 
-            if (db.IsValid)             
-                db.Connect();          
+            if (!db.IsValid)
+            {
+                throw new TrimException(db.ErrorMessage);
+            }
+            
+            db.Connect();
+
             return new TrimRepository(db, _trimConfig, _loggerFactory);
         }
     }

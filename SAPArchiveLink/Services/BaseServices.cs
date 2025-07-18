@@ -951,8 +951,20 @@ public class BaseServices : IBaseServices
         return html.ToString();
     }
 
-    private bool FindAttributeMatches(Stream stream, string pattern, bool caseSensitive, int maxResults, int fromOffset, int toOffset, string pVersion,
-                                        out string result, out string? errorMessage, out int? errorStatus)
+    private static readonly Regex Pattern0046 = new(@"(\d+)\+(\d+)\+([^#]+)(?:#|$)", RegexOptions.Compiled);
+    private static readonly Regex Pattern0047 = new(@"(\d+)\+(\d+)\+([^_]+)(?:_|$)", RegexOptions.Compiled);
+
+    private bool FindAttributeMatches(
+        Stream stream,
+        string pattern,
+        bool caseSensitive,
+        int maxResults,
+        int fromOffset,
+        int toOffset,
+        string pVersion,
+        out string result,
+        out string? errorMessage,
+        out int? errorStatus)
     {
         result = string.Empty;
         errorMessage = null;
@@ -962,58 +974,19 @@ public class BaseServices : IBaseServices
         {
             using var reader = new StreamReader(stream, leaveOpen: false);
             var dainLines = new List<(long Offset, long Length, string Data)>();
-            const int MAX_LINES = 100000;
-            int lineCount = 0;
 
             string? line;
             while ((line = reader.ReadLine()) != null)
             {
-                if (++lineCount > MAX_LINES)
-                {
-                    errorMessage = "Description file too large";
-                    errorStatus = StatusCodes.Status400BadRequest;
-                    return false;
-                }
-
-                var parts = line.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var parts = line.Trim().Split(' ', 4, StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length < 3) continue;
 
-                if (parts[2].StartsWith("DKEY", StringComparison.OrdinalIgnoreCase) && parts.Length >= 6)
+                if (parts[2].StartsWith("DAIN", StringComparison.OrdinalIgnoreCase) && long.TryParse(parts[0], out var offset) && long.TryParse(parts[1], out var length))
                 {
-                    // DKEY parsing skipped
-                    continue;
-                }
-                else if (parts[2].StartsWith("DAIN", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (long.TryParse(parts[0], out var offset) &&
-                        long.TryParse(parts[1], out var length))
-                    {
-                        string rawData;
-
-                        // Case where DAIN data is embedded in parts[2]
-                        if (parts.Length == 3 && parts[2].Length > 4)
-                        {
-                            rawData = parts[2].Substring(4);
-                        }
-                        else
-                        {
-                            // Combine all tokens after the first three
-                            rawData = string.Join(' ', parts.Skip(3));
-
-                            if (rawData.StartsWith("DAIN"))
-                                rawData = rawData.Substring(4); // strip leading "DAIN"
-                        }
-
-                        dainLines.Add((offset, length, rawData));
-                    }
-                    else
-                    {
-                        _logger.LogWarning($"Skipping invalid DAIN line: {line}");
-                    }
+                    var rawData = parts.Length >= 4 ? parts[3] : parts[2].Substring(4);
+                    dainLines.Add((offset, length, rawData));
                 }
             }
-
-            _logger.LogInformation($"Parsed {dainLines.Count} DAIN lines");
 
             if (dainLines.Count == 0)
             {
@@ -1021,45 +994,43 @@ public class BaseServices : IBaseServices
                 return true;
             }
 
-            var separator = pVersion == "0047" ? '_' : '#';
-            var decodedPattern = HttpUtility.UrlDecode(pattern)?.Replace(' ', '+');
-            var patternParts = decodedPattern.Split(separator, StringSplitOptions.RemoveEmptyEntries);
+            // Determine correct pattern parser
+            var decodedPattern = HttpUtility.UrlDecode(pattern).Replace(' ', '+');
+            var regex = pVersion == "0047" ? Pattern0047 : Pattern0046;
+            var matches = regex.Matches(decodedPattern ?? "");
 
-            var searchCriteria = new List<(int Offset, int Length, string Value)>();
-            foreach (var part in patternParts)
-            {
-                var segments = part.Split('+', 3);
-                if (segments.Length != 3) continue;
-
-                if (int.TryParse(segments[0], out var offset) &&
-                    int.TryParse(segments[1], out var length) &&
-                    !string.IsNullOrEmpty(segments[2]))
-                {
-                    searchCriteria.Add((offset, length, segments[2]));
-                }
-            }
-
-            if (!searchCriteria.Any())
+            if (matches.Count == 0)
             {
                 errorMessage = "Invalid pattern format";
                 errorStatus = StatusCodes.Status400BadRequest;
                 return false;
             }
 
-            var isForward = fromOffset <= toOffset;
+            var searchCriteria = new List<(int Offset, int Length, string Value)>();
+            foreach (Match match in matches)
+            {
+                int offset = int.Parse(match.Groups[1].Value);
+                int length = int.Parse(match.Groups[2].Value);
+                string value = match.Groups[3].Value;
+
+                searchCriteria.Add((offset, length, value));
+            }
+
+            bool isForward = fromOffset <= toOffset || toOffset == -1;
             var comparison = caseSensitive ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
-            var matches = new List<(long Offset, long Length)>();
+            var resultMatches = new List<(long Offset, long Length)>();
 
             foreach (var (offset, length, data) in dainLines)
             {
-                bool inRange = isForward
-                    ? offset >= fromOffset && (toOffset == -1 || offset <= toOffset)
-                    : offset <= fromOffset && (toOffset == -1 || offset >= toOffset);
+                bool inRange = (fromOffset == -1 && toOffset == 0) || // full backward
+                               (fromOffset == 0 && toOffset == -1) || // full forward
+                               (isForward && offset >= fromOffset && (toOffset == -1 || offset <= toOffset)) ||
+                               (!isForward && offset <= fromOffset && (toOffset == -1 || offset >= toOffset));
 
                 if (!inRange) continue;
 
                 bool matched = true;
-                foreach (var (searchOffset, searchLength, searchValue) in searchCriteria)
+                foreach (var (searchOffset, searchLength, expectedValue) in searchCriteria)
                 {
                     if (data.Length < searchOffset + searchLength)
                     {
@@ -1067,8 +1038,8 @@ public class BaseServices : IBaseServices
                         break;
                     }
 
-                    var actualValue = data.Substring(searchOffset, searchLength);
-                    if (!actualValue.Equals(searchValue, comparison))
+                    var actual = data.Substring(searchOffset, searchLength).TrimEnd();
+                    if (!actual.Equals(expectedValue, comparison))
                     {
                         matched = false;
                         break;
@@ -1077,38 +1048,28 @@ public class BaseServices : IBaseServices
 
                 if (matched)
                 {
-                    matches.Add((offset, length));
-                    if (matches.Count >= maxResults)
-                        break;
+                    resultMatches.Add((offset, length));
+                    if (resultMatches.Count >= maxResults) break;
                 }
             }
 
-            matches = isForward
-                ? matches.OrderBy(m => m.Offset).ToList()
-                : matches.OrderByDescending(m => m.Offset).ToList();
-
-            var sb = new StringBuilder(matches.Count * 20 + 10);
-            sb.Append(matches.Count).Append(';');
-            foreach (var (offset, length) in matches)
-                sb.Append(offset).Append(';').Append(length).Append(';');
+            var sb = new StringBuilder();
+            sb.Append(resultMatches.Count).Append(';');
+            foreach (var (off, len) in resultMatches)
+                sb.Append(off).Append(';').Append(len).Append(';');
 
             result = sb.ToString();
-            _logger.LogInformation($"Found {matches.Count} matches in range [{fromOffset}, {toOffset}]");
-            return true;
-        }
-        catch (OperationCanceledException)
-        {
-            result = "0;";
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError("Error in FindAttributeMatches", ex);
-            errorMessage = "Error during component search";
+            _logger.LogError("Attribute search failed", ex);
+            errorMessage = "Internal error during attribute search";
             errorStatus = StatusCodes.Status500InternalServerError;
             return false;
         }
     }
+
 
     #endregion
 

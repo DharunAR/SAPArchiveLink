@@ -1,6 +1,4 @@
-﻿using TRIM.SDK;
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public interface IDatabaseConnection
     {

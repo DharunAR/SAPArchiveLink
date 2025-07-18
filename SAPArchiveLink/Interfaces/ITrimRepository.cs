@@ -9,7 +9,6 @@
         ServerInfoModel GetServerInfo(string pVersion, string contRep);
         void SaveCounters(string archiveId, ArchiveCounter counter);
         bool IsSAPLicenseEnabled();
-
     }
 
 }
