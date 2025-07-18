@@ -41,7 +41,7 @@ namespace SAPArchiveLink
             }
 
             using var trimRepo = _databaseConnection.GetDatabase();
-            if (trimRepo.IsSAPLicenseEnabled())
+            if (!trimRepo.IsSAPLicenseEnabled())
             {
                 var errorRes = _commandResponseFactory.CreateError("SAP license is not enabled.", StatusCodes.Status403Forbidden);
                 return new ArchiveLinkResult(errorRes);
