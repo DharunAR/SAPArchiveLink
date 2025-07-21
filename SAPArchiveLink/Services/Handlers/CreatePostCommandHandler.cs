@@ -1,5 +1,5 @@
 ﻿
-
+using SAPArchiveLink.Resources;
 namespace SAPArchiveLink
 {
     public class CreatePostCommandHandler : ICommandHandler
@@ -46,7 +46,7 @@ namespace SAPArchiveLink
             }
             catch (Exception ex)
             {
-                return _responseFactory.CreateError($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
+                return _responseFactory.CreateError(string.Format(Resource.Error_InternalServer, ex.Message), StatusCodes.Status500InternalServerError);
             }
         }
     }

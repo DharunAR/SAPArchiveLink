@@ -1,12 +1,4 @@
-﻿
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.Net.Http.Headers;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Reflection;
-using System.Windows.Input;
-using TRIM.SDK;
+﻿using SAPArchiveLink.Resources;
 
 namespace SAPArchiveLink
 {
@@ -67,7 +59,7 @@ namespace SAPArchiveLink
             }
             catch (Exception ex)
             {
-                return _responseFactory.CreateError($"Internal server error: {ex.Message}", StatusCodes.Status500InternalServerError);
+                return _responseFactory.CreateError(string.Format(Resource.Error_InternalServer, ex.Message), StatusCodes.Status500InternalServerError);
             }
         }
       
