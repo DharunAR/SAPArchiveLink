@@ -70,11 +70,38 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Bad request: {0}.
+        /// </summary>
+        internal static string Badrequest {
+            get {
+                return ResourceManager.GetString("Badrequest", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Certificate cannot be recognized.
         /// </summary>
         internal static string CertificateCannotBeRecognized {
             get {
                 return ResourceManager.GetString("CertificateCannotBeRecognized", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Archive certificate is not enabled for repository: {0}.
+        /// </summary>
+        internal static string CertificateNotEnabled {
+            get {
+                return ResourceManager.GetString("CertificateNotEnabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Archive certificate not found for repository: {0}.
+        /// </summary>
+        internal static string CertificateNotFound {
+            get {
+                return ResourceManager.GetString("CertificateNotFound", resourceCulture);
             }
         }
         
@@ -196,6 +223,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Internal server error {0}.
+        /// </summary>
+        internal static string Error_InternalServer {
+            get {
+                return ResourceManager.GetString("Error_InternalServer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to An error occurred during search operation..
         /// </summary>
         internal static string ErrorDuringSearch {
@@ -246,6 +282,15 @@ namespace SAPArchiveLink.Resources {
         internal static string GetDocumentStream {
             get {
                 return ResourceManager.GetString("GetDocumentStream", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to SAP integration license/feature is not enabled..
+        /// </summary>
+        internal static string LicenseNotEnabled {
+            get {
+                return ResourceManager.GetString("LicenseNotEnabled", resourceCulture);
             }
         }
         
@@ -322,11 +367,29 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Unsupported command: {0} for HTTP method {1}.
+        /// </summary>
+        internal static string UnsupportedCommand {
+            get {
+                return ResourceManager.GetString("UnsupportedCommand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unsupported content type: {0}.
         /// </summary>
         internal static string UnsupportedContentType {
             get {
                 return ResourceManager.GetString("UnsupportedContentType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unsupported or missing protocol version: {0}.
+        /// </summary>
+        internal static string UnsupportedVersion {
+            get {
+                return ResourceManager.GetString("UnsupportedVersion", resourceCulture);
             }
         }
     }

@@ -207,4 +207,25 @@
   <data name="UnExpectedError" xml:space="preserve">
     <value>An unexpected error occured: {0}</value>
   </data>
+  <data name="Badrequest" xml:space="preserve">
+    <value>Bad request: {0}</value>
+  </data>
+  <data name="LicenseNotEnabled" xml:space="preserve">
+    <value>SAP integration license/feature is not enabled.</value>
+  </data>
+  <data name="CertificateNotFound" xml:space="preserve">
+    <value>Archive certificate not found for repository: {0}</value>
+  </data>
+  <data name="CertificateNotEnabled" xml:space="preserve">
+    <value>Archive certificate is not enabled for repository: {0}</value>
+  </data>
+  <data name="UnsupportedVersion" xml:space="preserve">
+    <value>Unsupported or missing protocol version: {0}</value>
+  </data>
+  <data name="UnsupportedCommand" xml:space="preserve">
+    <value>Unsupported command: {0} for HTTP method {1}</value>
+  </data>
+  <data name="Error_InternalServer" xml:space="preserve">
+    <value>Internal server error {0}</value>
+  </data>
 </root>

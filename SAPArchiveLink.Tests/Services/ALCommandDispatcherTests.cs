@@ -26,7 +26,8 @@ namespace SAPArchiveLink.Tests
             _archiveCertificateMock = new Mock<IArchiveCertificate>();
 
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(_trimRepositoryMock.Object);
-            _trimRepositoryMock.Setup(r => r.IsSAPLicenseEnabled()).Returns(true);
+            _trimRepositoryMock.Setup(r => r.IsProductFeatureActivated()).Returns(true);
+            _archiveCertificateMock = new Mock<IArchiveCertificate>();
 
             var verifier = new Mock<IVerifier>();
             var logger = new Mock<ILogHelper<ContentServerRequestAuthenticator>>();
@@ -37,7 +38,7 @@ namespace SAPArchiveLink.Tests
                 _mockRegistry.Object,
                 _mockResponseFactory.Object,
                 _mockFileHandler.Object,
-                _dbConnectionMock.Object
+                _dbConnectionMock.Object, new Mock<ILogHelper<ALCommandDispatcher>>().Object
             );
         }
 
@@ -134,16 +135,16 @@ namespace SAPArchiveLink.Tests
         [TestCase("serverInfo&pVersion=0047", ALCommandTemplate.GET, "GET")]
         public async Task RunRequest_SAPLicenseDisabled_Returns403(string url, ALCommandTemplate template, string method)
         {
-            _trimRepositoryMock.Setup(r => r.IsSAPLicenseEnabled()).Returns(false);
+            _trimRepositoryMock.Setup(r => r.IsProductFeatureActivated()).Returns(false);
 
             var errorResponse = new Mock<ICommandResponse>();
-            _mockResponseFactory.Setup(f => f.CreateError("SAP license is not enabled.", StatusCodes.Status403Forbidden))
+            _mockResponseFactory.Setup(f => f.CreateError("SAP integration license/feature is not enabled.", StatusCodes.Status403Forbidden))
                                 .Returns(errorResponse.Object);
 
             var result = await _dispatcher.RunRequest(CreateCommandRequest(url, method), _authenticator);
 
             Assert.That(result, Is.TypeOf<ArchiveLinkResult>());
-            _mockResponseFactory.Verify(f => f.CreateError("SAP license is not enabled.", StatusCodes.Status403Forbidden), Times.Once);
+            _mockResponseFactory.Verify(f => f.CreateError("SAP integration license/feature is not enabled.", StatusCodes.Status403Forbidden), Times.Once);
         }
 
         [TestCase("get&compId=1&contRep=CM", ALCommandTemplate.GET, "GET")]

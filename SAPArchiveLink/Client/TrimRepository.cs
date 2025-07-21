@@ -191,7 +191,7 @@ namespace SAPArchiveLink
         /// Checks if the SAP license is enabled in the database.
         /// </summary>
         /// <returns></returns>
-        public bool IsSAPLicenseEnabled()
+        public bool IsProductFeatureActivated()
         {
            return _db.IsProductFeatureActivated(ProductFeatures.SAPintegration) && _db.IsModuleLicensed(LicenseTypes.SAP);           
         }
