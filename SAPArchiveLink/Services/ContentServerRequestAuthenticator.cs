@@ -7,7 +7,7 @@ namespace SAPArchiveLink
     public class ContentServerRequestAuthenticator
     {
         private readonly IVerifier _verifier;
-        private readonly ILogger<ContentServerRequestAuthenticator> _logger;
+        private readonly ILogHelper<ContentServerRequestAuthenticator> _logger;
         private readonly ICommandResponseFactory _responseFactory;
 
         private const string DefaultCharset = "UTF-8";
@@ -22,7 +22,7 @@ namespace SAPArchiveLink
             ALCommandTemplate.STOREANNOTATIONS
         };
 
-        public ContentServerRequestAuthenticator(IVerifier verifier, ILogger<ContentServerRequestAuthenticator> logger,
+        public ContentServerRequestAuthenticator(IVerifier verifier, ILogHelper<ContentServerRequestAuthenticator> logger,
                                                     ICommandResponseFactory responseFactory)
         {
             _verifier = verifier;
@@ -32,8 +32,8 @@ namespace SAPArchiveLink
 
         public RequestAuthResult CheckRequest(CommandRequest request, ICommand command, IArchiveCertificate certificates)
         {
-            var pVersion = command.GetValue(ALParameter.VarPVersion);        
-            _logger.LogDebug("Validating command {CommandTemplate} with version {Version}", command.GetTemplate(), pVersion);
+            var pVersion = command.GetValue(ALParameter.VarPVersion);
+            _logger.LogInformation("Validating command {CommandTemplate} with version {Version}", command.GetTemplate(), pVersion);
 
             if (UnsupportedCommands.Contains(command.GetTemplate()))
                 return Fail($"Command {command.GetTemplate()} is not supported", StatusCodes.Status501NotImplemented);
@@ -71,7 +71,7 @@ namespace SAPArchiveLink
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Authentication verification failed");
+                _logger.LogError("Authentication verification failed", ex);
                 return Fail("Authentication verification error: " + ex.Message, StatusCodes.Status403Forbidden);
             }
         }
@@ -120,7 +120,7 @@ namespace SAPArchiveLink
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Verification failed");
+                _logger.LogError("Verification failed", ex);
                 throw new UnauthorizedAccessException("Verification failed: " + ex.Message);
             }
         }

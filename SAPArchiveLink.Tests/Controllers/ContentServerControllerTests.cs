@@ -23,7 +23,7 @@ namespace SAPArchiveLink.Tests
             _dispatcherMock = new Mock<ICommandDispatcherService>();
             _responseFactoryMock = new Mock<ICommandResponseFactory>();
             var verifierMock = new Mock<IVerifier>();
-            var loggerMock = new Mock<ILogger<ContentServerRequestAuthenticator>>();
+            var loggerMock = new Mock<ILogHelper<ContentServerRequestAuthenticator>>();
             _authenticatorMock = new Mock<ContentServerRequestAuthenticator>(
                 verifierMock.Object, loggerMock.Object, _responseFactoryMock.Object);
 

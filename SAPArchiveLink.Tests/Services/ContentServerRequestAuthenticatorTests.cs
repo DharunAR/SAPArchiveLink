@@ -16,7 +16,7 @@ namespace SAPArchiveLink.Tests
     public class ContentServerRequestAuthenticatorTests
     {
         private Mock<IVerifier> _verifierMock;
-        private Mock<ILogger<ContentServerRequestAuthenticator>> _loggerMock;
+        private Mock<ILogHelper<ContentServerRequestAuthenticator>> _loggerMock;
         private Mock<ICommandResponseFactory> _responseFactoryMock;
         private ContentServerRequestAuthenticator _authenticator;
         private Mock<ICommand> _commandMock;
@@ -28,7 +28,7 @@ namespace SAPArchiveLink.Tests
         public void SetUp()
         {
             _verifierMock = new Mock<IVerifier>();
-            _loggerMock = new Mock<ILogger<ContentServerRequestAuthenticator>>();
+            _loggerMock = new Mock<ILogHelper<ContentServerRequestAuthenticator>>();
             _responseFactoryMock = new Mock<ICommandResponseFactory>();
             _commandMock = new Mock<ICommand>();
             _certMock = new Mock<IArchiveCertificate>();

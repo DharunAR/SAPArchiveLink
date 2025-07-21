@@ -316,7 +316,6 @@ namespace SAPArchiveLink.Tests
             Assert.That(result, Is.EqualTo(errorResponse));
         }
 
-
         [Test]
         public async Task GetSapDocument_ReturnsError_WhenComponentCouldNotBeLoaded()
         {
@@ -359,6 +358,7 @@ namespace SAPArchiveLink.Tests
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
 
             var expectedResponse = new Mock<ICommandResponse>();
+            expectedResponse.SetupProperty(r => r.ContentType, "application/pdf");
             _responseFactoryMock.Setup(f => f.CreateDocumentContent(It.IsAny<Stream>(), component.ContentType, StatusCodes.Status200OK, component.FileName))
                 .Returns(expectedResponse.Object);
 
@@ -366,6 +366,42 @@ namespace SAPArchiveLink.Tests
 
             Assert.That(result, Is.EqualTo(expectedResponse.Object));
             _counterCacheMock.Verify(c => c.GetOrCreate("rep"), Times.AtLeastOnce);
+
+            expectedResponse.Verify(r => r.AddHeader("Content-Disposition", "inline; filename=\"file.pdf\""), Times.Once);
+        }
+
+        [Test]
+        public async Task GetSapDocument_ReturnsDocumentContent_OnSuccess_WithAttachmentDisposition()
+        {
+            var sapDoc = new SapDocumentRequest { DocId = "doc", ContRep = "rep", PVersion = "1", CompId = "comp1", FromOffset = 0, ToOffset = 0 };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "comp1",
+                ContentType = "text/plain",
+                ContentLength = 100,
+                Data = new MemoryStream(new byte[] { 1, 2, 3 }),
+                FileName = "file.txt",
+                Charset = "utf-8",
+                Version = "1.0"
+            };
+            var recordMock = new Mock<IArchiveRecord>();
+            recordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
+            var repoMock = new Mock<ITrimRepository>();
+            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
+            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+
+            var expectedResponse = new Mock<ICommandResponse>();
+            expectedResponse.SetupProperty(r => r.ContentType, "text/plain");
+            _responseFactoryMock.Setup(f => f.CreateDocumentContent(It.IsAny<Stream>(), component.ContentType, StatusCodes.Status200OK, component.FileName))
+                .Returns(expectedResponse.Object);
+
+            var result = await _service.GetSapDocument(sapDoc);
+
+            Assert.That(result, Is.EqualTo(expectedResponse.Object));
+            _counterCacheMock.Verify(c => c.GetOrCreate("rep"), Times.AtLeastOnce);
+
+            expectedResponse.Verify(r => r.AddHeader("Content-Disposition", "attachment; filename=\"file.txt\""), Times.Once);
+            expectedResponse.Verify(r => r.AddHeader("X-Content-Type-Options", "nosniff"), Times.Once);
         }
 
         [Test]
