@@ -1,6 +1,7 @@
 ﻿using Moq;
 using Microsoft.AspNetCore.Http;
 using System.Text;
+using NUnit.Framework.Legacy;
 
 namespace SAPArchiveLink.Tests
 {
@@ -31,6 +32,66 @@ namespace SAPArchiveLink.Tests
         {
             Assert.That(_handler.CommandTemplate, Is.EqualTo(ALCommandTemplate.MCREATE));
         }
+
+        [Test]
+        public async Task HandleAsync_WhenCreateRecordReturnsErrorDescription_IncludesItInResponse()
+        {
+            var command = new Mock<ICommand>();
+            var context = new Mock<ICommandRequestContext>();
+            var httpRequest = new Mock<HttpRequest>();
+
+            var headers = new HeaderDictionary
+    {
+        { "charset", "UTF-8" },
+        { "version", "1.0" }
+    };
+
+            httpRequest.Setup(r => r.ContentType).Returns("multipart/form-data");
+            httpRequest.Setup(r => r.Body).Returns(new MemoryStream(Encoding.UTF8.GetBytes("dummy")));
+            httpRequest.Setup(r => r.Headers).Returns(headers);
+            httpRequest.Setup(r => r.ContentLength).Returns(1024);
+
+            context.Setup(c => c.GetRequest()).Returns(httpRequest.Object);
+
+            var components = new List<SapDocumentComponentModel>
+    {
+        new SapDocumentComponentModel
+        {
+            DocId = "docX",
+            CompId = "compX",
+            Data = new MemoryStream()
+        }
+    };
+
+            _mockDownloadFileHandler
+                .Setup(h => h.HandleRequestAsync(It.IsAny<string>(), It.IsAny<Stream>(), null))
+                .ReturnsAsync(components);
+
+            var errorResponse = new Mock<ICommandResponse>();
+            errorResponse.Setup(r => r.StatusCode).Returns(StatusCodes.Status403Forbidden);
+            errorResponse.Setup(r => r.Headers).Returns(new Dictionary<string, string>
+    {
+        { "X-ErrorDescription", "Document already exists" }
+    });
+
+            command.Setup(c => c.GetValue(It.IsAny<string>())).Returns("value");
+
+            _mockBaseServices
+                .Setup(s => s.CreateRecord(It.IsAny<CreateSapDocumentModel>(), true))
+                .ReturnsAsync(errorResponse.Object);
+
+            string capturedText = null;
+            _mockResponseFactory
+                .Setup(f => f.CreateProtocolText(It.IsAny<string>(), StatusCodes.Status201Created, "UTF-8"))
+                .Callback<string, int, string>((text, code, charset) => capturedText = text)
+                .Returns(Mock.Of<ICommandResponse>());
+
+            await _handler.HandleAsync(command.Object, context.Object);
+
+            Assert.That(capturedText, Is.Not.Null);
+            Assert.That(capturedText, Does.Contain("docId=\"docX\";retCode=\"403\";errorDescription=\"Document already exists\""));
+        }
+
 
         [Test]
         public async Task HandleAsync_WithHttpRequest_ReturnsSuccess()
@@ -196,6 +257,5 @@ namespace SAPArchiveLink.Tests
                 m.ContentLength == "0"
             ), true), Times.Once);
         }
-
     }
 }

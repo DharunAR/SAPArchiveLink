@@ -9,7 +9,7 @@ namespace SAPArchiveLink
     {
         private readonly string _saveDirectory;
         private readonly IOptionsMonitor<TrimConfigSettings> _config;
-        ILogHelper<DownloadFileHandler> _logHelper;
+        private readonly ILogHelper<DownloadFileHandler> _logHelper;
 
         public DownloadFileHandler(IOptionsMonitor<TrimConfigSettings> config,ILogHelper<DownloadFileHandler> logHelper)
         {

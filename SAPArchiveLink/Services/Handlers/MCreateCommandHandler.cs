@@ -4,9 +4,9 @@ namespace SAPArchiveLink
     public class MCreateCommandHandler : ICommandHandler
     {
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.MCREATE;
-        private ICommandResponseFactory _responseFactory;
-        private IBaseServices _baseService;
-        private IDownloadFileHandler _downloadFileHandler;
+        private readonly ICommandResponseFactory _responseFactory;
+        private readonly IBaseServices _baseService;
+        private readonly IDownloadFileHandler _downloadFileHandler;
 
         public MCreateCommandHandler(ICommandResponseFactory responseFactory, IBaseServices baseService, IDownloadFileHandler fileHandleRequest)
         {
@@ -58,10 +58,13 @@ namespace SAPArchiveLink
 
         private string FormatResultLine(string docId, ICommandResponse response)
         {
+            string errorDes = string.Empty;
             var code = response.StatusCode;
-            var message = response.TextContent ?? string.Empty;
-            return $"docId=\"{docId}\";retCode=\"{code}\";\r\n";
+            if (response.Headers != null && response.Headers.TryGetValue("X-ErrorDescription", out string value))
+            {
+                errorDes = value;
+            }
+            return $"docId=\"{docId}\";retCode=\"{code}\";errorDescription=\"{errorDes}\"\r\n";
         }
-
     }
 }
