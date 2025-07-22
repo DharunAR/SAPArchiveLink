@@ -13,13 +13,20 @@ namespace SAPArchiveLink
         private const string DefaultCharset = "UTF-8";
         private const string ExpirationFormat = "yyyyMMddHHmmss";
 
-        private readonly HashSet<ALCommandTemplate> UnsupportedCommands = new()
+        private readonly HashSet<ALCommandTemplate> SupportedCommands = new()
         {
-            ALCommandTemplate.ADMINCONTREP,
-            ALCommandTemplate.APPENDNOTE,
-            ALCommandTemplate.GETANNOTATIONS,
-            ALCommandTemplate.GETNOTES,
-            ALCommandTemplate.STOREANNOTATIONS
+            ALCommandTemplate.INFO,
+            ALCommandTemplate.GET,
+            ALCommandTemplate.DOCGET,
+            ALCommandTemplate.CREATEPUT,
+            ALCommandTemplate.CREATEPOST,
+            ALCommandTemplate.MCREATE,
+            ALCommandTemplate.APPEND,
+            ALCommandTemplate.UPDATE_PUT,
+            ALCommandTemplate.UPDATE_POST,
+            ALCommandTemplate.DELETE,
+            ALCommandTemplate.ATTRSEARCH,
+            ALCommandTemplate.SEARCH         
         };
 
         public ContentServerRequestAuthenticator(IVerifier verifier, ILogHelper<ContentServerRequestAuthenticator> logger,
@@ -35,7 +42,7 @@ namespace SAPArchiveLink
             var pVersion = command.GetValue(ALParameter.VarPVersion);
             _logger.LogInformation("Validating command {CommandTemplate} with version {Version}", command.GetTemplate(), pVersion);
 
-            if (UnsupportedCommands.Contains(command.GetTemplate()))
+            if (!SupportedCommands.Contains(command.GetTemplate()))
                 return Fail($"Command {command.GetTemplate()} is not supported", StatusCodes.Status501NotImplemented);
 
             if (!IsSupportedVersion(pVersion))
