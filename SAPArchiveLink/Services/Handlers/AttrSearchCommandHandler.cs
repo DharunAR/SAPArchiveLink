@@ -1,5 +1,7 @@
 ﻿
 
+using SAPArchiveLink.Resources;
+
 namespace SAPArchiveLink
 {
     public class AttrSearchCommandHandler : ICommandHandler
@@ -45,7 +47,7 @@ namespace SAPArchiveLink
                 if (request.FromOffset < 0 || request.ToOffset < -1)
                 {
                     _logger.LogError("Invalid offset values: FromOffset must be >= 0, ToOffset must be >= -1");
-                    return _responseFactory.CreateError("Invalid offset values", StatusCodes.Status400BadRequest);
+                    return _responseFactory.CreateError(Resource.InvalidOffset, StatusCodes.Status400BadRequest);
                 }
 
                 return await _baseServices.GetAttrSearchResult(request);
@@ -53,7 +55,7 @@ namespace SAPArchiveLink
             catch (Exception ex)
             {
                 _logger.LogError("Exception on AttrSearchCommandHandler", ex);
-                return _responseFactory.CreateError("Internal server error during attrSearch", StatusCodes.Status500InternalServerError);
+                return _responseFactory.CreateError(string.Format(Resource.Error_InternalServer, ex.Message), StatusCodes.Status500InternalServerError);
             }
         }
 

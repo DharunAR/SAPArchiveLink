@@ -1,5 +1,5 @@
 ﻿
-using DocumentFormat.OpenXml.Spreadsheet;
+using SAPArchiveLink.Resources;
 using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
@@ -19,19 +19,19 @@ namespace SAPArchiveLink
         public void SetCertificate(IArchiveCertificate certificate)
         {
             _certificate = certificate;
-            _rawCertificates = new X509Certificate2Collection(); // Initialize as a collection
+            _rawCertificates = new X509Certificate2Collection();
             if (certificate?.GetCertificate() != null)
             {
-                _rawCertificates.Add(certificate.GetCertificate()); // Add the certificate to the collection
+                _rawCertificates.Add(certificate.GetCertificate());
             }
         }
 
         public void SetRawCertificates(X509Certificate2 certificate)
         {
-            _rawCertificates = new X509Certificate2Collection(); // Initialize as a collection
+            _rawCertificates = new X509Certificate2Collection();
             if (certificate != null)
             {
-                _rawCertificates.Add(certificate); // Add the certificate to the collection
+                _rawCertificates.Add(certificate);
             }
         }
 
@@ -48,7 +48,7 @@ namespace SAPArchiveLink
         public void VerifyAgainst(byte[] data)
         {
             if (_signedData == null || _signedData.Length == 0)
-                throw new InvalidOperationException("Signed data must be set before verification.");
+                throw new InvalidOperationException(Resource.SignedDataMustValidate);
 
             try
             {
@@ -56,7 +56,7 @@ namespace SAPArchiveLink
                 signedCms.Decode(_signedData);
 
                 if (signedCms.SignerInfos.Count == 0)
-                    throw new InvalidOperationException("No SignerInfo found");
+                    throw new InvalidOperationException(Resource.NoSignerFound);
 
                 var signerInfo = signedCms.SignerInfos[0];
 
@@ -85,14 +85,14 @@ namespace SAPArchiveLink
                 }
 
                 if (_verifiedCertificate == null)
-                    throw new CryptographicException("Matching certificate not found in trusted set.");
+                    throw new CryptographicException(Resource.MachingCertNotFound);
 
 
                 if (_certificate != null && _requiredPermission >= 0)
                 {
                     int granted = _certificate.GetPermission();
                     if ((granted & _requiredPermission) == 0)
-                        throw new UnauthorizedAccessException("Permission denied: insufficient certificate rights.");
+                        throw new UnauthorizedAccessException(Resource.PermissionDenied);
                 }
 
                 _verifiedCertificate.Verify();
@@ -103,25 +103,25 @@ namespace SAPArchiveLink
                 {
                     var cert = new X509Certificate2(_signedData);
                     if (!cert.Verify())
-                        throw new CryptographicException("Certificate verification failed.");
+                        throw new CryptographicException(Resource.CertVerificationFailed);
                     _verifiedCertificate = cert;
 
                     if (cert == null)
-                        throw new InvalidOperationException("No certificate found in signer info.");
+                        throw new InvalidOperationException(Resource.NoSignerCertFound);
 
                     if (_certificate != null && cert.Thumbprint != _certificate.GetCertificate().Thumbprint)
-                        throw new SecurityException("Signer certificate does not match expected certificate.");
+                        throw new SecurityException(Resource.SignerCertNotMatch);
 
                     if (_certificate != null && _requiredPermission >= 0)
                     {
                         int granted = _certificate.GetPermission();
                         if ((granted & _requiredPermission) == 0)
-                            throw new UnauthorizedAccessException("Permission denied: insufficient certificate rights.");
+                            throw new UnauthorizedAccessException(Resource.PermissionDenied);
                     }
                 }
                 catch (Exception fallbackEx)
                 {
-                    throw new CryptographicException("Both PKCS#7 and X.509 verification failed.", fallbackEx);
+                    throw new CryptographicException(Resource.CertVerFailed, fallbackEx);
                 }
             }
         }

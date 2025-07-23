@@ -115,6 +115,24 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Both PKCS#7 and X.509 verification failed..
+        /// </summary>
+        internal static string CertVerFailed {
+            get {
+                return ResourceManager.GetString("CertVerFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Certificate verification failed..
+        /// </summary>
+        internal static string CertVerificationFailed {
+            get {
+                return ResourceManager.GetString("CertVerificationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Component(s) appended successfully..
         /// </summary>
         internal static string ComponentAppendedSuccessfully {
@@ -165,6 +183,15 @@ namespace SAPArchiveLink.Resources {
         internal static string ComponentUpdatedSuccessfully {
             get {
                 return ResourceManager.GetString("ComponentUpdatedSuccessfully", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Content-Type header is missing or invalid..
+        /// </summary>
+        internal static string ContentTypeMissing {
+            get {
+                return ResourceManager.GetString("ContentTypeMissing", resourceCulture);
             }
         }
         
@@ -286,6 +313,24 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Invalid extractor registration..
+        /// </summary>
+        internal static string InvalidExtractor {
+            get {
+                return ResourceManager.GetString("InvalidExtractor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Invalid offset values.
+        /// </summary>
+        internal static string InvalidOffset {
+            get {
+                return ResourceManager.GetString("InvalidOffset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to SAP integration license/feature is not enabled..
         /// </summary>
         internal static string LicenseNotEnabled {
@@ -295,11 +340,38 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Matching certificate not found in trusted set..
+        /// </summary>
+        internal static string MachingCertNotFound {
+            get {
+                return ResourceManager.GetString("MachingCertNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to No content repositories found..
         /// </summary>
         internal static string NoContRepFound {
             get {
                 return ResourceManager.GetString("NoContRepFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No certificate found in signer info..
+        /// </summary>
+        internal static string NoSignerCertFound {
+            get {
+                return ResourceManager.GetString("NoSignerCertFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to No SignerInfo found..
+        /// </summary>
+        internal static string NoSignerFound {
+            get {
+                return ResourceManager.GetString("NoSignerFound", resourceCulture);
             }
         }
         
@@ -331,6 +403,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Permission denied: insufficient certificate rights..
+        /// </summary>
+        internal static string PermissionDenied {
+            get {
+                return ResourceManager.GetString("PermissionDenied", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Search text must not be empty..
         /// </summary>
         internal static string SearchTextMustNotBeEmpty {
@@ -340,11 +421,38 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Secure connection required. Please use HTTPS instead of HTTP..
+        /// </summary>
+        internal static string SecureConnRequired {
+            get {
+                return ResourceManager.GetString("SecureConnRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Internal Server Error.
         /// </summary>
         internal static string ServerError {
             get {
                 return ResourceManager.GetString("ServerError", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Signed data must be set before verification..
+        /// </summary>
+        internal static string SignedDataMustValidate {
+            get {
+                return ResourceManager.GetString("SignedDataMustValidate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Signer certificate does not match expected certificate..
+        /// </summary>
+        internal static string SignerCertNotMatch {
+            get {
+                return ResourceManager.GetString("SignerCertNotMatch", resourceCulture);
             }
         }
         

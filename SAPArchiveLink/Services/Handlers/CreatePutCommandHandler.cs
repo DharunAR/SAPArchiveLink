@@ -27,7 +27,7 @@ namespace SAPArchiveLink
                 // Ensure contentType is not null or empty
                 if (string.IsNullOrEmpty(request.ContentType))
                 {
-                    return _responseFactory.CreateError("Content-Type header is missing or invalid.", StatusCodes.Status400BadRequest);
+                    return _responseFactory.CreateError(Resource.ContentTypeMissing, StatusCodes.Status400BadRequest);
                 }
 
                 List<SapDocumentComponentModel> SapDocumentComponentModel = await _downloadFileHandler.HandleRequestAsync(request.ContentType, request.Body, docId);

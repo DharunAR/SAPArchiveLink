@@ -1,5 +1,4 @@
-using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.Extensions.Options;
+using SAPArchiveLink.Resources;
 using NLog;
 using NLog.Web;
 using SAPArchiveLink;
@@ -23,26 +22,11 @@ ServiceRegistration.RegisterServices(builder.Services);
 var app = builder.Build();
 
 app.UseMiddleware<TrimApplicationMiddleware>();
-// Optional: add development exception handling
+
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
 }
-
-// Routing & Middleware
-app.UseForwardedHeaders(new ForwardedHeadersOptions
-{
-    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor
-});
-
-app.UseRouting();
-
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
-
-app.UseAuthorization(); // if you're using auth
 
 app.Use(async (context, next) =>
 {
@@ -52,20 +36,26 @@ app.Use(async (context, next) =>
         context.Response.Redirect($"{basePath}/ContentServer", permanent: false);
         return;
     }
+
     if (!app.Environment.IsDevelopment())
     {
-        var clientCert = await context.Connection.GetClientCertificateAsync();
-        if (clientCert == null || !clientCert.Verify())
+        var path = context.Request.Path.Value?.ToLower();
+        var query = context.Request.Query;
+        if (path != null && path.StartsWith("/contentserver") && !context.Request.IsHttps && query.Count > 0)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            await context.Response.WriteAsync("Invalid client certificate.");
+            await context.Response.WriteAsync(Resource.SecureConnRequired);
             return;
         }
     }
     await next();
 });
 
-app.MapControllers(); // map [ApiController] routes like /ContentServer
+app.UseRouting();
+
+app.UseAuthorization();
+
+app.MapControllers();
 
 try
 {

@@ -36,7 +36,6 @@ namespace SAPArchiveLink
 
               return  await _baseService.AppendDocument(sapDocumentCreateRequest);
 
-               // return CommandResponse.ForProtocolText("Document appended");
             }
             catch (Exception ex)
             {

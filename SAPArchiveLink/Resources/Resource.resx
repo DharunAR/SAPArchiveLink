@@ -228,4 +228,40 @@
   <data name="Error_InternalServer" xml:space="preserve">
     <value>Internal server error {0}</value>
   </data>
+  <data name="InvalidOffset" xml:space="preserve">
+    <value>Invalid offset values</value>
+  </data>
+  <data name="ContentTypeMissing" xml:space="preserve">
+    <value>Content-Type header is missing or invalid.</value>
+  </data>
+  <data name="InvalidExtractor" xml:space="preserve">
+    <value>Invalid extractor registration.</value>
+  </data>
+  <data name="SignedDataMustValidate" xml:space="preserve">
+    <value>Signed data must be set before verification.</value>
+  </data>
+  <data name="NoSignerFound" xml:space="preserve">
+    <value>No SignerInfo found.</value>
+  </data>
+  <data name="MachingCertNotFound" xml:space="preserve">
+    <value>Matching certificate not found in trusted set.</value>
+  </data>
+  <data name="PermissionDenied" xml:space="preserve">
+    <value>Permission denied: insufficient certificate rights.</value>
+  </data>
+  <data name="CertVerificationFailed" xml:space="preserve">
+    <value>Certificate verification failed.</value>
+  </data>
+  <data name="NoSignerCertFound" xml:space="preserve">
+    <value>No certificate found in signer info.</value>
+  </data>
+  <data name="SignerCertNotMatch" xml:space="preserve">
+    <value>Signer certificate does not match expected certificate.</value>
+  </data>
+  <data name="CertVerFailed" xml:space="preserve">
+    <value>Both PKCS#7 and X.509 verification failed.</value>
+  </data>
+  <data name="SecureConnRequired" xml:space="preserve">
+    <value>Secure connection required. Please use HTTPS instead of HTTP.</value>
+  </data>
 </root>
