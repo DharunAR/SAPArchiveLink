@@ -70,6 +70,22 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
+        public async Task PutCert_ReturnsError_WhenModelStreamIsNull()
+        {
+            var model = new PutCertificateModel
+            {
+                AuthId = "Id", // Required, so invalid
+                ContRep = "contRep",
+                PVersion = "1.0",
+                Stream = null
+            };
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(Mock.Of<ICommandResponse>());
+            await _service.PutCert(model);
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("Certificate stream is null or unreadable")), StatusCodes.Status406NotAcceptable), Times.Once);
+        }
+
+
+        [Test]
         public async Task PutCert_ReturnsError_WhenCertificateCannotBeRecognized()
         {
             var model = new PutCertificateModel
