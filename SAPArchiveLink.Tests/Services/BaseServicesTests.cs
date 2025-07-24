@@ -156,6 +156,45 @@ namespace SAPArchiveLink.Tests
             Assert.That(result, Is.EqualTo(errorResponse));
         }
 
+        [Test]
+        public async Task DocGet_ReturnsExpectedError_WhenValidationFailsForSecKey()
+        {
+            var sapDoc = new SapDocumentRequest { DocId = "DocId", ContRep = "ContRep", PVersion = "0046",SecKey="secKey" };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.DocGetSapComponents(sapDoc);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task DocGet_ReturnsExpectedError_WhenValidationFailsForSecKey_AuthIdNull()
+        {
+            var sapDoc = new SapDocumentRequest { DocId = "DocId", ContRep = "ContRep", PVersion = "0046", SecKey = "secKey", AccessMode="crud" };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.DocGetSapComponents(sapDoc);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task DocGet_ReturnsExpectedError_WhenValidationFailsForSecKey_ExpirationIsNull()
+        {
+            var sapDoc = new SapDocumentRequest { DocId = "DocId", ContRep = "ContRep", PVersion = "0046", SecKey = "secKey", AccessMode = "crud",AuthId="AuthId" };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.DocGetSapComponents(sapDoc);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
 
         [Test]
         public async Task DocGet_ReturnsError_WhenRecordNotFound()
@@ -664,6 +703,45 @@ namespace SAPArchiveLink.Tests
         {
             var model = new CreateSapDocumentModel { DocId = null, ContRep = null, CompId = null, PVersion = null, ContentLength = null };
             var errorResponse = Mock.Of<ICommandResponse>();          
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.CreateRecord(model);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task CreateRecord_ReturnsError_WhenValidationFails_WithSecKey()
+        {
+            var model = new CreateSapDocumentModel { DocId = "DocId", ContRep = "ContRep", CompId = "CompId", PVersion = "0046", ContentLength = "1234",SecKey="1234" };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.CreateRecord(model);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task CreateRecord_ReturnsError_WhenValidationFails_WithSecKey_AuthIdNull()
+        {
+            var model = new CreateSapDocumentModel { DocId = "DocId", ContRep = "ContRep", CompId = "CompId", PVersion = "0046", ContentLength = "1234", SecKey = "1234",AccessMode="crud" };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.CreateRecord(model);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task CreateRecord_ReturnsError_WhenValidationFails_WithSecKey_ExpiryNull()
+        {
+            var model = new CreateSapDocumentModel { DocId = "DocId", ContRep = "ContRep", CompId = "CompId", PVersion = "0046", ContentLength = "1234", SecKey = "1234", AccessMode = "crud",AuthId="1234" };
+            var errorResponse = Mock.Of<ICommandResponse>();
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
 
             var result = await _service.CreateRecord(model);
@@ -1502,6 +1580,45 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
+        public async Task GetSearchResult_ReturnsError_WhenValidationFailsForSecKey()
+        {
+            var sapDoc = new SapSearchRequestModel { DocId = "DocId", CompId="1234",ContRep = "ContRep", PVersion = "0046", Pattern="aaa", SecKey = "secKey" };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.GetSearchResult(sapDoc);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task GetSearchResult_ReturnsError_WhenValidationFailsForSecKey_AuthIdNull()
+        {
+            var sapDoc = new SapSearchRequestModel { DocId = "DocId", CompId = "1234", ContRep = "ContRep", PVersion = "0046", Pattern = "aaa", SecKey = "secKey" , AccessMode = "crud" };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.GetSearchResult(sapDoc);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task GetSearchResult_ReturnsError_WhenValidationFailsForSecKey_ExpirationIsNull()
+        {
+            var sapDoc = new SapSearchRequestModel { DocId = "DocId", CompId = "1234", ContRep = "ContRep", PVersion = "0046", Pattern = "aaa", SecKey = "secKey", AccessMode = "crud", AuthId = "AuthId" };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            var result = await _service.GetSearchResult(sapDoc);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
         public async Task GetSearchResult_ReturnsError_WhenRecordNotFound()
         {
             // Arrange
@@ -1752,6 +1869,80 @@ namespace SAPArchiveLink.Tests
                 CompId = "comp1",
                 PVersion = "1.0",
                 StreamData = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            // Act
+            var result = await _service.AppendDocument(model);
+
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenModelIsInvalid_WithSecKey()
+        {
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "DocId", // Required, so invalid
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "1.0",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 }),
+                SecKey="1234"
+            };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            // Act
+            var result = await _service.AppendDocument(model);
+
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenModelIsInvalid_WithSecKey_AuthIdIsNull()
+        {
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "DocId", // Required, so invalid
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "1.0",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 }),
+                SecKey="1234",
+                AccessMode = "AuthId",
+            };
+            var errorResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);
+
+            // Act
+            var result = await _service.AppendDocument(model);
+
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+            Assert.That(result, Is.EqualTo(errorResponse));
+        }
+
+        [Test]
+        public async Task AppendDocument_ReturnsError_WhenModelIsInvalid_WithSecKey_ExpirationIsNull()
+        {
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "DocId", // Required, so invalid
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "1.0",
+                StreamData = new MemoryStream(new byte[] { 1, 2, 3 }),
+                SecKey = "1234",
+                AccessMode = "AuthId",
+                AuthId= "AuthId"
             };
             var errorResponse = Mock.Of<ICommandResponse>();
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>())).Returns(errorResponse);

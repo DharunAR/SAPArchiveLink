@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SAPArchiveLink
 {
-    public class AppendSapDocCompModel
+    public class AppendSapDocCompModel:IValidatableObject
     {
 
         [Required(ErrorMessage = "contRep is required.")]
