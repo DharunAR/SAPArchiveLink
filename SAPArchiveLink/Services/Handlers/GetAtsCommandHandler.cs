@@ -1,7 +1,10 @@
 ﻿
 
+using System.Diagnostics.CodeAnalysis;
+
 namespace SAPArchiveLink
 {
+    [ExcludeFromCodeCoverage]
     public class GetAtsCommandHandler : ICommandHandler
     {
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.GETATS;

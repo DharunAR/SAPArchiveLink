@@ -1,7 +1,10 @@
 ﻿
 
+using System.Diagnostics.CodeAnalysis;
+
 namespace SAPArchiveLink
 {
+    [ExcludeFromCodeCoverage]
     public class GetAnnotationsCommandHandler : ICommandHandler
     {
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.GETANNOTATIONS;

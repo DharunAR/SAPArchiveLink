@@ -1,5 +1,8 @@
-﻿namespace SAPArchiveLink
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace SAPArchiveLink
 {
+    [ExcludeFromCodeCoverage]
     public class AdminContRepCommandHandler : ICommandHandler
     {
         public ALCommandTemplate CommandTemplate => ALCommandTemplate.ADMINCONTREP;
