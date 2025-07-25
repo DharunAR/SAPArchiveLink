@@ -1,5 +1,4 @@
-﻿using NLog;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text;
 
 namespace SAPArchiveLink
@@ -59,10 +58,7 @@ namespace SAPArchiveLink
 
         private RequestAuthResult CheckAuthentication(ICommand command, IArchiveCertificate certificates)
         {
-            bool requiresSignature = !string.IsNullOrEmpty(command.GetValue(ALParameter.VarSecKey)) ||
-            !string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsPi)) ||
-            !string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsNode)) ||
-            command.GetTemplate() == ALCommandTemplate.SIGNURL;
+            bool requiresSignature = !string.IsNullOrEmpty(command.GetValue(ALParameter.VarSecKey));
 
             if (!requiresSignature)
                 return RequestAuthResult.Success();
@@ -70,10 +66,6 @@ namespace SAPArchiveLink
             try
             {
                 VerifyUrl(command, certificates);
-
-                if (!string.IsNullOrEmpty(command.GetValue(ALParameter.VarRmsPi)) && !command.IsImmutable())
-                    return Fail($"{ALParameter.VarRmsPi} is set but command is not immutable", StatusCodes.Status403Forbidden);
-
                 return RequestAuthResult.Success();
             }
             catch (Exception ex)
@@ -112,13 +104,9 @@ namespace SAPArchiveLink
                 string stringToSign = command.GetStringToSign(false, charset);
                 _verifier.VerifyAgainst(encoding.GetBytes(stringToSign));
 
-                var cert = _verifier.GetCertificate()
-                ?? throw new UnauthorizedAccessException("No valid certificate found");
+                var cert = _verifier.GetCertificate() ?? throw new UnauthorizedAccessException("No valid certificate found");
 
                 command.SetVerified();
-                command.SetCertSubject(cert.Subject);
-                command.SetImmutable();
-
                 _logger.LogInformation("Request verified. Subject: {Subject}", cert.Subject);
             }
             catch (ArgumentException)
@@ -158,15 +146,7 @@ namespace SAPArchiveLink
         }
 
         public bool IsSupportedVersion(string pVersion) =>
-        !string.IsNullOrWhiteSpace(pVersion) && IsSupported(ParseVersion(pVersion));
-
-        private ALProtocolVersion ParseVersion(string version) => version switch
-        {
-            "0045" => ALProtocolVersion.OO45,
-            "0046" => ALProtocolVersion.OO46,
-            "0047" => ALProtocolVersion.OO47,
-            _ => ALProtocolVersion.Unsupported
-        };
+        !string.IsNullOrWhiteSpace(pVersion) && IsSupported(SecurityUtils.ParseVersion(pVersion));
 
         private bool IsSupported(ALProtocolVersion version) =>
         version is ALProtocolVersion.OO45 or ALProtocolVersion.OO46 or ALProtocolVersion.OO47;

@@ -1,11 +1,9 @@
-﻿using DocumentFormat.OpenXml.Drawing.Spreadsheet;
-using SAPArchiveLink.Resources;
+﻿using SAPArchiveLink.Resources;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using TRIM.SDK;
-using System.Linq;
 
 namespace SAPArchiveLink;
 public class BaseServices : IBaseServices
@@ -996,7 +994,7 @@ public class BaseServices : IBaseServices
 
             // Determine correct pattern parser
             var decodedPattern = HttpUtility.UrlDecode(pattern).Replace(' ', '+');
-            var regex = pVersion == "0047" ? Pattern0047 : Pattern0046;
+            var regex = SecurityUtils.ParseVersion(pVersion) == ALProtocolVersion.OO47 ? Pattern0047 : Pattern0046;
             var matches = regex.Matches(decodedPattern ?? "");
 
             if (matches.Count == 0)
@@ -1069,7 +1067,6 @@ public class BaseServices : IBaseServices
             return false;
         }
     }
-
 
     #endregion
 

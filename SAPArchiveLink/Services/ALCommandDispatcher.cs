@@ -91,10 +91,6 @@ namespace SAPArchiveLink
 
             var response = await ExecuteRequest(context, command);
 
-            if (response.StatusCode == 307 && response.Headers.TryGetValue("Location", out string? locationUrl))
-            {
-                return new RedirectResult(locationUrl, false);
-            }
             _logger.LogInformation($"Command {command.GetTemplate()} executed successfully with status code {response.StatusCode}");
             return new ArchiveLinkResult(response, _downloadFileHandler);
         }
@@ -103,17 +99,6 @@ namespace SAPArchiveLink
         {
             try
             {
-                bool doForward = Environment.GetEnvironmentVariable("FORWARD_CONTENT_TO_KNOWNSERVER")?.Trim().ToLower() == "true";
-
-                if (doForward && (command.IsHttpPOST() || command.IsHttpPUT()))
-                {
-                    string redirectUrl = $"https://{context.GetServerName()}:{context.GetPort()}/{context.GetContextPath()}?{context.GetALQueryString(false)}";
-
-                    var redirectResponse = CommandResponse.ForProtocolText(string.Empty, 307);
-                    redirectResponse.Headers["Location"] = redirectUrl;
-                    return redirectResponse;
-                }
-
                 var handler = _handlerRegistry.GetHandler(command.GetTemplate());
 
                 if (handler == null)

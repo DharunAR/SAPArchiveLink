@@ -1,14 +1,25 @@
-﻿using DocumentFormat.OpenXml.Drawing.Wordprocessing;
-using System.Net.Mail;
-using System.Net.Security;
-using System.Text;
-
-namespace SAPArchiveLink
+﻿namespace SAPArchiveLink
 {
     public static class SecurityUtils
     {
         const string Attachment = "attachment";
         const string Inline = "inline";
+
+        private static readonly HashSet<string> SafeMimeTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "image/gif",
+          "image/webp",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        };
+
+        private static readonly HashSet<string> UnsafeExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+          ".html", ".htm", ".svg", ".xml", ".js", ".json", ".xhtml", ".jsp", ".php", ".mhtml"
+        };
 
         /// <summary>
         /// Determines if a file is safe to be displayed inline in a browser based on its content type and file extension.
@@ -26,19 +37,6 @@ namespace SAPArchiveLink
                 return false;
 
             return SafeMimeTypes.Contains(contentType);
-        }
-
-        /// <summary>
-        /// Determines if a command requires a signature based on its access mode and the server's protection level
-        /// </summary>
-        /// <param name="command"></param>
-        /// <param name="serverProtectionLevel"></param>
-        /// <returns></returns>
-        public static bool NeedsSignature(ALCommand command, int serverProtectionLevel)
-        {
-            int accMode = AccessModeToInt(command.GetAccessMode());
-            bool result = (accMode & serverProtectionLevel) > 0;
-            return result;
         }
 
         /// <summary>
@@ -93,38 +91,6 @@ namespace SAPArchiveLink
         }
 
         /// <summary>
-        /// Converts an integer representation of a protection level to a string (e.g., 3 -> "rc").
-        /// </summary>
-        /// <param name="protLevel"></param>
-        /// <returns></returns>
-        public static string ConvertToAccessMode(int protLevel)
-        {
-            StringBuilder protectionLevelStr = new StringBuilder("");
-            if ((protLevel & ALCommand.PROT_NO_READ) != 0)
-            {
-                protectionLevelStr.Append(ALCommand.PROT_READ);
-            }
-            if ((protLevel & ALCommand.PROT_NO_CREATE) != 0)
-            {
-                protectionLevelStr.Append(ALCommand.PROT_CREATE);
-            }
-            if ((protLevel & ALCommand.PROT_NO_UPDATE) != 0)
-            {
-                protectionLevelStr.Append(ALCommand.PROT_UPDATE);
-            }
-            if ((protLevel & ALCommand.PROT_NO_DELETE) != 0)
-            {
-                protectionLevelStr.Append(ALCommand.PROT_DELETE);
-            }
-            if ((protLevel & ALCommand.PROT_NO_ELIB) != 0)
-            {
-                protectionLevelStr.Append(ALCommand.PROT_ELIB);
-            }
-
-            return protectionLevelStr.ToString();
-        }
-
-        /// <summary>
         /// Generates a Content-Disposition header value based on the file name.
         /// </summary>
         /// <param name="fileName"></param>
@@ -144,20 +110,17 @@ namespace SAPArchiveLink
             return $"{dispositionType}; filename=\"{sanitizedFileName}\"";
         }
 
-        private static readonly HashSet<string> SafeMimeTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        /// <summary>
+        /// Parses a version string into an ALProtocolVersion enum.
+        /// </summary>
+        /// <param name="version"></param>
+        /// <returns></returns>
+        public static ALProtocolVersion ParseVersion(string version) => version switch
         {
-          "application/pdf",
-          "image/jpeg",
-          "image/png",
-          "image/gif",
-          "image/webp",
-          "application/msword",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-        };
-
-        private static readonly HashSet<string> UnsafeExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-          ".html", ".htm", ".svg", ".xml", ".js", ".json", ".xhtml", ".jsp", ".php", ".mhtml"
+            "0045" => ALProtocolVersion.OO45,
+            "0046" => ALProtocolVersion.OO46,
+            "0047" => ALProtocolVersion.OO47,
+            _ => ALProtocolVersion.Unsupported
         };
     }
 

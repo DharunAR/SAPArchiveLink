@@ -7,7 +7,15 @@ namespace SAPArchiveLink.Tests
     {
         [TestCase("get&compId=123&docId=456&Pversion=0045", ALCommandTemplate.GET, "123", "456", "0045", "GET")]
         [TestCase("create&compId=abc&docId=def&Pversion=0047", ALCommandTemplate.CREATEPUT, "abc", "def", "0047", "PUT")]
+        [TestCase("create&compId=xyz&docId=789&Pversion=0046", ALCommandTemplate.CREATEPOST, "xyz", "789", "0046", "POST")]
         [TestCase("docget&compId=1&docId=2&Pversion=0046", ALCommandTemplate.DOCGET, "1", "2", "0046", "GET")]
+        [TestCase("mcreate&compId=comp123&docId=doc456&Pversion=0045", ALCommandTemplate.MCREATE, "comp123", "doc456", "0045", "POST")]
+        [TestCase("append&compId=comp789&docId=doc012&Pversion=0047", ALCommandTemplate.APPEND, "comp789", "doc012", "0047", "PUT")]
+        [TestCase("update&compId=comp345&docId=doc678&Pversion=0046", ALCommandTemplate.UPDATE_PUT, "comp345", "doc678", "0046", "PUT")]
+        [TestCase("delete&compId=comp901&docId=doc234&Pversion=0045", ALCommandTemplate.DELETE, "comp901", "doc234", "0045", "GET")]
+        [TestCase("search&compId=comp567&docId=doc890&Pversion=0047", ALCommandTemplate.SEARCH, "comp567", "doc890", "0047", "GET")]
+        [TestCase("attrSearch&compId=comp123&docId=doc456&Pversion=0046", ALCommandTemplate.ATTRSEARCH, "comp123", "doc456", "0046", "GET")]
+        [TestCase("update&compId=comp789&docId=doc012&Pversion=0045", ALCommandTemplate.UPDATE_POST, "comp789", "doc012", "0045", "POST")]
         public void ALCommand_WithValidUrl_ParsesTemplateAndParameters(
             string url, ALCommandTemplate expectedTemplate,
             string expectedCompId, string expectedDocId, string expectedPversion, string method)

@@ -7,12 +7,9 @@
         private readonly CommandParameters _parameters;
         private readonly string _accessMode;
         private readonly string _charset;
-        private bool _isImmutable;
         private bool _isVerified;
-        private string? _certSubject;
         private readonly string _validationError = string.Empty;
         private readonly HttpRequest _httpRequest;
-
         public string ValidationError => _validationError;
         public bool IsValid => string.IsNullOrWhiteSpace(_validationError);
 
@@ -80,11 +77,6 @@
             return _parameters.GetValue(key);
         }
 
-        public void SetValue(string key, string value)
-        {
-            _parameters.SetValue(key, value);
-        }
-
         public string GetURLCharset()
         {
             return _charset;
@@ -93,9 +85,7 @@
         public string GetStringToSign(bool includeSignature, string charset)
         {           
             return _parameters.GetStringToSign(includeSignature, charset,_httpRequest.Scheme.ToString(),_httpRequest.Host.ToString(),_httpRequest.Path);
-        }
-
-      
+        }     
 
         public string GetAccessMode()
         {
@@ -110,26 +100,6 @@
         public void SetVerified()
         {
             _isVerified = true;
-        }
-
-        public bool IsImmutable()
-        {
-            return _isImmutable;
-        }
-
-        public void SetImmutable()
-        {
-            _isImmutable = true;
-        }
-
-        public string GetCertSubject()
-        {
-            return _certSubject;
-        }
-
-        public void SetCertSubject(string certSubject)
-        {
-            _certSubject = certSubject;
-        }              
+        }         
     }
 }

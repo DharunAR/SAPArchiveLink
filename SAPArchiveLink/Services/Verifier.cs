@@ -1,5 +1,4 @@
-﻿
-using SAPArchiveLink.Resources;
+﻿using SAPArchiveLink.Resources;
 using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;

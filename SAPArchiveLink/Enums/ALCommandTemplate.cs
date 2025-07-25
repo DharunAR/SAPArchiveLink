@@ -65,10 +65,4 @@
         SETDOCFLAG,
         CACHE
     }
-
-    public enum SslMode
-    {
-        RequireSsl,
-        RequireHttp
-    }
 }

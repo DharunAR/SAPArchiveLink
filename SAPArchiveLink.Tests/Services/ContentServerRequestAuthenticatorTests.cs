@@ -117,8 +117,6 @@ namespace SAPArchiveLink.Tests
             _commandMock.Setup(c => c.GetTemplate()).Returns(ALCommandTemplate.GET);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarPVersion)).Returns("0045");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarSecKey)).Returns((string)null);
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsPi)).Returns((string)null);
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsNode)).Returns((string)null);
 
             var result = _authenticator.CheckRequest(_request, _commandMock.Object, _certMock.Object);
 
@@ -134,8 +132,6 @@ namespace SAPArchiveLink.Tests
             _commandMock.Setup(c => c.GetTemplate()).Returns(ALCommandTemplate.GET);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarPVersion)).Returns("0045");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarSecKey)).Returns("c2VjcmV0"); // "secret" base64
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsPi)).Returns((string)null);
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsNode)).Returns((string)null);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns("authid");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarExpiration)).Returns(DateTime.UtcNow.AddMinutes(5).ToString("yyyyMMddHHmmss"));
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAccessMode)).Returns("R");
@@ -159,8 +155,6 @@ namespace SAPArchiveLink.Tests
             _commandMock.Setup(c => c.GetTemplate()).Returns(ALCommandTemplate.GET);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarPVersion)).Returns("0046");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarSecKey)).Returns("c2VjcmV0"); // "secret" base64
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsPi)).Returns((string)null);
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsNode)).Returns((string)null);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns("authid");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarExpiration)).Returns(DateTime.UtcNow.AddMinutes(5).ToString("yyyyMMddHHmmss"));
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAccessMode)).Returns("crud");
@@ -184,8 +178,6 @@ namespace SAPArchiveLink.Tests
             _commandMock.Setup(c => c.GetTemplate()).Returns(ALCommandTemplate.GET);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarPVersion)).Returns("0047");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarSecKey)).Returns("c2VjcmV0"); // "secret" base64
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsPi)).Returns((string)null);
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsNode)).Returns((string)null);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns("authid");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarExpiration)).Returns(DateTime.UtcNow.AddMinutes(5).ToString("yyyyMMddHHmmss"));
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAccessMode)).Returns("crud");
@@ -208,8 +200,6 @@ namespace SAPArchiveLink.Tests
             _commandMock.Setup(c => c.GetTemplate()).Returns(ALCommandTemplate.GET);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarPVersion)).Returns("0045");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarSecKey)).Returns("c2VjcmV0");
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsPi)).Returns((string)null);
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsNode)).Returns((string)null);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns("authid");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarExpiration)).Returns(DateTime.UtcNow.AddMinutes(-5).ToString("yyyyMMddHHmmss"));
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAccessMode)).Returns("crud");
@@ -231,8 +221,6 @@ namespace SAPArchiveLink.Tests
             _commandMock.Setup(c => c.GetTemplate()).Returns(ALCommandTemplate.GET);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarPVersion)).Returns("0045");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarSecKey)).Returns("c2VjcmV0");
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsPi)).Returns((string)null);
-            _commandMock.Setup(c => c.GetValue(ALParameter.VarRmsNode)).Returns((string)null);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns("authid");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarExpiration)).Returns("2025-07-04T12:34:56");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAccessMode)).Returns("crud");
