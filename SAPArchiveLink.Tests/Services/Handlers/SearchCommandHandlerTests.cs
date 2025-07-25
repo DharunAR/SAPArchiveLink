@@ -20,7 +20,7 @@ namespace SAPArchiveLink.Tests.Services.Handlers
 
         [SetUp]
         public void SetUp()
-        {
+        {            
             _loggerMock = new Mock<ILogHelper<SearchCommandHandler>>();
             _responseFactoryMock = new Mock<ICommandResponseFactory>();
             _baseServicesMock = new Mock<IBaseServices>();

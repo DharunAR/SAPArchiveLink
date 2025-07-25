@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -105,6 +106,68 @@ namespace SAPArchiveLink.Tests.Services.Handlers
         {
             Assert.Throws<ArgumentNullException>(() =>
                 new DownloadFileHandler(_configMock.Object, null));
+        }
+
+        [Test]
+        public async Task ParseMultipartManuallyAsync_ThrowsIfBoundaryMissing()
+        {
+            var contentType = "multipart/form-data";
+            using var stream = new MemoryStream();
+
+            var methodInfo = _handler.GetType()
+                .GetMethod("ParseMultipartManuallyAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            if (methodInfo == null)
+            {
+                Assert.Fail("Method 'ParseMultipartManuallyAsync' not found.");
+                return;
+            }
+
+            var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            {
+                var task = (Task<List<SapDocumentComponentModel>>)methodInfo.Invoke(_handler, new object[] { contentType, stream });
+                await task;
+            });
+
+            Assert.That(ex.Message, Is.EqualTo("Boundary not found in Content-Type."));
+        }
+
+        [Test]
+        public async Task ParseMultipartManuallyAsync_ParsesSectionWithFileNameAndExtension()
+        {
+            var boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+            var contentType = $"multipart/form-data; boundary={boundary}";
+            var fileName = "test.txt";
+            var fileContent = "Hello World";
+            var multipartContent = $"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{fileName}\"\r\nContent-Type: text/plain\r\n\r\n{fileContent}\r\n--{boundary}--\r\n";
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(multipartContent));
+
+            var result = await (Task<List<SapDocumentComponentModel>>)_handler.GetType()
+                .GetMethod("ParseMultipartManuallyAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .Invoke(_handler, new object[] { contentType, stream });
+
+            Assert.That(result, Has.Count.EqualTo(1));
+            Assert.That(result[0].FileName, Does.EndWith(fileName));
+            Assert.That(result[0].Data, Is.Not.Null);
+        }
+
+        [Test]
+        public async Task ParseMultipartManuallyAsync_ParsesSectionWithoutFileName_UsesCompId()
+        {
+            var boundary = "----TestBoundary";
+            var contentType = $"multipart/form-data; boundary={boundary}";
+            var compId = "comp123";
+            var fileContent = "data";
+            var multipartContent = $"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"\r\nX-compId: {compId}\r\nContent-Type: application/pdf\r\n\r\n{fileContent}\r\n--{boundary}--\r\n";
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(multipartContent));
+
+            var result = await (Task<List<SapDocumentComponentModel>>)_handler.GetType()
+                .GetMethod("ParseMultipartManuallyAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .Invoke(_handler, new object[] { contentType, stream });
+
+            Assert.That(result, Has.Count.EqualTo(1));
+            Assert.That(result[0].FileName, Does.Contain(compId));
+            Assert.That(result[0].ContentType, Is.EqualTo("application/pdf"));
         }
     }
 }
