@@ -163,5 +163,24 @@ namespace SAPArchiveLink.Tests
             Assert.That(result[0].FileName, Does.Contain(compId));
             Assert.That(result[0].ContentType, Is.EqualTo("application/pdf"));
         }
+
+        [Test]
+        public async Task ParseMultipartManuallyAsync_ParsesSectionWithFileNameAndExtension1()
+        {
+            var boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
+            var contentType = $"multipart/form-data; boundary={boundary}";
+            var fileName = "test";
+            var fileContent = "Hello World";
+            var multipartContent = $"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{fileName}\"\r\nContent-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document\r\n\r\n{fileContent}\r\n--{boundary}--\r\n";
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(multipartContent));
+
+            var result = await (Task<List<SapDocumentComponentModel>>)_handler.GetType()
+                .GetMethod("ParseMultipartManuallyAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                .Invoke(_handler, new object[] { contentType, stream });
+
+            Assert.That(result, Has.Count.EqualTo(1));
+            Assert.That(result[0].FileName, Does.EndWith(fileName+".docx"));
+            Assert.That(result[0].Data, Is.Not.Null);
+        }
     }
 }
