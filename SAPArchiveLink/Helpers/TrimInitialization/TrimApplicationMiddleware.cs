@@ -20,7 +20,14 @@ namespace SAPArchiveLink
                                       IOptionsMonitor<TrimConfigSettings> configMonitor,
                                       ICommandResponseFactory responseFactory, ILogHelper<TrimApplicationMiddleware> _logger)
         {
-            if (!initState.IsInitialized)
+            if (!context.Request.Path.StartsWithSegments("/contentserver"))
+            {
+                // Skip Trim initialization for API requests
+                await _next(context);
+                return;
+            }
+
+                if (!initState.IsInitialized)
             {
                 try
                 {

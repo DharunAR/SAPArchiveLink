@@ -300,4 +300,7 @@
   <data name="Repositories" xml:space="preserve">
     <value>Repositories</value>
   </data>
+  <data name="WorkPathNotSet" xml:space="preserve">
+    <value>TRIM configuration error: 'WorkPath' must be set in appsettings.json.</value>
+  </data>
 </root>

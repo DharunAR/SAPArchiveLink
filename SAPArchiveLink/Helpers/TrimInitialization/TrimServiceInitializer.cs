@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Options;
+using SAPArchiveLink.Resources;
 using System.Text;
 using TRIM.SDK;
 
@@ -30,7 +31,12 @@ namespace SAPArchiveLink
                     {
                         TrimApplication.TrimBinariesLoadPath = trimConfig.BinariesLoadPath;
                     }
-                    
+                    if (string.IsNullOrWhiteSpace(trimConfig.WorkPath))
+                    {
+                        initState.FailInitialization(Resource.WorkPathNotSet);
+                        throw new InvalidOperationException(Resource.WorkPathNotSet);
+                    }
+
                     TrimApplication.Initialize();
                     TrimApplication.SetAsWebService(trimConfig.WorkPath);
                     initState.TrimInitialized();

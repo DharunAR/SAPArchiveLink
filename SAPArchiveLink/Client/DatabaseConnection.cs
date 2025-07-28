@@ -38,6 +38,11 @@ namespace SAPArchiveLink
                     throw new TrimException("TrustedUser must be set when using ClientId and ClientSecret for authentication.");
                 }
                 db.SetAuthenticationCredentials(_trimConfig.ClientId, _trimConfig.ClientSecret);
+                db.AuthenticationMethod = ClientAuthenticationMechanism.OpenId;
+            }
+            else
+            {
+                db.AuthenticationMethod = ClientAuthenticationMechanism.IntegratedWindows;
             }
 
             if (!string.IsNullOrWhiteSpace(_trimConfig.TrustedUser))

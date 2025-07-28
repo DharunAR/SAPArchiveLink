@@ -608,5 +608,14 @@ namespace SAPArchiveLink.Resources {
                 return ResourceManager.GetString("Value", resourceCulture);
             }
         }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to TRIM configuration error: &apos;WorkPath&apos; must be set in appsettings.json..
+        /// </summary>
+        internal static string WorkPathNotSet {
+            get {
+                return ResourceManager.GetString("WorkPathNotSet", resourceCulture);
+            }
+        }
     }
 }

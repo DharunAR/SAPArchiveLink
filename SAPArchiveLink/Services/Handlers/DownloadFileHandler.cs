@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
+using SAPArchiveLink.Resources;
 
 namespace SAPArchiveLink
 {
@@ -14,7 +15,7 @@ namespace SAPArchiveLink
         public DownloadFileHandler(IOptionsMonitor<TrimConfigSettings> config,ILogHelper<DownloadFileHandler> logHelper)
         {
             _config = config;
-            _saveDirectory = _config.CurrentValue.WorkPath ?? throw new InvalidOperationException("WorkPath is not set in TRIMConfig.");
+            _saveDirectory = _config.CurrentValue.WorkPath ?? throw new InvalidOperationException(Resource.WorkPathNotSet);
             _logHelper = logHelper ?? throw new ArgumentNullException(nameof(logHelper));
         }
 

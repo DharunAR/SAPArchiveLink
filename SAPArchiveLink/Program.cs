@@ -9,6 +9,14 @@ builder.Logging.ClearProviders();
 builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
 builder.Logging.AddNLogWeb("nlog.config");
 builder.Host.UseNLog();
+
+var logPath = builder.Configuration.GetSection("TRIMConfig:WorkPath").Value;
+if (!string.IsNullOrWhiteSpace(logPath))
+{
+    LogManager.Configuration.Variables["logPath"] = logPath;
+    LogManager.ReconfigExistingLoggers(); // Reapply the variable to all loggers
+}
+
 builder.WebHost.ConfigureKestrel(options =>
 {
     options.ConfigureHttpsDefaults(httpsOptions =>
@@ -21,12 +29,14 @@ ServiceRegistration.RegisterServices(builder.Services);
 
 var app = builder.Build();
 
-app.UseMiddleware<TrimApplicationMiddleware>();
-
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
 }
+
+app.UseRouting();
+
+app.UseAuthorization();
 
 app.Use(async (context, next) =>
 {
@@ -50,10 +60,7 @@ app.Use(async (context, next) =>
     }
     await next();
 });
-
-app.UseRouting();
-
-app.UseAuthorization();
+app.UseMiddleware<TrimApplicationMiddleware>();
 
 app.MapControllers();
 
