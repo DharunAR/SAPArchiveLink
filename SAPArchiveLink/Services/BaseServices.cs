@@ -458,7 +458,7 @@ public class BaseServices : IBaseServices
     {
         _logger.LogInformation($"GetSearchResult called for DocId: {sapSearchRequest.DocId}");
         string searchResult = null;
-        var validationResults = ModelValidator.Validate(sapSearchRequest);
+        var validationResults = ModelValidator.Validate(sapSearchRequest, true);
         if (validationResults.Any())
         {
             var message = string.Join("; ", validationResults.Select(r => r.ErrorMessage ?? "Unknown validation error"));
@@ -503,10 +503,10 @@ public class BaseServices : IBaseServices
                 );
                 _logger.LogInformation($"Search completed in GetSearchResult. DocId: {sapSearchRequest.DocId}");
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
             {
                 _logger.LogError($"Error during search in GetSearchResult. DocId: {sapSearchRequest.DocId}, CompId: {sapSearchRequest.CompId}, {ex}");
-                return _responseFactory.CreateError(Resource.ErrorDuringSearch);
+                return _responseFactory.CreateError($"{Resource.ErrorDuringSearch}: {ex.Message}");
             }
         }        
 
@@ -813,30 +813,42 @@ public class BaseServices : IBaseServices
     {
         var html = new StringBuilder();
         html.AppendLine("<!DOCTYPE html>");
-        html.AppendLine("<html><head><meta charset=\"utf-8\"><title>Document Info</title></head><body>");
-        html.AppendLine("<h1>Document Information</h1>");
-        html.AppendLine("<table border='1'><tr><th>Field</th><th>Value</th></tr>");
-        html.AppendLine($"<tr><td>Document ID</td><td>{HtmlEncode(doc.DocId)}</td></tr>");
-        html.AppendLine($"<tr><td>Components</td><td>{components.Count}</td></tr>");
-        html.AppendLine("</table>");
+        html.AppendLine($"<html><head><meta charset=\"utf-8\"><title>{Resource.DocInformation}</title></head><body>");
+        html.AppendLine($"<h1>{Resource.DocInformation}</h1>");
 
-        html.AppendLine("<h2>Components</h2>");
-        html.AppendLine("<table border='1'><tr><th>ID</th><th>Type</th><th>Length</th><th>Status</th><th>Created</th><th>Modified</th></tr>");
+        html.AppendLine("<table border='1'>");
+        html.AppendLine($"<thead><tr><th>{Resource.Field}</th><th>{Resource.Value}</th></tr></thead>");
+        html.AppendLine("<tbody>");
+        html.AppendLine($"<tr><td>{Resource.DocumentID}</td><td>{HtmlEncode(doc.DocId)}</td></tr>");
+        html.AppendLine($"<tr><td>{Resource.Components}</td><td>{HtmlEncode(components.Count.ToString())}</td></tr>");
+        html.AppendLine("</tbody></table>");
+
+        html.AppendLine($"<h2>{Resource.Components}</h2>");
+        html.AppendLine("<table border='1'>");
+        html.AppendLine("<thead><tr>" +
+            "<th>ID</th>" +
+            $"<th>{Resource.Type}</th>" +
+            $"<th>{Resource.Length}</th>" +
+            $"<th>{Resource.Status}</th>" +
+            $"<th>{Resource.Created}</th>" +
+            $"<th>{Resource.Modified}</th>" +
+            "</tr></thead><tbody>");
 
         foreach (var c in components)
         {
             html.AppendLine("<tr>" +
                 $"<td>{HtmlEncode(c.CompId)}</td>" +
                 $"<td>{HtmlEncode(c.ContentType)}</td>" +
-                $"<td>{c.ContentLength}</td>" +
+                $"<td>{HtmlEncode(c.ContentLength.ToString())}</td>" +
                 $"<td>{HtmlEncode(c.Status)}</td>" +
-                $"<td>{c.CreationDate:yyyy-MM-dd HH:mm:ss}</td>" +
-                $"<td>{c.ModifiedDate:yyyy-MM-dd HH:mm:ss}</td>" +
+                $"<td>{HtmlEncode(c.CreationDate.ToString("yyyy-MM-dd HH:mm:ss"))}</td>" +
+                $"<td>{HtmlEncode(c.ModifiedDate.ToString("yyyy-MM-dd HH:mm:ss"))}</td>" +
                 "</tr>");
         }
 
-        html.AppendLine("</table>");
+        html.AppendLine("</tbody></table>");
         html.AppendLine("</body></html>");
+
         return html.ToString();
     }
 
@@ -930,19 +942,19 @@ public class BaseServices : IBaseServices
         var html = new StringBuilder();
 
         html.Append("<html><body>");
-        html.Append("<h1>Content Manager SAP ArchiveLink Status</h1>");
-        html.Append($"<p>Status: {model.ServerStatus}</p>");
-        html.Append($"<p>Vendor: {model.ServerVendorId}</p>");
-        html.Append($"<p>Version: {model.ServerVersion}</p>");
-        html.Append($"<p>Build: {model.ServerBuild}</p>");
-        html.Append($"<p>Time: {model.ServerTime}</p>");
-        html.Append($"<p>Date: {model.ServerDate}</p>");
-        html.Append($"<p>Description: {model.ServerStatusDescription}</p>");
-        html.Append("<h2>Repositories</h2><ul>");
+        html.Append($"<h1>{Resource.CMArchiveLinkStatus}</h1>");
+        html.Append($"<p>Status: {HtmlEncode(model.ServerStatus)}</p>");
+        html.Append($"<p>Vendor: {HtmlEncode(model.ServerVendorId)}</p>");
+        html.Append($"<p>Version: {HtmlEncode(model.ServerVersion)}</p>");
+        html.Append($"<p>Build: {HtmlEncode(model.ServerBuild)}</p>");
+        html.Append($"<p>Time: {HtmlEncode(model.ServerTime)}</p>");
+        html.Append($"<p>Date: {HtmlEncode(model.ServerDate)}</p>");
+        html.Append($"<p>Description: {HtmlEncode(model.ServerStatusDescription)}</p>");
+        html.Append($"<h2>{Resource.Repositories}</h2><ul>");
 
         foreach (var repo in model.ContentRepositories)
         {
-            html.Append($"<li>{repo.ContRep} - {repo.ContRepDescription} ({repo.ContRepStatus})</li>");
+            html.Append($"<li>{HtmlEncode(repo.ContRep)} - {HtmlEncode(repo.ContRepDescription)} ({HtmlEncode(repo.ContRepStatus)})</li>");
         }
 
         html.Append("</ul></body></html>");

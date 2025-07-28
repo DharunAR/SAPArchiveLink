@@ -16,7 +16,7 @@ namespace SAPArchiveLink
         public required string Pattern
         {
             get => _pattern;
-            set => _pattern = Uri.UnescapeDataString(value);
+            set => _pattern = Uri.UnescapeDataString(value ?? string.Empty);
         }
 
         public required string CompId { get; set; }

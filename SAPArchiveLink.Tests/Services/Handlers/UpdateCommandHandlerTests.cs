@@ -1,14 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Moq;
-using NUnit.Framework;
-using SAPArchiveLink;
-using SAPArchiveLink.Resources;
 
-namespace SAPArchiveLink.Tests.Services.Handlers
+namespace SAPArchiveLink.Tests
 {
     [TestFixture]
     public class UpdateCommandHandlerTests

@@ -1,14 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Extensions.Options;
 using Moq;
-using NUnit.Framework;
-using SAPArchiveLink;
 
-namespace SAPArchiveLink.Tests.Services.Handlers
+namespace SAPArchiveLink.Tests
 {
     [TestFixture]
     public class DownloadFileHandlerTests

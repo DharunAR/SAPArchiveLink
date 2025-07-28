@@ -172,6 +172,35 @@ namespace SAPArchiveLink.Tests
             _mockResponseFactory.Verify(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status400BadRequest), Times.Once);
         }
 
+        [TestCase("get&compId=1&contRep=CM&pVersion=0047", ALCommandTemplate.GET, "GET")]
+        public async Task RunRequest_ExecuteAsync_ReturnsErrorResponse(string url, ALCommandTemplate template, string method)
+        {
+            var mockHandler = new Mock<ICommandHandler>();
+            var mockResponse = new Mock<ICommandResponse>();
+
+            mockHandler.Setup(h => h.CommandTemplate).Returns(template);
+            mockHandler.Setup(h => h.HandleAsync(It.IsAny<ICommand>(), It.IsAny<ICommandRequestContext>()))
+                       .ReturnsAsync(mockResponse.Object);
+            _trimRepositoryMock.Setup(r => r.GetArchiveCertificate(It.IsAny<string>())).Returns(_archiveCertificateMock.Object);
+            _archiveCertificateMock.Setup(c => c.IsEnabled()).Returns(true);
+            var errorResponse = new Mock<ICommandResponse>();
+            _mockRegistry.Setup(f => f.GetHandler(template)).Throws(new Exception("Handler throws exception"));
+
+            _mockResponseFactory.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
+                                .Returns(errorResponse.Object);
+
+            var verifier = new Mock<IVerifier>();
+            var logger = new Mock<ILogHelper<ContentServerRequestAuthenticator>>();
+            var authenticator = new ContentServerRequestAuthenticator(verifier.Object, logger.Object, _mockResponseFactory.Object);
+
+            var request = CreateCommandRequest(url, method);
+
+            var result = await _dispatcher.RunRequest(request, authenticator);
+
+            Assert.That(result, Is.TypeOf<ArchiveLinkResult>());
+            _mockResponseFactory.Verify(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status500InternalServerError), Times.Once);
+        }
+
         private CommandRequest CreateCommandRequest(string url, string method)
         {
             var httpContext = new DefaultHttpContext();

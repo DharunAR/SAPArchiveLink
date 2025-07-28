@@ -1,11 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Moq;
-using NUnit.Framework;
-using SAPArchiveLink;
-using SAPArchiveLink.Resources;
 
 namespace SAPArchiveLink.Tests
 {
@@ -32,6 +28,12 @@ namespace SAPArchiveLink.Tests
                 _responseFactoryMock.Object,
                 _baseServicesMock.Object
             );
+        }
+
+        [Test]
+        public void CommandTemplate_Returns_ATTRSEARCH()
+        {
+            Assert.That(_handler.CommandTemplate, Is.EqualTo(ALCommandTemplate.ATTRSEARCH));
         }
 
         [Test]
@@ -67,34 +69,73 @@ namespace SAPArchiveLink.Tests
         [Test]
         public async Task HandleAsync_InvalidOffset_ReturnsErrorResponse()
         {
-            // Arrange
             _commandMock.Setup(c => c.GetValue(ALParameter.VarFromOffset)).Returns("-1");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarToOffset)).Returns("-2");
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status400BadRequest))
                 .Returns(Mock.Of<ICommandResponse>());
 
-            // Act
-            var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
+            await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
 
-            // Assert
-            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status500InternalServerError), Times.Once);           
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status400BadRequest), Times.Once);
         }
 
         [Test]
         public async Task HandleAsync_ExceptionThrown_ReturnsInternalServerError()
         {
-            // Arrange
             _commandMock.Setup(c => c.GetValue(It.IsAny<string>())).Throws(new Exception("fail"));
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status500InternalServerError))
                 .Returns(Mock.Of<ICommandResponse>());
 
-            // Act
             var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
 
-            // Assert
             _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("fail")), StatusCodes.Status500InternalServerError), Times.Once);
             _loggerMock.Verify(l => l.LogError("Exception on AttrSearchCommandHandler", It.IsAny<Exception>()), Times.Once);
             Assert.That(result, Is.Not.Null);
+        }
+
+        [Test]
+        public async Task HandleAsync_DefaultsCompIdToDescr_WhenNull()
+        {
+            _commandMock.Setup(c => c.GetValue(ALParameter.VarCompId)).Returns((string)null);
+            SapSearchRequestModel capturedRequest = null!;
+            _baseServicesMock.Setup(s => s.GetAttrSearchResult(It.IsAny<SapSearchRequestModel>()))
+                .Callback<SapSearchRequestModel>(r => capturedRequest = r)
+                .ReturnsAsync(Mock.Of<ICommandResponse>());
+
+            await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
+
+            Assert.That(capturedRequest.CompId, Is.EqualTo("descr"));
+        }
+
+        [Test]
+        public async Task HandleAsync_DefaultsNumResultsTo1_WhenInvalid()
+        {
+            _commandMock.Setup(c => c.GetValue(ALParameter.VarNumResults)).Returns("invalid");
+            _commandMock.Setup(c => c.GetValue(It.IsAny<string>())).Returns("dummy");
+
+            SapSearchRequestModel capturedRequest = null!;
+            _baseServicesMock.Setup(s => s.GetAttrSearchResult(It.IsAny<SapSearchRequestModel>()))
+                .Callback<SapSearchRequestModel>(r => capturedRequest = r)
+                .ReturnsAsync(Mock.Of<ICommandResponse>());
+
+            await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
+
+            Assert.That(capturedRequest.NumResults, Is.EqualTo(1));
+        }
+
+        [TestCase("n", false)]
+        [TestCase(null, false)]
+        public async Task HandleAsync_CaseSensitiveParsing_WorksCorrectly(string? input, bool expected)
+        {
+            _commandMock.Setup(c => c.GetValue(ALParameter.VarCaseSensitive)).Returns(input);
+            _commandMock.Setup(c => c.GetValue(It.IsAny<string>())).Returns("dummy"); // fallback for other params
+
+            _baseServicesMock.Setup(s => s.GetAttrSearchResult(It.Is<SapSearchRequestModel>(
+                r => r.CaseSensitive == expected))).ReturnsAsync(Mock.Of<ICommandResponse>());
+
+            await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
+
+            _baseServicesMock.Verify(s => s.GetAttrSearchResult(It.IsAny<SapSearchRequestModel>()), Times.Once);
         }
     }
 }

@@ -1,6 +1,4 @@
-﻿
-
-using SAPArchiveLink.Resources;
+﻿using SAPArchiveLink.Resources;
 
 namespace SAPArchiveLink
 {

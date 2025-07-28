@@ -264,4 +264,40 @@
   <data name="SecureConnRequired" xml:space="preserve">
     <value>Secure connection required. Please use HTTPS instead of HTTP.</value>
   </data>
+  <data name="CMArchiveLinkStatus" xml:space="preserve">
+    <value>Content Manager SAP ArchiveLink Status</value>
+  </data>
+  <data name="DocInformation" xml:space="preserve">
+    <value>Document Information</value>
+  </data>
+  <data name="DocumentID" xml:space="preserve">
+    <value>Document ID</value>
+  </data>
+  <data name="Components" xml:space="preserve">
+    <value>Components</value>
+  </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Length" xml:space="preserve">
+    <value>Length</value>
+  </data>
+  <data name="Created" xml:space="preserve">
+    <value>Created</value>
+  </data>
+  <data name="Modified" xml:space="preserve">
+    <value>Modified</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Field" xml:space="preserve">
+    <value>Field</value>
+  </data>
+  <data name="Value" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="Repositories" xml:space="preserve">
+    <value>Repositories</value>
+  </data>
 </root>

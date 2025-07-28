@@ -139,6 +139,33 @@ namespace SAPArchiveLink.Tests
             _responseFactoryMock.Verify(f => f.CreateProtocolText("Certificate published", 200, It.IsAny<string>()), Times.Once);
         }
 
+        [Test]
+        public async Task PutCert_ReturnsError_WhenCertificateParsingFails()
+        {
+            var model = new PutCertificateModel
+            {
+                AuthId = "auth",
+                ContRep = "contRep",
+                Permissions = "crud",
+                PVersion = "1.0",
+                Stream = new MemoryStream(new byte[] { 1, 2, 3 })
+            };
+
+            var mockFactory = new Mock<ICertificateFactory>();
+            mockFactory.Setup(f => f.FromByteArray(It.IsAny<byte[]>())).Throws(new Exception("Invalid certificate format"));
+
+            _responseFactoryMock.Setup(f => f.CreateError(It.Is<string>(msg => msg.Contains("Invalid certificate format")),
+                              StatusCodes.Status406NotAcceptable)).Returns(Mock.Of<ICommandResponse>());
+
+            var service = new BaseServices(_loggerMock.Object, _responseFactoryMock.Object, _dbConnectionMock.Object,
+                            _downloadFileHandlerMock.Object, _messageProviderMock.Object, mockFactory.Object, _counterService);
+
+            await service.PutCert(model);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("Invalid certificate format")),
+                              StatusCodes.Status406NotAcceptable), Times.Once);
+        }
+
         #endregion
 
         #region DocGet ServiceTests
@@ -1461,8 +1488,7 @@ namespace SAPArchiveLink.Tests
             ContentLength = 150,
             ContentType = "image/png",
             CreationDate = DateTime.UtcNow,
-            ModifiedDate = DateTime.UtcNow,
-            Status = "archived"
+            ModifiedDate = DateTime.UtcNow
         }
     };
 
@@ -1631,7 +1657,7 @@ namespace SAPArchiveLink.Tests
                 .Returns(Mock.Of<ICommandResponse>());
 
             // Act
-            var result = await _service.GetSearchResult(request);
+            await _service.GetSearchResult(request);
 
             // Assert
             _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
@@ -1652,7 +1678,7 @@ namespace SAPArchiveLink.Tests
                 .Returns(Mock.Of<ICommandResponse>());
 
             // Act
-            var result = await _service.GetSearchResult(request);
+            await _service.GetSearchResult(request);
 
             // Assert
             _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
@@ -1703,7 +1729,7 @@ namespace SAPArchiveLink.Tests
                 .Returns(responseMock.Object);
 
             // Act
-            var result = await _service.GetSearchResult(request);
+            await _service.GetSearchResult(request);
 
             // Assert
             _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
@@ -1741,7 +1767,7 @@ namespace SAPArchiveLink.Tests
                 .Returns(responseMock.Object);
 
             // Act
-            var result = await _service.GetSearchResult(request);
+            await _service.GetSearchResult(request);
 
             // Assert
             _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
@@ -1779,7 +1805,7 @@ namespace SAPArchiveLink.Tests
                 .Returns(responseMock.Object);
 
             // Act
-            var result = await _service.GetSearchResult(request);
+            await _service.GetSearchResult(request);
 
             // Assert
             _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
@@ -1817,7 +1843,7 @@ namespace SAPArchiveLink.Tests
                 .Returns(responseMock.Object);
 
             // Act
-            var result = await _service.GetSearchResult(request);
+            await _service.GetSearchResult(request);
 
             // Assert
             _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
@@ -1826,7 +1852,6 @@ namespace SAPArchiveLink.Tests
         [Test]
         public async Task GetSearchResult_ReturnsProtocolText_WhenSearchSucceeds_WithFromoffset()
         {
-            // Arrange
             var request = new SapSearchRequestModel { DocId = "doc1", CompId = "comp1", PVersion = "v1", Pattern = "test", ContRep = "ST",FromOffset=5 };
             var repoMock = new Mock<ITrimRepository>();
             var recordMock = new Mock<IArchiveRecord>();
@@ -1846,12 +1871,78 @@ namespace SAPArchiveLink.Tests
             _responseFactoryMock
                 .Setup(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
                 .Returns(responseMock.Object);
+            
+            await _service.GetSearchResult(request);
 
-            // Act
-            var result = await _service.GetSearchResult(request);
-
-            // Assert
             _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
+        }
+
+        [Test]
+        public async Task GetSearchResult_ThrowsException_WhenStreamIsUnreadable()
+        {
+            var request = new SapSearchRequestModel { PVersion = "0045", DocId = "doc1", CompId = "comp1", Pattern = "test", ContRep = "ST" };
+            var repoMock = new Mock<ITrimRepository>();
+            var recordMock = new Mock<IArchiveRecord>();
+
+            var unreadableStreamMock = new Mock<Stream>();
+            unreadableStreamMock.Setup(s => s.CanRead).Returns(false);
+
+            var component = new SapDocumentComponentModel
+            {
+                ContentType = "text/plain",
+                Data = unreadableStreamMock.Object
+            };
+
+            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
+            recordMock.Setup(r => r.ExtractComponentById(It.IsAny<string>(), true)).ReturnsAsync(component);
+
+            TextExtractorFactory.Register("text/plain", new PlainTextExtractor());
+
+            await _service.GetSearchResult(request);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(msg => msg.Contains("Stream must be readable.")), StatusCodes.Status400BadRequest), Times.Once);
+        }
+
+        [Test]
+        public async Task GetSearchResult_PerformsReverseSearch_WhenFromOffsetGreaterThanToOffset()
+        {
+            var request = new SapSearchRequestModel()
+            {
+                DocId = "doc1",
+                CompId = "comp1",
+                Pattern = "test",
+                ContRep = "ST",
+                FromOffset = 25,
+                ToOffset = 5,
+                PVersion = "0045"
+            };
+
+            var repoMock = new Mock<ITrimRepository>();
+            var recordMock = new Mock<IArchiveRecord>();
+
+            // Content includes "test" twice, but reverse search should only find one
+            var content = "abc test xyz test abc";
+            var component = new SapDocumentComponentModel
+            {
+                ContentType = "text/plain",
+                Data = new MemoryStream(Encoding.UTF8.GetBytes(content))
+            };
+
+            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
+            recordMock.Setup(r => r.ExtractComponentById(It.IsAny<string>(), true)).ReturnsAsync(component);
+
+            TextExtractorFactory.Register("text/plain", new PlainTextExtractor());
+
+            var responseMock = new Mock<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
+                .Returns(responseMock.Object);
+
+            await _service.GetSearchResult(request);
+
+            _responseFactoryMock.Verify(f => f.CreateProtocolText(It.Is<string>(s => s.StartsWith("0;")), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
         }
 
         #endregion
@@ -2318,6 +2409,19 @@ namespace SAPArchiveLink.Tests
         #region AttrSearch ServiceTests
 
         [Test]
+        public async Task GetAttrSearchResult_ReturnsError_WhenValidationFails()
+        {
+            var request = new SapSearchRequestModel { DocId = "", CompId = "", PVersion = "", ContRep = "", Pattern = "" };
+            _responseFactoryMock
+                .Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
+                .Returns(Mock.Of<ICommandResponse>());
+
+            await _service.GetAttrSearchResult(request);
+
+            _responseFactoryMock.Verify(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()), Times.Once);
+        }
+
+        [Test]
         public async Task GetAttrSearchResult_ShouldReturnMatch_WhenValidPatternProvided()
         {
             var descriptionData = @"
@@ -2509,6 +2613,153 @@ namespace SAPArchiveLink.Tests
             var result = await _service.GetAttrSearchResult(searchRequest);
 
             Assert.That(result, Is.SameAs(errorResponse));
+        }
+
+        [Test]
+        public async Task GetAttrSearchResult_ShouldReturnZero_WhenNoDainLinesExist()
+        {
+            var data = "100 50 HEADER some text\n200 60 FOOTER more text";
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(data));
+
+            var searchRequest = new SapSearchRequestModel
+            {
+                ContRep = "ST",
+                DocId = "SAP_descr",
+                CompId = "descr",
+                Pattern = "0+3+001",
+                CaseSensitive = false,
+                NumResults = 1,
+                FromOffset = 0,
+                ToOffset = -1,
+                PVersion = "0045"
+            };
+
+            var component = new SapDocumentComponentModel { Data = stream, PVersion = "0045" };
+
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("descr", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("SAP_descr", "ST")).Returns(_archiveRecordMock.Object);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateProtocolText("0;", StatusCodes.Status200OK, "UTF-8"))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetAttrSearchResult(searchRequest);
+
+            Assert.That(result, Is.SameAs(expectedResponse));
+        }
+
+        [Test]
+        public async Task GetAttrSearchResult_ShouldReturnZero_WhenDataTooShortForMatch()
+        {
+            var data = "100 50 DAINabc"; // only 3 characters after DAIN
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(data));
+
+            var searchRequest = new SapSearchRequestModel
+            {
+                ContRep = "ST",
+                DocId = "SAP_descr",
+                CompId = "descr",
+                Pattern = "0+5+abcde", // requires 5 characters
+                CaseSensitive = false,
+                NumResults = 1,
+                FromOffset = 0,
+                ToOffset = -1,
+                PVersion = "0045"
+            };
+
+            var component = new SapDocumentComponentModel { Data = stream, PVersion = "0045" };
+
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("descr", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("SAP_descr", "ST")).Returns(_archiveRecordMock.Object);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateProtocolText("0;", StatusCodes.Status200OK, "UTF-8"))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetAttrSearchResult(searchRequest);
+
+            Assert.That(result, Is.SameAs(expectedResponse));
+        }
+
+        [Test]
+        public async Task GetAttrSearchResult_ShouldReturnInternalError_WhenStreamThrowsException()
+        {
+            var mockStream = new Mock<Stream>();
+            mockStream.Setup(s => s.CanRead).Returns(true);
+            mockStream.Setup(s => s.Read(It.IsAny<byte[]>(), It.IsAny<int>(), It.IsAny<int>()))
+                      .Throws(new IOException("Simulated read failure"));
+
+            var searchRequest = new SapSearchRequestModel
+            {
+                ContRep = "ST",
+                DocId = "SAP_descr",
+                CompId = "descr",
+                Pattern = "0+3+001",
+                CaseSensitive = false,
+                NumResults = 1,
+                FromOffset = 0,
+                ToOffset = -1,
+                PVersion = "0045"
+            };
+
+            var component = new SapDocumentComponentModel { Data = mockStream.Object, PVersion = "0045" };
+
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("descr", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("SAP_descr", "ST")).Returns(_archiveRecordMock.Object);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateError("Internal error during attribute search", StatusCodes.Status500InternalServerError))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetAttrSearchResult(searchRequest);
+
+            Assert.That(result, Is.SameAs(expectedResponse));
+        }
+
+        [Test]
+        public async Task GetAttrSearchResult_ShouldRespectCaseSensitivity()
+        {
+            var descriptionData = @"
+100 50 DAIN SomeData
+150 50 DAIN somedata
+200 50 DAIN SOMEDATA
+250 50 DAIN someData
+";
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(descriptionData));
+
+            var searchRequest = new SapSearchRequestModel
+            {
+                ContRep = "ST",
+                DocId = "SAP_descr",
+                CompId = "descr",
+                Pattern = "0+8+SomeData", // exact case match
+                CaseSensitive = true,
+                NumResults = 2,
+                FromOffset = 100,
+                ToOffset = 250,
+                PVersion = "0047"
+            };
+
+            var component = new SapDocumentComponentModel
+            {
+                Data = stream,
+                PVersion = "0047"
+            };
+
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("descr", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("SAP_descr", "ST")).Returns(_archiveRecordMock.Object);
+
+            var expectedResponse = Mock.Of<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateProtocolText("1;100;50;", StatusCodes.Status200OK, "UTF-8"))
+                .Returns(expectedResponse);
+
+            var result = await _service.GetAttrSearchResult(searchRequest);
+
+            Assert.That(result, Is.SameAs(expectedResponse));
         }
 
         #endregion

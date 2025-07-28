@@ -127,5 +127,24 @@ namespace SAPArchiveLink.Tests
             Assert.That(command, Is.Not.Null);
             Assert.That(command.IsValid, Is.True);
         }
+
+        [Test]
+        public void ALCommand_SetsUnknownTemplate_WhenHttpMethodOrUrlIsMissing()
+        {
+            var request = new CommandRequest
+            {
+                Url = "",
+                HttpMethod = string.Empty,
+                Charset = "UTF-8"
+            };
+
+            var command = ALCommand.FromHttpRequest(request);
+
+            Assert.That(command, Is.Not.Null);
+            Assert.That(command.IsValid, Is.False);
+            Assert.That(command.GetTemplate(), Is.EqualTo(ALCommandTemplate.Unknown));
+            Assert.That(command.ValidationError, Does.Contain("Unsupported command"));
+        }
+
     }
 }

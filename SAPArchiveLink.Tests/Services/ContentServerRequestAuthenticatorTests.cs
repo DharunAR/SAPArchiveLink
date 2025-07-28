@@ -53,6 +53,7 @@ namespace SAPArchiveLink.Tests
         public void CheckRequest_UnsupportedProtocolVersion_ReturnsFail()
         {
             _commandMock.Setup(c => c.GetTemplate()).Returns(ALCommandTemplate.GET);
+            _commandMock.Setup(c => c.IsHttpGET()).Returns(true);
             _commandMock.Setup(c => c.GetValue(ALParameter.VarPVersion)).Returns("9999");
             _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
                 .Returns(_errorResponseMock.Object);

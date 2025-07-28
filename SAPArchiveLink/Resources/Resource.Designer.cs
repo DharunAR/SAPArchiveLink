@@ -133,6 +133,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Content Manager SAP ArchiveLink Status.
+        /// </summary>
+        internal static string CMArchiveLinkStatus {
+            get {
+                return ResourceManager.GetString("CMArchiveLinkStatus", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Component(s) appended successfully..
         /// </summary>
         internal static string ComponentAppendedSuccessfully {
@@ -178,6 +187,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Components.
+        /// </summary>
+        internal static string Components {
+            get {
+                return ResourceManager.GetString("Components", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Component(s) updated successfully..
         /// </summary>
         internal static string ComponentUpdatedSuccessfully {
@@ -201,6 +219,15 @@ namespace SAPArchiveLink.Resources {
         internal static string ContRepNotFound {
             get {
                 return ResourceManager.GetString("ContRepNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Created.
+        /// </summary>
+        internal static string Created {
+            get {
+                return ResourceManager.GetString("Created", resourceCulture);
             }
         }
         
@@ -241,11 +268,29 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Document Information.
+        /// </summary>
+        internal static string DocInformation {
+            get {
+                return ResourceManager.GetString("DocInformation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Document {0} and all associated components deleted successfully.
         /// </summary>
         internal static string DocumentAndComponentsDeleted {
             get {
                 return ResourceManager.GetString("DocumentAndComponentsDeleted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Document ID.
+        /// </summary>
+        internal static string DocumentID {
+            get {
+                return ResourceManager.GetString("DocumentID", resourceCulture);
             }
         }
         
@@ -295,6 +340,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Field.
+        /// </summary>
+        internal static string Field {
+            get {
+                return ResourceManager.GetString("Field", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to fromOffset is beyond component length.
         /// </summary>
         internal static string FromOffsetBeyondComponentLength {
@@ -331,6 +385,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Length.
+        /// </summary>
+        internal static string Length {
+            get {
+                return ResourceManager.GetString("Length", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to SAP integration license/feature is not enabled..
         /// </summary>
         internal static string LicenseNotEnabled {
@@ -345,6 +408,15 @@ namespace SAPArchiveLink.Resources {
         internal static string MachingCertNotFound {
             get {
                 return ResourceManager.GetString("MachingCertNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Modified.
+        /// </summary>
+        internal static string Modified {
+            get {
+                return ResourceManager.GetString("Modified", resourceCulture);
             }
         }
         
@@ -412,6 +484,15 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Repositories.
+        /// </summary>
+        internal static string Repositories {
+            get {
+                return ResourceManager.GetString("Repositories", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Search text must not be empty..
         /// </summary>
         internal static string SearchTextMustNotBeEmpty {
@@ -457,11 +538,29 @@ namespace SAPArchiveLink.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Status.
+        /// </summary>
+        internal static string Status {
+            get {
+                return ResourceManager.GetString("Status", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Stream must be readable..
         /// </summary>
         internal static string StreamMustBeReadable {
             get {
                 return ResourceManager.GetString("StreamMustBeReadable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type.
+        /// </summary>
+        internal static string Type {
+            get {
+                return ResourceManager.GetString("Type", resourceCulture);
             }
         }
         
@@ -498,6 +597,15 @@ namespace SAPArchiveLink.Resources {
         internal static string UnsupportedVersion {
             get {
                 return ResourceManager.GetString("UnsupportedVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Value.
+        /// </summary>
+        internal static string Value {
+            get {
+                return ResourceManager.GetString("Value", resourceCulture);
             }
         }
     }
