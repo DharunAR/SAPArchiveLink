@@ -165,7 +165,7 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
-        public async Task ParseMultipartManuallyAsync_ParsesSectionWithFileNameAndExtension1()
+        public async Task ParseMultipartManuallyAsync_ParsesSectionWithFileNameAndWordExtension()
         {
             var boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW";
             var contentType = $"multipart/form-data; boundary={boundary}";

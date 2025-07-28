@@ -13,8 +13,10 @@ builder.Host.UseNLog();
 var logPath = builder.Configuration.GetSection("TRIMConfig:WorkPath").Value;
 if (!string.IsNullOrWhiteSpace(logPath))
 {
-    LogManager.Configuration.Variables["logPath"] = logPath;
-    LogManager.ReconfigExistingLoggers(); // Reapply the variable to all loggers
+    var fullLogPath = Path.Combine(logPath, "logs");
+    Directory.CreateDirectory(fullLogPath);
+    LogManager.Configuration.Variables["logPath"] = fullLogPath;
+    LogManager.ReconfigExistingLoggers(); 
 }
 
 builder.WebHost.ConfigureKestrel(options =>

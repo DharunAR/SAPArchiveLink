@@ -44,55 +44,64 @@ namespace SAPArchiveLink
                 _logger.LogError($"Invalid command: {command.ValidationError}");
                 return new ArchiveLinkResult(errorResponse);
             }
-
-            using var trimRepo = _databaseConnection.GetDatabase();
-            if (!trimRepo.IsProductFeatureActivated())
+            try
             {
-                var errorRes = _commandResponseFactory.CreateError(Resource.LicenseNotEnabled, StatusCodes.Status403Forbidden);
-                _logger.LogError("Product feature is not activated.");
+                using var trimRepo = _databaseConnection.GetDatabase();
+                if (!trimRepo.IsProductFeatureActivated())
+                {
+                    var errorRes = _commandResponseFactory.CreateError(Resource.LicenseNotEnabled, StatusCodes.Status403Forbidden);
+                    _logger.LogError("Product feature is not activated.");
+                    return new ArchiveLinkResult(errorRes);
+                }
+
+                if (!skipAuthTemplates.Contains(command.GetTemplate()) && !string.IsNullOrEmpty(repository))
+                {
+                    var archiveCertificate = trimRepo.GetArchiveCertificate(repository);
+                    if (archiveCertificate == null)
+                    {
+                        var errorResponse = _commandResponseFactory.CreateError(string.Format(Resource.CertificateNotFound, repository), StatusCodes.Status404NotFound);
+                        _logger.LogError($"Archive certificate not found for repository: {repository}");
+                        return new ArchiveLinkResult(errorResponse);
+                    }
+                    if (!archiveCertificate.IsEnabled())
+                    {
+                        var errorResponse = _commandResponseFactory.CreateError(string.Format(Resource.CertificateNotEnabled, repository), StatusCodes.Status403Forbidden);
+                        _logger.LogError($"Archive certificate is not enabled for repository: {repository}");
+                        return new ArchiveLinkResult(errorResponse);
+                    }
+                    var requestAuthResult = _authenticator.CheckRequest(request, command, archiveCertificate);
+                    if (requestAuthResult != null && !requestAuthResult.IsAuthenticated)
+                    {
+                        _logger.LogError($"Authentication failed for command {command.GetTemplate()}: {requestAuthResult.ErrorResponse}");
+                        return new ArchiveLinkResult(requestAuthResult.ErrorResponse);
+                    }
+                }
+                else if (command.GetTemplate() == ALCommandTemplate.SERVERINFO)
+                {
+                    var pVersion = command.GetValue(ALParameter.VarPVersion);
+                    if (string.IsNullOrEmpty(pVersion) || !_authenticator.IsSupportedVersion(pVersion))
+                    {
+                        string version = pVersion ?? "none";
+                        string errorMessage = string.Format(Resource.UnsupportedVersion, version);
+
+                        var errorResponse = _commandResponseFactory.CreateError(errorMessage, StatusCodes.Status400BadRequest);
+                        _logger.LogError(errorMessage);
+                        return new ArchiveLinkResult(errorResponse);
+                    }
+                }
+
+                var response = await ExecuteRequest(context, command);
+
+                _logger.LogInformation($"Command {command.GetTemplate()} executed successfully with status code {response.StatusCode}");
+                return new ArchiveLinkResult(response, _downloadFileHandler);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex.Message);
+                var errorRes = _commandResponseFactory.CreateError(ex.Message, StatusCodes.Status500InternalServerError);
                 return new ArchiveLinkResult(errorRes);
             }
-
-            if (!skipAuthTemplates.Contains(command.GetTemplate()) && !string.IsNullOrEmpty(repository))
-            {
-                var archiveCertificate = trimRepo.GetArchiveCertificate(repository);
-                if (archiveCertificate == null)
-                {
-                    var errorResponse = _commandResponseFactory.CreateError(string.Format(Resource.CertificateNotFound, repository), StatusCodes.Status404NotFound);
-                   _logger.LogError($"Archive certificate not found for repository: {repository}");
-                    return new ArchiveLinkResult(errorResponse);
-                }
-                if (!archiveCertificate.IsEnabled())
-                {
-                    var errorResponse = _commandResponseFactory.CreateError(string.Format(Resource.CertificateNotEnabled, repository), StatusCodes.Status403Forbidden);
-                    _logger.LogError($"Archive certificate is not enabled for repository: {repository}");
-                    return new ArchiveLinkResult(errorResponse);
-                }
-                var requestAuthResult = _authenticator.CheckRequest(request, command, archiveCertificate);
-                if (requestAuthResult != null && !requestAuthResult.IsAuthenticated)
-                {
-                    _logger.LogError($"Authentication failed for command {command.GetTemplate()}: {requestAuthResult.ErrorResponse}");
-                    return new ArchiveLinkResult(requestAuthResult.ErrorResponse);
-                }
-            }
-            else if (command.GetTemplate() == ALCommandTemplate.SERVERINFO)
-            {
-                var pVersion = command.GetValue(ALParameter.VarPVersion);
-                if (string.IsNullOrEmpty(pVersion) || !_authenticator.IsSupportedVersion(pVersion))
-                {
-                    string version = pVersion ?? "none";
-                    string errorMessage = string.Format(Resource.UnsupportedVersion, version);
-
-                    var errorResponse = _commandResponseFactory.CreateError(errorMessage, StatusCodes.Status400BadRequest);
-                    _logger.LogError(errorMessage);
-                    return new ArchiveLinkResult(errorResponse);
-                }
-            }
-
-            var response = await ExecuteRequest(context, command);
-
-            _logger.LogInformation($"Command {command.GetTemplate()} executed successfully with status code {response.StatusCode}");
-            return new ArchiveLinkResult(response, _downloadFileHandler);
+           
         }
 
         private async Task<ICommandResponse> ExecuteRequest(ICommandRequestContext context, ICommand command)
