@@ -9,13 +9,11 @@ namespace SAPArchiveLink
     public class DownloadFileHandler: IDownloadFileHandler
     {
         private readonly string _saveDirectory;
-        private readonly IOptionsMonitor<TrimConfigSettings> _config;
         private readonly ILogHelper<DownloadFileHandler> _logHelper;
 
-        public DownloadFileHandler(IOptionsMonitor<TrimConfigSettings> config,ILogHelper<DownloadFileHandler> logHelper)
+        public DownloadFileHandler(IOptionsMonitor<TrimConfigSettings> config, ILogHelper<DownloadFileHandler> logHelper)
         {
-            _config = config;
-            _saveDirectory = _config.CurrentValue.WorkPath ?? throw new InvalidOperationException(Resource.WorkPathNotSet);
+            _saveDirectory = config.CurrentValue.WorkPath ?? throw new InvalidOperationException(Resource.WorkPathNotSet);
             _logHelper = logHelper ?? throw new ArgumentNullException(nameof(logHelper));
         }
 

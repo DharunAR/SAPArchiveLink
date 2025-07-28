@@ -27,7 +27,7 @@ namespace SAPArchiveLink
                 return;
             }
 
-                if (!initState.IsInitialized)
+            if (!initState.IsInitialized)
             {
                 try
                 {
