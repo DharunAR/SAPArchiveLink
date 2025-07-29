@@ -27,6 +27,12 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
+        public void CommandTemplate_Returns_UPDATE_POST()
+        {
+            Assert.That(_handler.CommandTemplate, Is.EqualTo(ALCommandTemplate.UPDATE_POST));
+        }
+
+        [Test]
         public async Task HandleAsync_ReturnsError_WhenContentTypeIsMissing()
         {
             _httpRequestMock.Setup(r => r.ContentType).Returns((string)null);

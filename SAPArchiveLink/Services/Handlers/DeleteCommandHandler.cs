@@ -33,7 +33,7 @@
             }
             catch (Exception ex)
             {
-                return _responseFactory.CreateError($"{ex.Message}", StatusCodes.Status500InternalServerError);
+                return _responseFactory.CreateError(ex.Message, StatusCodes.Status500InternalServerError);
             }
         }
     }

@@ -38,6 +38,7 @@ namespace SAPArchiveLink.Tests
                 SapDocumentIdGet = () => "DOC123",
                 DateCreatedGet = () => shimTrimDateTime,                
                 ChildSapComponentsGet = () => childSapComponentsGet,
+                DateModifiedGet = () => shimTrimDateTime,
             };
 
             _archiveRecord = new ArchiveRecord(recordShim, _trimConfig, _mockLogger.Object);
@@ -47,6 +48,19 @@ namespace SAPArchiveLink.Tests
         public void TearDown()
         {
             _shimContext.Dispose();
+        }
+
+        [Test]
+        public void ArchiveRecord_ThrowsException_WhenRecordIsNull()
+        {
+            ShimRecord nullRecordShim = null;
+            Assert.Throws<ArgumentNullException>(() => new ArchiveRecord(nullRecordShim, _trimConfig, _mockLogger.Object));
+        }
+
+        [Test]
+        public void ArchiveRecord_ThrowsException_WhenTrimConfigIsNull()
+        {
+            Assert.Throws<ArgumentNullException>(() => new ArchiveRecord(recordShim, null, _mockLogger.Object));
         }
 
         [Test]
@@ -94,10 +108,18 @@ namespace SAPArchiveLink.Tests
                 log => log.LogError("Error saving record DOC123", It.IsAny<Exception>()),
                 Times.Once);
         }
+
         [Test]
         public void DateCreated_ShouldReturnDate()
         { 
             var date = _archiveRecord.DateCreated;
+            Assert.That(date, Is.EqualTo(default(DateTime)));
+        }
+
+        [Test]
+        public void DateModified_ShouldReturnDate()
+        {
+            var date = _archiveRecord.DateModified;
             Assert.That(date, Is.EqualTo(default(DateTime)));
         }
 
@@ -124,6 +146,23 @@ namespace SAPArchiveLink.Tests
 
             var result = ArchiveRecord.GetRecordType(db, config, "REPO1", mockLogger.Object);
             Assert.That(result,Is.Not.Null);
+        }
+
+        [Test]
+        public void GetRecordType_WithValidName_ReturnsNull() 
+        {
+            var mockLogger = new Mock<ILogHelper<ArchiveRecord>>();
+            var db = new ShimDatabase();
+            var config = new TrimConfigSettings { RecordTypeName = "TestType" };
+            ShimDatabase.AllInstances.FindTrimObjectByNameBaseObjectTypesString = (d, type, name) =>
+            {
+                return new ShimRecordType
+                {
+                    UsualBehaviourGet = () => RecordBehaviour.Document
+                };
+            };
+            var result = ArchiveRecord.GetRecordType(db, config, "REPO1", mockLogger.Object);
+            Assert.That(result, Is.Null);
         }
     }
 

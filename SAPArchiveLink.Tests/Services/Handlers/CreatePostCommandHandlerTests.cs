@@ -1,12 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Moq;
-using NUnit.Framework;
-using SAPArchiveLink;
-using SAPArchiveLink.Resources;
 
 namespace SAPArchiveLink.Tests
 {
@@ -36,6 +29,12 @@ namespace SAPArchiveLink.Tests
                 _baseServiceMock.Object,
                 _downloadFileHandlerMock.Object
             );
+        }
+
+        [Test]
+        public void CommandTemplate_Returns_CREATEPOST()
+        {
+            Assert.That(_handler.CommandTemplate, Is.EqualTo(ALCommandTemplate.CREATEPOST));
         }
 
         [Test]

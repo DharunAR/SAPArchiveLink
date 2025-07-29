@@ -11,6 +11,7 @@ namespace SAPArchiveLink.Tests
         private const string TestCertBase64 = "MIIDcTCCAlmgAwIBAgIUKbbGP3R9llY+HFnRNNiqdYlJOSgwDQYJKoZIhvcNAQELBQAwaDELMAkGA1UEBhMCVVMxEzARBgNVBAgMCkNhbGlmb3JuaWExFjAUBgNVBAcMDVNhbiBGcmFuY2lzY28xETAPBgNVBAoMCFRlc3QgT3JnMRkwFwYDVQQDDBB0ZXN0LmV4YW1wbGUuY29tMB4XDTI1MDcyMTA5NDUyMloXDTI2MDcyMTA5NDUyMlowaDELMAkGA1UEBhMCVVMxEzARBgNVBAgMCkNhbGlmb3JuaWExFjAUBgNVBAcMDVNhbiBGcmFuY2lzY28xETAPBgNVBAoMCFRlc3QgT3JnMRkwFwYDVQQDDBB0ZXN0LmV4YW1wbGUuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApwrsPa1HGouOrNSSrqSfqWTSdOfSnDSHIQo0//PQRp49nE9kDFyX0kwZ69unLwYH3JtTFD9C/YgaJWBQotzbSOKnEklpCtLEAWoHbz8MoEiOYxauAETUXoD6OQxlDt6Cpki34xaUov4hwtUBqRpyo0JQl++6YXZHCnD1fCm2mjm6yMnyHe10k66enPGC61lNlFINUAAkB9hgkxzC4/mtEMD5JXpphVStc5+VoSqbp+ol2CXefApErHxZDgw1s8o8GvlCHo3C86WWo0EB5hrtIr5Sg62cLVyRLQ2p8jdGBsTylKLRCJffwLpWZuxhVlLX9DZUaLm9Lhd2ib6xvkQsDwIDAQABoxMwETAPBgNVHRMBAf8EBTADAQH/MA0GCSqGSIb3DQEBCwUAA4IBAQBMHXgg1Rb6H7UdSixzKbFrPBxqvLRq7XhBXTnZtzXd+PLkWa0QmLAROWkw9nUpcLlTJun3XfpmF9TidgPepPvushvi3cNh1ulJ6BVftMpflZD0ZBGMor/IthbFMEY8/TY5Q4hc5tzwa+tRVGuhOYT1wme0O3s0Eal3gS94t9HqIEd4zqZZHNxS7r7BCJAaCW1u0JAxqSM8g0SWLGPh9X6Jm3/eNsSEjkACH5Pi6mPY+CJyPQ7NIt4jYNLbj6vpVf/l+qahqOuil0aqB3skoS7hyPpy0Ik845P+2ePB5Uj9+ChZcFg7KfP/vFDTJBaqcBez9BwJJdKUu37dzqMJbKJE";
         private X509Certificate2 _testCert;
         private ArchiveCertificate _archiveCert;
+        private CertificateFactory _certificateFactory;
 
         [SetUp]
         public void Setup()
@@ -18,6 +19,15 @@ namespace SAPArchiveLink.Tests
             var cert = new X509Certificate2(Convert.FromBase64String(TestCertBase64));
             _testCert = cert;
             _archiveCert = new ArchiveCertificate(_testCert, "test-auth-id", 5, true);
+            _certificateFactory = new CertificateFactory();
+        }
+
+        [Test]
+        public void CertificateFactory_ReturnsIArchiveCertificate()
+        {
+            var certBytes = _testCert.RawData;
+            var archiveCert = _certificateFactory.FromByteArray(certBytes);
+            Assert.That(archiveCert, Is.InstanceOf<IArchiveCertificate>());
         }
 
         [Test]

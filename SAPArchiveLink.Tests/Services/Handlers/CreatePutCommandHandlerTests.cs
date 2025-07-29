@@ -30,7 +30,7 @@ namespace SAPArchiveLink.Tests
     //        return await Task.FromResult(_componentsToReturn);
     //    }
      // }
-        [TestFixture]
+    [TestFixture]
     public class CreatePutCommandHandlerTests
     {
         private Mock<ICommandResponseFactory> _responseFactoryMock;
@@ -53,6 +53,12 @@ namespace SAPArchiveLink.Tests
             _contextMock = new Mock<ICommandRequestContext>();
             _httpContext = new DefaultHttpContext();
             _commandResponseMock = new Mock<ICommandResponse>();
+        }
+
+        [Test]
+        public void CommandTemplate_Returns_CREATEPUT()
+        {
+            Assert.That(_handler.CommandTemplate, Is.EqualTo(ALCommandTemplate.CREATEPUT));
         }
 
         [Test]

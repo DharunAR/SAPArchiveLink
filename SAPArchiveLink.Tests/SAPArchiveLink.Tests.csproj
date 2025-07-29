@@ -10,13 +10,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="TestDocuments\Test.docx" />
-    <None Remove="TestDocuments\Test.pdf" />
-    <None Remove="TestDocuments\Test.txt" />
-    <None Remove="TestDocuments\Test.xlsx" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="TestDocuments\Test.docx">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

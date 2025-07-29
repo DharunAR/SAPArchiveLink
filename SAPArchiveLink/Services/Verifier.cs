@@ -25,15 +25,6 @@ namespace SAPArchiveLink
             }
         }
 
-        public void SetRawCertificates(X509Certificate2 certificate)
-        {
-            _rawCertificates = new X509Certificate2Collection();
-            if (certificate != null)
-            {
-                _rawCertificates.Add(certificate);
-            }
-        }
-
         public void SetSignedData(byte[] signedData)
         {
             _signedData = signedData ?? throw new ArgumentNullException(nameof(signedData));
@@ -59,26 +50,30 @@ namespace SAPArchiveLink
 
                 var signerInfo = signedCms.SignerInfos[0];
 
-                // Try to match the certificate manually from trusted collection
+                // Match signer cert from known certificates
 
-                foreach (var cert in _rawCertificates)
+                if (_rawCertificates != null)
                 {
-                    if (signerInfo.Certificate != null && cert.Thumbprint == signerInfo.Certificate.Thumbprint)
+                    foreach (var cert in _rawCertificates)
                     {
-                        _verifiedCertificate = cert;
-                        break;
-                    }
-                    // Try to match issuer + serial
-                    var si = signerInfo.SignerIdentifier;
-                    if (si?.Type == SubjectIdentifierType.IssuerAndSerialNumber && si.Value is X509IssuerSerial issuerSerial)
-                    {
-                        bool issuerMatches = cert.Issuer == issuerSerial.IssuerName;
-                        bool serialMatches = cert.SerialNumber.Equals(issuerSerial.SerialNumber, StringComparison.OrdinalIgnoreCase);
-
-                        if (issuerMatches && serialMatches)
+                        if (signerInfo.Certificate != null &&
+                            cert.Thumbprint == signerInfo.Certificate.Thumbprint)
                         {
                             _verifiedCertificate = cert;
                             break;
+                        }
+
+                        var si = signerInfo.SignerIdentifier;
+                        if (si?.Type == SubjectIdentifierType.IssuerAndSerialNumber && si.Value is X509IssuerSerial issuerSerial)
+                        {
+                            bool issuerMatches = cert.Issuer == issuerSerial.IssuerName;
+                            bool serialMatches = cert.SerialNumber.Equals(issuerSerial.SerialNumber, StringComparison.OrdinalIgnoreCase);
+
+                            if (issuerMatches && serialMatches)
+                            {
+                                _verifiedCertificate = cert;
+                                break;
+                            }
                         }
                     }
                 }
@@ -86,14 +81,7 @@ namespace SAPArchiveLink
                 if (_verifiedCertificate == null)
                     throw new CryptographicException(Resource.MachingCertNotFound);
 
-
-                if (_certificate != null && _requiredPermission >= 0)
-                {
-                    int granted = _certificate.GetPermission();
-                    if ((granted & _requiredPermission) == 0)
-                        throw new UnauthorizedAccessException(Resource.PermissionDenied);
-                }
-
+                CheckPermissions();
                 _verifiedCertificate.Verify();
             }
             catch (Exception)
@@ -101,22 +89,16 @@ namespace SAPArchiveLink
                 try
                 {
                     var cert = new X509Certificate2(_signedData);
+
                     if (!cert.Verify())
                         throw new CryptographicException(Resource.CertVerificationFailed);
-                    _verifiedCertificate = cert;
 
-                    if (cert == null)
-                        throw new InvalidOperationException(Resource.NoSignerCertFound);
+                    _verifiedCertificate = cert;
 
                     if (_certificate != null && cert.Thumbprint != _certificate.GetCertificate().Thumbprint)
                         throw new SecurityException(Resource.SignerCertNotMatch);
 
-                    if (_certificate != null && _requiredPermission >= 0)
-                    {
-                        int granted = _certificate.GetPermission();
-                        if ((granted & _requiredPermission) == 0)
-                            throw new UnauthorizedAccessException(Resource.PermissionDenied);
-                    }
+                    CheckPermissions();
                 }
                 catch (Exception fallbackEx)
                 {
@@ -124,6 +106,17 @@ namespace SAPArchiveLink
                 }
             }
         }
+
+        private void CheckPermissions()
+        {
+            if (_certificate != null && _requiredPermission >= 0)
+            {
+                int granted = _certificate.GetPermission();
+                if ((granted & _requiredPermission) == 0)
+                    throw new UnauthorizedAccessException(Resource.PermissionDenied);
+            }
+        }
+
 
         public X509Certificate2 GetCertificate(int index = -1)
         {
