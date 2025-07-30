@@ -93,7 +93,6 @@ namespace SAPArchiveLink.Tests
             _httpContext.Request.Body = stream;
             _httpContext.Request.Headers["charset"] = charset;
             _httpContext.Request.Headers["version"] = version;
-            _httpContext.Request.Headers["docprot"] = docprot;
             _httpContext.Request.ContentLength = 3;
 
             _commandMock.Setup(c => c.GetValue(ALParameter.VarDocId)).Returns(docId);
@@ -104,6 +103,7 @@ namespace SAPArchiveLink.Tests
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAccessMode)).Returns("access");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarAuthId)).Returns("authid");
             _commandMock.Setup(c => c.GetValue(ALParameter.VarExpiration)).Returns("exp");
+            _commandMock.Setup(c => c.GetValue(ALParameter.VarDocProt)).Returns(docprot);
 
             _downloadFileHandlerMock
     .Setup(d => d.HandleRequestAsync(It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<string>()))

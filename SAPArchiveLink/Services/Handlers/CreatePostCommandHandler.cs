@@ -37,7 +37,7 @@ namespace SAPArchiveLink
                     Stream = request.Body,
                     Charset = request.Headers["charset"].ToString(),
                     Version = request.Headers["version"].ToString(),
-                    DocProt = request.Headers["docprot"].ToString(),
+                    DocProt = command.GetValue(ALParameter.VarDocProt),
                     Components = SapDocumentComponentModel,
                     ContentType = request.ContentType,
                 };
