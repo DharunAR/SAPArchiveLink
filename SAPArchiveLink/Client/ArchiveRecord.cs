@@ -291,7 +291,7 @@ namespace SAPArchiveLink
         {
             return rt.SapTitleTemplate
                 .Replace("%docid%", model.DocId)
-                .Replace("%date%", now.ToShortTimeString())
+                .Replace("%date%", now.ToString("g"))
                 .Replace("%prot%", model.DocProt)
                 .Replace("%alvsn%", model.PVersion)
                 .Replace("%contrep%", model.ContRep);
