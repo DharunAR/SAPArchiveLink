@@ -30,8 +30,14 @@ namespace SAPArchiveLink.Tests
             var childSapComponentsGet=new ShimRecordSapComponents
             {                       
             };
-           
 
+            ShimTrimMainObjectSearch.ConstructorDatabaseBaseObjectTypes = (@this, dbParam, objType) => 
+            {
+                
+            };
+            ShimTrimSearchClause.ConstructorDatabaseBaseObjectTypesSearchClauseIds = (@this, dbParam, objType, clauseId) => 
+            {
+            };
             // Shim Record
             recordShim = new ShimRecord
             {
@@ -160,6 +166,78 @@ namespace SAPArchiveLink.Tests
                 {
                     UsualBehaviourGet = () => RecordBehaviour.Document
                 };
+            };
+            var result = ArchiveRecord.GetRecordType(db, config, "REPO1", mockLogger.Object);
+            Assert.That(result, Is.Null);
+        }
+
+        [Test]
+        public void GetRecordType_WithInvalidName_ReturnsNull()
+        {
+            var mockLogger = new Mock<ILogHelper<ArchiveRecord>>();
+            var db = new ShimDatabase();
+            var config = new TrimConfigSettings { RecordTypeName = "TestType" };
+            ShimDatabase.AllInstances.FindTrimObjectByNameBaseObjectTypesString = (d, type, name) =>
+            {
+                return null;
+            };
+            var result = ArchiveRecord.GetRecordType(db, config, "REPO1", mockLogger.Object);
+            Assert.That(result, Is.Null);
+        }
+
+        [Test]
+        public void GetRecordType_WithContRep_ReturnsTrimRepository()
+        {
+            var mockLogger = new Mock<ILogHelper<ArchiveRecord>>();
+            var db = new ShimDatabase();
+            var config = new TrimConfigSettings { RecordTypeName = "" };
+
+            ShimRecordType.ConstructorDatabaseTrimURI = (instance, database, uri) => { };
+
+            ShimTrimSearchClause.AllInstances.SetCriteriaFromStringString = (instance, value) =>
+            {
+                return true;
+            };
+
+            ShimTrimMainObjectSearch.AllInstances.AddSearchClauseTrimSearchClause = (instance, clause) => { };
+            ShimTrimMainObjectSearch.AllInstances.CountGet = (instance) =>
+            {
+                return 1;
+            };
+            ShimTrimMainObjectSearch.AllInstances.GetResultAsUriArrayInt64 = (max, db) =>
+            {
+                return new ShimTrimURIList();
+            };
+            ShimTrimMainObjectSearch.AllInstances.GetResultAsUriArray = (max) =>
+            {
+                return new long[] { 1 };
+            };
+            ShimRecordType.ConstructorDatabase = (instance, db) => { };
+
+            ShimTrimMainObjectSearch.AllInstances.GetEnumerator = (tmo) =>
+            {
+                return ((IEnumerable<ShimRecord>)new ShimRecord[] { new ShimRecord() }).GetEnumerator();
+            };
+
+            var result = ArchiveRecord.GetRecordType(db, config, "REPO1", mockLogger.Object);
+            Assert.That(result, Is.Not.Null);
+        }
+
+        [Test]
+        public void GetRecordType_WithContRep_ReturnsNull()
+        {
+            var mockLogger = new Mock<ILogHelper<ArchiveRecord>>();
+            var db = new ShimDatabase();
+            var config = new TrimConfigSettings { RecordTypeName = "" };
+            ShimRecordType.ConstructorDatabaseTrimURI = (instance, database, uri) => { };
+            ShimTrimSearchClause.AllInstances.SetCriteriaFromStringString = (instance, value) =>
+            {
+                return false;
+            };
+            ShimTrimMainObjectSearch.AllInstances.AddSearchClauseTrimSearchClause = (instance, clause) => { };
+            ShimTrimMainObjectSearch.AllInstances.CountGet = (instance) =>
+            {
+                return 0;
             };
             var result = ArchiveRecord.GetRecordType(db, config, "REPO1", mockLogger.Object);
             Assert.That(result, Is.Null);
