@@ -1,8 +1,6 @@
 ﻿using NUnit.Framework;
 using TRIM.SDK;
 using TRIM.SDK.Fakes;
-using SAPArchiveLink;
-using System;
 using Microsoft.QualityTools.Testing.Fakes;
 using Moq;
 namespace SAPArchiveLink.Tests
@@ -31,10 +29,7 @@ namespace SAPArchiveLink.Tests
             {                       
             };
 
-            ShimTrimMainObjectSearch.ConstructorDatabaseBaseObjectTypes = (@this, dbParam, objType) => 
-            {
-                
-            };
+            ShimTrimMainObjectSearch.ConstructorDatabaseBaseObjectTypes = (@this, dbParam, objType) => { };
             ShimTrimSearchClause.ConstructorDatabaseBaseObjectTypesSearchClauseIds = (@this, dbParam, objType, clauseId) => 
             {
             };
@@ -48,12 +43,6 @@ namespace SAPArchiveLink.Tests
             };
 
             _archiveRecord = new ArchiveRecord(recordShim, _trimConfig, _mockLogger.Object);
-        }
-
-        [TearDown]
-        public void TearDown()
-        {
-            _shimContext.Dispose();
         }
 
         [Test]
@@ -77,17 +66,12 @@ namespace SAPArchiveLink.Tests
                 SapDocumentIdGet = () => "DOC123"
             };
 
-            ShimTrimMainObject.AllInstances.Save = (tmo) =>
-            {
-            };
+            ShimTrimMainObject.AllInstances.Save = (tmo) => {};
           
             var archiveRecord = new ArchiveRecord(recordShim, _trimConfig, _mockLogger.Object);
             archiveRecord.Save();
 
-            // Assert
-            _mockLogger.Verify(
-                log => log.LogInformation("Record DOC123 saved successfully."),
-                Times.Once);
+            _mockLogger.Verify(log => log.LogInformation("Record DOC123 saved successfully."), Times.Once);
         }
 
         [Test]
@@ -103,7 +87,7 @@ namespace SAPArchiveLink.Tests
                 SapDocumentIdGet = () => "DOC123"                
             };
 
-           ShimTrimMainObject.AllInstances.Save = (tmo) =>throw new InvalidOperationException("Save failed");  
+            ShimTrimMainObject.AllInstances.Save = (tmo) =>throw new InvalidOperationException("Save failed");  
           
             var archiveRecord = new ArchiveRecord(recordShim, trimConfig, mockLogger.Object);
           
@@ -133,6 +117,56 @@ namespace SAPArchiveLink.Tests
         public void ComponentCount_ShouldReturnZero()
         {
             Assert.That(_archiveRecord.ComponentCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CreateNewArchiveRecord_WithValidRecordType_ShouldReturnArchiveRecord()
+        {
+            var mockLogger = new Mock<ILogHelper<ArchiveRecord>>();
+            var db = new ShimDatabase();
+            var trimConfig = new TrimConfigSettings { WorkPath = "C:\\Trim\\Work", RecordTypeName = "SAPTest" };
+            ShimRecord.ConstructorDatabaseRecordType = (instance, database, recordType) => { };
+            ShimRecord.AllInstances.SapReposIdSetString = (d, value) => { };
+            ShimRecord.AllInstances.TypedTitleSetString = (d, value) => { };
+            ShimRecord.AllInstances.SapArchiveLinkVsnSetString = (d, value) => { };
+            ShimRecord.AllInstances.SapDocumentProtectionSetString = (d, value) => { };
+            ShimRecord.AllInstances.SapArchiveDateSetTrimDateTime = (d, value) => { };
+            ShimRecord.AllInstances.SapModifiedDateSetTrimDateTime = (d, value) => { };
+            ShimRecord.AllInstances.SapDocumentIdSetString = (d, value) => { };
+            ShimRecordType.AllInstances.SapTitleTemplateGet = (value) => { return "%contrep %docid"; };
+            ShimDatabase.AllInstances.FindTrimObjectByNameBaseObjectTypesString = (d, type, name) =>
+            {
+                return new ShimRecordType
+                {
+                    UsualBehaviourGet = () => RecordBehaviour.SapDocument
+                };
+            };
+            ShimTrimDateTime.ConstructorDateTime = (t, d) => { };
+            var archiveRecord = ArchiveRecord.CreateNewArchiveRecord(db, trimConfig, mockLogger.Object, new CreateSapDocumentModel() { DocId = "docId", ContentLength = "100", ContRep = "CM", PVersion = "0047", DocProt = "r"});
+            Assert.That(archiveRecord, Is.Not.Null);
+        }
+
+        [Test]
+        public void CreateNewArchiveRecord_ReturnsNull_WhenRecordTypeNotFound()
+        {
+            bool isErrorMessageLogged = false;
+            var mockLogger = new Mock<ILogHelper<ArchiveRecord>>();
+            var db = new ShimDatabase();
+            var trimConfig = new TrimConfigSettings { WorkPath = "C:\\Trim\\Work", RecordTypeName = "SAPTest" };
+            ShimDatabase.AllInstances.FindTrimObjectByNameBaseObjectTypesString = (d, type, name) =>
+            {
+                return null;
+            };
+            ShimTrimApplication.GetMessageImplDatabaseInt32StringArray = (db, id, args) =>
+            {
+                isErrorMessageLogged = true;
+                return "Record type not found";
+            };
+            ShimStringArray.Constructor = (instance) => { };
+            ShimStringArray.AllInstances.AddString = (instance, value) => { };
+            var archiveRecord = ArchiveRecord.CreateNewArchiveRecord(db, trimConfig, mockLogger.Object, new CreateSapDocumentModel() { DocId = "docId", ContentLength = "100", ContRep = "CM", PVersion = "0047", DocProt = "r" });
+            Assert.That(archiveRecord, Is.Null);
+            Assert.That(isErrorMessageLogged, Is.True);
         }
 
         [Test]
@@ -242,6 +276,11 @@ namespace SAPArchiveLink.Tests
             var result = ArchiveRecord.GetRecordType(db, config, "REPO1", mockLogger.Object);
             Assert.That(result, Is.Null);
         }
-    }
 
+        [TearDown]
+        public void TearDown()
+        {
+            _shimContext.Dispose();
+        }
+    }
 }
