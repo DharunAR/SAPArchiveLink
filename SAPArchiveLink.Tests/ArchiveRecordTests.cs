@@ -3,6 +3,7 @@ using TRIM.SDK;
 using TRIM.SDK.Fakes;
 using Microsoft.QualityTools.Testing.Fakes;
 using Moq;
+using SAPArchiveLink.Fakes;
 namespace SAPArchiveLink.Tests
 {
     [TestFixture]
@@ -13,10 +14,12 @@ namespace SAPArchiveLink.Tests
         private Mock<ILogHelper<ArchiveRecord>> _mockLogger;
         private TrimConfigSettings _trimConfig;
         private ShimRecord recordShim;
+        private Mock<IRecordSapComponent> _recordSapComponentMock;
 
         [SetUp]
         public void Setup()
         {           
+            _recordSapComponentMock = new Mock<IRecordSapComponent>();
             _shimContext = ShimsContext.Create();
              _mockLogger = new Mock<ILogHelper<ArchiveRecord>>();
              _trimConfig = new TrimConfigSettings { WorkPath = "C:\\Trim\\Work" };
@@ -41,7 +44,24 @@ namespace SAPArchiveLink.Tests
                 ChildSapComponentsGet = () => childSapComponentsGet,
                 DateModifiedGet = () => shimTrimDateTime,
             };
-
+            ShimTrimDateTime.AllInstances.IsClearGet = (t) => { return false; };
+            ShimTrimDateTime.AllInstances.IsTimeClearGet = (t) => { return false; };
+            ShimTrimDateTime.AllInstances.YearGet = (y) => { return 2024; };
+            ShimTrimDateTime.AllInstances.MonthGet = (M365Site) => { return 2; };
+            ShimTrimDateTime.AllInstances.DayInMonthGet = (d) => { return 2; };
+            ShimTrimDateTime.AllInstances.SecondGet = (s) => { return 11; };
+            ShimTrimDateTime.AllInstances.HourGet = (h) => { return 11; };
+            ShimTrimDateTime.AllInstances.SecondInDayGet = (s) => { return 60; };
+            ShimTrimDateTime.AllInstances.MinuteGet = (m) => { return 11; };
+            ShimTrimDateTime.ConstructorDateTime = (t, d) => { };
+            ShimTrimDateTime.NowGet = () =>
+            {
+                var fakeShim = new ShimTrimDateTime()
+                {
+                    DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11)
+                };
+                return fakeShim.Instance;
+            };
             _archiveRecord = new ArchiveRecord(recordShim, _trimConfig, _mockLogger.Object);
         }
 
@@ -276,8 +296,94 @@ namespace SAPArchiveLink.Tests
             var result = ArchiveRecord.GetRecordType(db, config, "REPO1", mockLogger.Object);
             Assert.That(result, Is.Null);
         }
+        [Test]
+        public void ExtractComponentMetadata_ShouldMapPropertiesCorrectly()
+        {           
+            using (ShimsContext.Create())
+            {
+                // Arrange
+                var fakeComponent = new ShimRecordSapComponent
+                {
+                    ComponentIdGet = () => "COMP123",
+                    ContentTypeGet = () => null,  
+                    CharacterSetGet = () => null, 
+                    ApplicationVersionGet = () => "1.2.3",
+                    BytesGet = () => 1024,
+                    ArchiveDateGet = () => DateTime.Now,
+                    DateModifiedGet = () => DateTime.Now,
+                    ArchiveLinkVersionGet = () => "A001"
+                };
+                ShimRecordSapComponent.AllInstances.ArchiveDateSetTrimDateTime = (d, value) => { };
+                ShimRecordSapComponent.AllInstances.DateModifiedSetTrimDateTime = (d, value) => { };
+                ShimRecordSapComponent.AllInstances.DateModifiedGet = (_) => DateTime.Now;              
+                ShimRecordSapComponent.AllInstances.ArchiveDateGet = (_) => DateTime.Now;
+               
+               
+                // Act
+                var result = _archiveRecord.ExtractComponentMetadata(fakeComponent);
 
-        [TearDown]
+                // Assert
+                Assert.That(result.CompId, Is.EqualTo("COMP123"));
+                Assert.That(result.ContentType, Is.EqualTo("application/octet-stream"));
+                Assert.That(result.Charset, Is.EqualTo("UTF-8"));
+                Assert.That(result.Version, Is.EqualTo("1.2.3"));
+                Assert.That(result.ContentLength, Is.EqualTo(1024));
+                Assert.That(result.CreationDate, Is.EqualTo(new DateTime(2024, 2, 2, 11,11,11)));
+                Assert.That(result.ModifiedDate, Is.EqualTo(new DateTime(2024, 2, 2, 11, 11, 11)));
+                Assert.That(result.Status, Is.EqualTo("online"));
+                Assert.That(result.PVersion, Is.EqualTo("A001"));
+            }
+        }
+        [Test]
+        public void AddComponent_Should_Call_AddComponent_And_Log_Info()
+        {
+            using (ShimsContext.Create())
+            {
+                var called = true;
+                            
+                ShimRecordSapComponentsAdapter.ConstructorRecordSapComponents = (instance, sdkComponents) =>
+                {
+                    var shimAdapter = new ShimRecordSapComponentsAdapter(instance)
+                    {
+                        AddComponentStringStringStringStringString = (compId, version, contentType, charset, filePath) =>
+                        {                           
+                            Assert.That(compId, Is.EqualTo("comp1"));                           
+                        }
+                    };
+                };
+
+                _archiveRecord.AddComponent("comp1", "/path/to/file.pdf", "application/pdf", "UTF-8", "1.0");
+
+              
+                Assert.That(called, "AddComponent was called");
+
+                _mockLogger.Verify(
+                    x => x.LogInformation(It.Is<string>(s => s.Contains("Adding component 'comp1' to record DOC123"))),
+                    Times.Once);
+            }
+        }
+
+        [Test]
+        public void UpdateComponent_Should_Set_Fields_Correctly()
+        {
+            using (ShimsContext.Create())
+            {
+                // Arrange
+                var model = new SapDocumentComponentModel
+                {
+                    ContentType = "application/pdf",
+                    Charset = "UTF-8",
+                    Version = "1.0",
+                    PVersion = "0045",
+                    FileName = "sample.pdf",
+                    ModifiedDate = new DateTime(2024, 2, 2, 11, 11, 11)
+                };             
+          
+                _archiveRecord.UpdateComponent(_recordSapComponentMock.Object, model);
+                _recordSapComponentMock.VerifySet(x=>x.ContentType= "application/pdf", Times.AtLeastOnce);
+            }
+        }
+            [TearDown]
         public void TearDown()
         {
             _shimContext.Dispose();
