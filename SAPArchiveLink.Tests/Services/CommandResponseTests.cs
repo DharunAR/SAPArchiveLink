@@ -76,7 +76,7 @@ namespace SAPArchiveLink.Tests
         {
             var response = CommandResponse.ForError("Something went wrong", StatusCodes.Status500InternalServerError);
 
-            Assert.That(response.TextContent, Is.EqualTo("ErrorMessage=Something went wrong"));
+            Assert.That(response.ErrorContent, Is.EqualTo("ErrorMessage=Something went wrong"));
             Assert.That(response.StatusCode, Is.EqualTo(StatusCodes.Status500InternalServerError));
             Assert.That(response.ContentType, Is.EqualTo("text/plain; charset=UTF-8"));
             Assert.That(response.IsStream, Is.False);

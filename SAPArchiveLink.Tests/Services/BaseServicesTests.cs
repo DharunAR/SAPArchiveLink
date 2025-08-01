@@ -1771,6 +1771,43 @@ namespace SAPArchiveLink.Tests
             // Assert
             _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
         }
+        [Test]
+        public async Task GetSearchResult_ReturnsProtocolPPT_WhenSearchSucceeds()
+        {
+            // Arrange
+            var request = new SapSearchRequestModel { DocId = "doc1", CompId = "comp1", PVersion = "v1", Pattern = "test", ContRep = "ST" };
+            var repoMock = new Mock<ITrimRepository>();
+            var recordMock = new Mock<IArchiveRecord>();
+
+            string filePath = Path.Combine(AppContext.BaseDirectory, "TestDocuments", "Test.pptx");
+            await using var fileStream = File.OpenRead(filePath);
+            var memoryStream = new MemoryStream();
+            await fileStream.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            var component = new SapDocumentComponentModel
+            {
+                ContentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                Data = memoryStream
+            };
+            _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(repoMock.Object);
+            repoMock.Setup(r => r.GetRecord(It.IsAny<string>(), It.IsAny<string>())).Returns(recordMock.Object);
+            recordMock.Setup(r => r.ExtractComponentById(It.IsAny<string>(), true)).ReturnsAsync(component);
+
+            // Patch the TextExtractorFactory for this test
+            TextExtractorFactory.Register("application/vnd.openxmlformats-officedocument.presentationml.presentation", new PowerPointTextExtractor());
+
+            var responseMock = new Mock<ICommandResponse>();
+            _responseFactoryMock
+                .Setup(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()))
+                .Returns(responseMock.Object);
+
+            // Act
+            await _service.GetSearchResult(request);
+
+            // Assert
+            _responseFactoryMock.Verify(f => f.CreateProtocolText(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string>()), Times.Once);
+        }
 
         [Test]
         public async Task GetSearchResult_ReturnsProtocolPDF_WhenSearchSucceeds()
@@ -2167,6 +2204,197 @@ namespace SAPArchiveLink.Tests
             _archiveRecordMock.Verify(r => r.SetRecordMetadata(), Times.Once);
             _archiveRecordMock.Verify(r => r.Save(), Times.Once);            
         }
+
+        [Test]
+        public async Task AppendPPTX_AppendsComponent_Successfully()
+        {
+            string newFilePath = Path.Combine(AppContext.BaseDirectory, "TestDocuments", "Test.pptx");
+            var newData = new MemoryStream(File.ReadAllBytes(newFilePath));
+
+            string originalFilePath = Path.Combine(AppContext.BaseDirectory, "TestDocuments", "TestToAppend.pptx");
+            var originalData = new MemoryStream(File.ReadAllBytes(originalFilePath));
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "0046",
+                StreamData = newData,
+            };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "comp1",
+                ContentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                ContentLength = 123,
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active",
+                PVersion = "0045",
+                Data = originalData,
+                FileName = "TestPPT.pptx",
+                RecordSapComponent = _recordSapComponentMock.Object
+
+            };
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
+            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), StatusCodes.Status200OK, "UTF-8"))
+                .Returns(Mock.Of<ICommandResponse>());
+            DocumentAppenderFactory.Register(".pptx", new PowerPointSlideAppender());
+
+            _downloadFileHandlerMock.Setup(h => h.DownloadDocument(It.IsAny<Stream>(), It.IsAny<string>()))
+             .ReturnsAsync("TestPPT.pptx");
+            // Act
+            var result = await _service.AppendDocument(model);
+
+            // Assert
+            Assert.That(result, Is.Not.Null);
+            _archiveRecordMock.Verify(r => r.SetRecordMetadata(), Times.Once);
+            _archiveRecordMock.Verify(r => r.Save(), Times.Once);
+        }
+
+        [Test]
+        public async Task AppendDocx_AppendsComponent_Successfully()
+        {
+            string newFilePath = Path.Combine(AppContext.BaseDirectory, "TestDocuments", "Test.docx");
+            var newData = new MemoryStream(File.ReadAllBytes(newFilePath));
+
+            string originalFilePath = Path.Combine(AppContext.BaseDirectory, "TestDocuments", "TestToAppend.docx");
+            var originalData = new MemoryStream(File.ReadAllBytes(originalFilePath));
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "0046",
+                StreamData = newData,
+            };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "comp1",
+                ContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ContentLength = 123,
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active",
+                PVersion = "0045",
+                Data = originalData,
+                FileName = "TestPPT.docx",
+                RecordSapComponent = _recordSapComponentMock.Object
+
+            };
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
+            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), StatusCodes.Status200OK, "UTF-8"))
+                .Returns(Mock.Of<ICommandResponse>());
+            DocumentAppenderFactory.Register(".docx", new WordDocumentAppender());
+
+            _downloadFileHandlerMock.Setup(h => h.DownloadDocument(It.IsAny<Stream>(), It.IsAny<string>()))
+             .ReturnsAsync("Testdoc.docx");
+            // Act
+            var result = await _service.AppendDocument(model);
+
+            // Assert
+            Assert.That(result, Is.Not.Null);
+            _archiveRecordMock.Verify(r => r.SetRecordMetadata(), Times.Once);
+            _archiveRecordMock.Verify(r => r.Save(), Times.Once);
+        }
+        [Test]
+        public async Task AppendXLSX_AppendsComponent_Successfully()
+        {
+            string newFilePath = Path.Combine(AppContext.BaseDirectory, "TestDocuments", "Test.xlsx");
+            var newData = new MemoryStream(File.ReadAllBytes(newFilePath));
+
+            string originalFilePath = Path.Combine(AppContext.BaseDirectory, "TestDocuments", "TestToAppend.xlsx");
+            var originalData = new MemoryStream(File.ReadAllBytes(originalFilePath));
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "0046",
+                StreamData = newData,
+            };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "comp1",
+                ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ContentLength = 123,
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active",
+                PVersion = "0045",
+                Data = originalData,
+                FileName = "Test.xlsx",
+                RecordSapComponent = _recordSapComponentMock.Object
+
+            };
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
+            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), StatusCodes.Status200OK, "UTF-8"))
+                .Returns(Mock.Of<ICommandResponse>());
+            DocumentAppenderFactory.Register(".xlsx", new ExcelDocumentAppender());
+
+            _downloadFileHandlerMock.Setup(h => h.DownloadDocument(It.IsAny<Stream>(), It.IsAny<string>()))
+             .ReturnsAsync("Testxl.xlsx");
+            // Act
+            var result = await _service.AppendDocument(model);
+
+            // Assert
+            Assert.That(result, Is.Not.Null);
+            _archiveRecordMock.Verify(r => r.SetRecordMetadata(), Times.Once);
+            _archiveRecordMock.Verify(r => r.Save(), Times.Once);
+        }
+        [Test]
+        public async Task AppendPDF_AppendsComponent_Successfully()
+        {
+            string newFilePath = Path.Combine(AppContext.BaseDirectory, "TestDocuments", "Test.pdf");
+            var newData = new MemoryStream(File.ReadAllBytes(newFilePath));
+
+            string originalFilePath = Path.Combine(AppContext.BaseDirectory, "TestDocuments", "TestToAppend.pdf");
+            var originalData = new MemoryStream(File.ReadAllBytes(originalFilePath));
+            // Arrange
+            var model = new AppendSapDocCompModel
+            {
+                DocId = "doc1",
+                ContRep = "rep1",
+                CompId = "comp1",
+                PVersion = "0046",
+                StreamData = newData,
+            };
+            var component = new SapDocumentComponentModel
+            {
+                CompId = "comp1",
+                ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ContentLength = 123,
+                CreationDate = DateTime.UtcNow,
+                ModifiedDate = DateTime.UtcNow,
+                Status = "active",
+                PVersion = "0045",
+                Data = originalData,
+                FileName = "Test.pdf",
+                RecordSapComponent = _recordSapComponentMock.Object
+
+            };
+            _archiveRecordMock.Setup(r => r.ExtractComponentById("comp1", true)).ReturnsAsync(component);
+            _trimRepoMock.Setup(r => r.GetRecord("doc1", "rep1")).Returns(_archiveRecordMock.Object);
+            _responseFactoryMock.Setup(f => f.CreateProtocolText(It.IsAny<string>(), StatusCodes.Status200OK, "UTF-8"))
+                .Returns(Mock.Of<ICommandResponse>());
+            DocumentAppenderFactory.Register(".pdf", new PdfDocumentAppender());
+
+            _downloadFileHandlerMock.Setup(h => h.DownloadDocument(It.IsAny<Stream>(), It.IsAny<string>()))
+             .ReturnsAsync("Testpdf.pdf");
+            // Act
+            var result = await _service.AppendDocument(model);
+
+            // Assert
+            Assert.That(result, Is.Not.Null);
+            _archiveRecordMock.Verify(r => r.SetRecordMetadata(), Times.Once);
+            _archiveRecordMock.Verify(r => r.Save(), Times.Once);
+        }
+
 
         [Test]
         public async Task AppendDocument_ReturnsError_WhenFailed_InvalidFileType()

@@ -1,5 +1,6 @@
 ﻿using DocumentFormat.OpenXml.Packaging;
 using System.Text;
+using Draw = DocumentFormat.OpenXml.Drawing;
 
 namespace SAPArchiveLink
 {
@@ -21,7 +22,7 @@ namespace SAPArchiveLink
 
             foreach (var slidePart in presentationPart.SlideParts)
             {
-                var texts = slidePart.Slide.Descendants<A.Text>();
+                var texts = slidePart.Slide.Descendants<Draw.Text>();
                 foreach (var text in texts)
                 {
                     sb.AppendLine(text.Text);

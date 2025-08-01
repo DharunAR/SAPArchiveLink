@@ -83,7 +83,7 @@ namespace SAPArchiveLink.Tests
         {
             var result = _factory.CreateError("Something failed", StatusCodes.Status500InternalServerError);
 
-            Assert.That(result.TextContent, Is.EqualTo("ErrorMessage=Something failed"));
+            Assert.That(result.ErrorContent, Is.EqualTo("ErrorMessage=Something failed"));
             Assert.That(result.StatusCode, Is.EqualTo(StatusCodes.Status500InternalServerError));
             Assert.That(result.ContentType, Is.EqualTo("text/plain; charset=UTF-8"));
             Assert.That(result.IsStream, Is.False);
