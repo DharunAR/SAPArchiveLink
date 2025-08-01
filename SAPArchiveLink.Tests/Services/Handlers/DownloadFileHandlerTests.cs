@@ -72,6 +72,20 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
+        public async Task HandleRequestAsync_Singlepart_ReturnsComponent_WhenContentType_IsEmpty()
+        {
+            var docId = "doc1";
+            var contentType = "";
+            using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("data"));
+
+            var result = await _handler.HandleRequestAsync(contentType, stream, docId);
+
+            Assert.That(result, Has.Count.EqualTo(1));
+            Assert.That(result[0].FileName, Does.Contain(docId));
+            Assert.That(result[0].FileName, Does.Contain(".bin"));
+        }
+
+        [Test]
         public void ClearAllFiles_RemovesFilesInDirectory()
         {
             var uploadsDir = Path.Combine(_workPath, "Uploads");

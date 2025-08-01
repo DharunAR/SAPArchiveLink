@@ -62,20 +62,6 @@ namespace SAPArchiveLink.Tests
         }
 
         [Test]
-        public async Task HandleAsync_ReturnsError_WhenContentTypeIsMissing()
-        {
-            _contextMock.Setup(c => c.GetRequest()).Returns(_httpContext.Request);
-            _httpContext.Request.ContentType = null;
-            _responseFactoryMock.Setup(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status400BadRequest))
-                .Returns(_commandResponseMock.Object);
-
-            var result = await _handler.HandleAsync(_commandMock.Object, _contextMock.Object);
-
-            Assert.That(result, Is.EqualTo(_commandResponseMock.Object));
-            _responseFactoryMock.Verify(f => f.CreateError(It.Is<string>(s => s.Contains("Content-Type")), StatusCodes.Status400BadRequest), Times.Once);
-        }
-
-        [Test]
         public async Task HandleAsync_CallsCreateRecord_WhenContentTypeIsPresent()
         {
             // Arrange
