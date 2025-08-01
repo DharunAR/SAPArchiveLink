@@ -60,11 +60,12 @@ namespace SAPArchiveLink
                 await httpResponse.Body.WriteAsync(Encoding.ASCII.GetBytes($"--{boundary}--\r\n"));
             }
             // Plain text or HTML
-            else if (!_response.IsStream && _response.TextContent != null)
+            else if (!_response.IsStream &&( _response.TextContent != null || _response.ErrorContent != null))
             {
                 var encoding = Encoding.UTF8;
-                httpResponse.ContentLength = encoding.GetByteCount(_response.TextContent);
-                await httpResponse.WriteAsync(_response.TextContent);
+                var content= _response.TextContent ?? _response.ErrorContent ?? string.Empty;
+                httpResponse.ContentLength = encoding.GetByteCount(content);
+                await httpResponse.WriteAsync(content);
             }
         }
 

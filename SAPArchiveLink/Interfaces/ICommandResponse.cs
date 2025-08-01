@@ -4,6 +4,7 @@
     {
         Stream? StreamContent { get; }
         string? TextContent { get; }
+        string? ErrorContent { get; }
         bool IsStream { get; }
         List<SapDocumentComponentModel> Components { get; }
         string Boundary { get; }

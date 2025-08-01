@@ -91,9 +91,16 @@ namespace SAPArchiveLink
                 }
 
                 var response = await ExecuteRequest(context, command);
-
-                _logger.LogInformation($"Command {command.GetTemplate()} executed successfully with status code {response.StatusCode}");
-                return new ArchiveLinkResult(response, _downloadFileHandler);
+                if (response.ErrorContent != null)
+                {
+                    _logger.LogError($"Command {command.GetTemplate()} failed with error: {response.ErrorContent}");
+                    return new ArchiveLinkResult(response);
+                }
+                else
+                {
+                    _logger.LogInformation($"Command {command.GetTemplate()} executed successfully with status code {response.StatusCode}");
+                    return new ArchiveLinkResult(response, _downloadFileHandler);
+                }
             }
             catch (Exception ex)
             {

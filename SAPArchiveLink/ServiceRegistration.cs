@@ -1,4 +1,6 @@
-﻿namespace SAPArchiveLink
+﻿using SAPArchiveLink.Helpers;
+
+namespace SAPArchiveLink
 {
     public static class ServiceRegistration
     {
@@ -52,6 +54,8 @@
             TextExtractorFactory.Register("application/pdf", new PdfTextExtractor());
             TextExtractorFactory.Register("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", new ExcelTextExtractor());
             TextExtractorFactory.Register("application/vnd.openxmlformats-officedocument.wordprocessingml.document", new DocxTextExtractor());
+            TextExtractorFactory.Register("application/vnd.openxmlformats-officedocument.presentationml.presentation", new PowerPointTextExtractor());
+            
         }
         private static void RegisterContentAppender()
         {
@@ -59,6 +63,7 @@
             DocumentAppenderFactory.Register(".pdf", new PdfDocumentAppender());
             DocumentAppenderFactory.Register(".docx", new WordDocumentAppender());
             DocumentAppenderFactory.Register(".xlxs", new ExcelDocumentAppender());
+            DocumentAppenderFactory.Register(".pptx", new PowerPointSlideAppender());
         }
 
         /// <summary>

@@ -8,6 +8,7 @@ namespace SAPArchiveLink
     {
         public Stream? StreamContent { get; private set; }
         public string? TextContent { get; private set; }
+        public string? ErrorContent { get; private set; }
         public bool IsStream { get; private set; }
         public List<SapDocumentComponentModel> Components { get; private set; } = new();
         public string Boundary { get; private set; } = string.Empty;
@@ -127,7 +128,7 @@ namespace SAPArchiveLink
         {
             var response = new CommandResponse
             {
-                TextContent = $"ErrorMessage={message}",
+                ErrorContent = $"ErrorMessage={message}",
                 StatusCode = statusCode,
                 ContentType = $"{MediaTypeNames.Text.Plain}; charset=UTF-8",
                 IsStream = false
