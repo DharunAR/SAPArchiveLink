@@ -37,7 +37,7 @@ namespace SAPArchiveLink
         {
             foreach (RecordSapComponent sdkComponent in _sdkComponents)
             {
-                if (sdkComponent.ComponentId == compId)
+                if (string.Equals(sdkComponent.ComponentId, compId, StringComparison.OrdinalIgnoreCase))
                 {
                     return MapToSapDocumentComponentModel(sdkComponent);
                 }
@@ -54,7 +54,7 @@ namespace SAPArchiveLink
         {
             foreach (RecordSapComponent sdkComponent in _sdkComponents)
             {
-                if (sdkComponent.ComponentId == compId)
+                if (string.Equals(sdkComponent.ComponentId, compId, StringComparison.OrdinalIgnoreCase))
                 {
                     return new RecordSapComponentWrapper(sdkComponent);
                 }

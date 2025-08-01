@@ -25,8 +25,15 @@ namespace SAPArchiveLink
         }
 
         public async Task<List<SapDocumentComponentModel>> HandleRequestAsync(string contentType, Stream body, string docId)
-        {          
-            contentType = NormalizeContentType(contentType);
+        {
+            if (!string.IsNullOrWhiteSpace(contentType))
+            {
+                contentType = NormalizeContentType(contentType);
+            }
+            else
+            {
+                _logHelper.LogWarning("Content-Type is empty. Defaulting to .bin extension.");
+            }
 
             try
             {
@@ -45,20 +52,19 @@ namespace SAPArchiveLink
 
                 if (string.IsNullOrEmpty(contentType) || !contentType.Contains("multipart/form-data"))
                 {
-                   return await ParseSinglepartManuallyAsync(contentType, body, docId);
+                    return await ParseSinglepartManuallyAsync(contentType, body, docId);
                 }
                 else
                 {
-                   return await ParseMultipartManuallyAsync(contentType, body);
+                    return await ParseMultipartManuallyAsync(contentType, body);
                 }
 
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logHelper?.LogError($"Error while processing SAP document with content type: {contentType}", ex);
                 throw;
             }
-            
         }
 
         /// <summary>
@@ -102,9 +108,11 @@ namespace SAPArchiveLink
 
         private static string? GetExtensionFromContentType(string contentType)
         {
-            var provider = new FileExtensionContentTypeProvider();
+            if (!string.IsNullOrWhiteSpace(contentType))
+            {
+                var provider = new FileExtensionContentTypeProvider();
 
-            var customMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                var customMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                     {
                         { "application/x-note", ".note" },
                         { "text/plain", ".txt" },
@@ -112,15 +120,18 @@ namespace SAPArchiveLink
                         { "application/pdf", ".pdf" }
                         // Add more as needed
                     };
-            if (customMappings.TryGetValue(contentType, out var ext))
-            {
-                return ext;
+                if (customMappings.TryGetValue(contentType, out var ext))
+                {
+                    return ext;
+                }
+
+                var mapping = provider.Mappings
+                    .FirstOrDefault(kvp => kvp.Value.Equals(contentType, StringComparison.OrdinalIgnoreCase));
+
+                return !string.IsNullOrEmpty(mapping.Key) ? mapping.Key : ".bin";
             }
 
-            var mapping = provider.Mappings
-                .FirstOrDefault(kvp => kvp.Value.Equals(contentType, StringComparison.OrdinalIgnoreCase));
-
-            return !string.IsNullOrEmpty(mapping.Key) ? mapping.Key : ".bin";
+            return ".bin";
         }
 
         private Task<List<SapDocumentComponentModel>> ParseSinglepartManuallyAsync(string contentType, Stream body, string docId)

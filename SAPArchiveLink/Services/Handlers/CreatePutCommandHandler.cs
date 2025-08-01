@@ -24,12 +24,6 @@ namespace SAPArchiveLink
                 var request = context.GetRequest();
                 string docId = command.GetValue(ALParameter.VarDocId);
 
-                // Ensure contentType is not null or empty
-                if (string.IsNullOrEmpty(request.ContentType))
-                {
-                    return _responseFactory.CreateError(Resource.ContentTypeMissing, StatusCodes.Status400BadRequest);
-                }
-
                 List<SapDocumentComponentModel> SapDocumentComponentModel = await _downloadFileHandler.HandleRequestAsync(request.ContentType, request.Body, docId);
                 var sapDocumentCreateRequest = new CreateSapDocumentModel
                 {
