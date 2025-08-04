@@ -184,7 +184,7 @@ namespace SAPArchiveLink
             list.Add(count);
 
             counters.IncrementCounters(list);
-            counters.Save();          
+            counters.Save();
         }
 
         /// <summary>

@@ -65,10 +65,11 @@ namespace SAPArchiveLink
             {
                 var sapComponent = await ExtractToSapComponent(sdkComponent, extractContent);
                 if (sapComponent != null)
+                {
                     result.Add(sapComponent);
-                _log.LogInformation($"All components from record {_record.SapDocumentId} extracted succesfully");
+                    _log.LogInformation($"Component {sapComponent.CompId} from record {_record.SapDocumentId} extracted succesfully");
+                }
             }
-
             return result;
         }
 

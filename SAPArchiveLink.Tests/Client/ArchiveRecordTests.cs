@@ -363,6 +363,36 @@ namespace SAPArchiveLink.Tests
             }
         }
 
+        [TestCase(null)]
+        [TestCase("")]
+        public void AddComponent_Returns_If_CompId_IsNotAvailable(string? compId)
+        {
+            Assert.DoesNotThrow(() => _archiveRecord.AddComponent(compId, "/path/to/file.pdf", "application/pdf", "UTF-8", "1.0"));
+        }
+
+        [Test]
+        public void AddComponent_When_AddComponent_Throws_Logs_Error_And_Rethrows()
+        {
+            ShimRecordSapComponentsAdapter.ConstructorRecordSapComponents = (instance, sdkComponents) =>
+            {
+                var shimAdapter = new ShimRecordSapComponentsAdapter(instance)
+                {
+                    AddComponentStringStringStringStringString = (compId, version, contentType, charset, filePath) =>
+                    {
+                        throw new InvalidOperationException("Simulated failure");
+                    }
+                };
+            };
+            var ex = Assert.Throws<InvalidOperationException>(() =>
+                _archiveRecord.AddComponent("comp1", "/path/to/file.pdf", "application/pdf", "UTF-8", "1.0")
+            );
+
+            Assert.That(ex.Message, Is.EqualTo("Simulated failure"));
+
+            _mockLogger.Verify(x => x.LogError(It.Is<string>(s => s.Contains("Failed to add component")), It.IsAny<Exception>()), Times.Once);
+        }
+
+
         [Test]
         public void UpdateComponent_Should_Set_Fields_Correctly()
         {
@@ -383,7 +413,227 @@ namespace SAPArchiveLink.Tests
                 _recordSapComponentMock.VerifySet(x=>x.ContentType= "application/pdf", Times.AtLeastOnce);
             }
         }
-            [TearDown]
+
+        [Test]
+        public void ArchiveRecord_FindComponentById_Should_Find_ComponentById()
+        {
+            var archiveRecord = GetRecordWithComponents();
+            var comp = archiveRecord.FindComponentById("comp2");
+            Assert.That(comp, Is.Not.Null);
+            Assert.That(comp, Is.InstanceOf<IRecordSapComponent>());
+            Assert.That(comp.ComponentId, Is.EqualTo("COMP2"));
+        }
+
+        [Test]
+        public void ArchiveRecord_FindComponentById_ReturnsNull()
+        {
+            var archiveRecord = GetRecordWithComponents();
+            var comp = archiveRecord.FindComponentById("test");
+            Assert.That(comp, Is.Null);
+        }
+
+        [Test]
+        public void ArchiveRecord_HasComponent_ReturnsTrue()
+        {
+            var archiveRecord = GetRecordWithComponents();
+            Assert.That(archiveRecord.HasComponent("comp1"), Is.True);
+        }
+
+        [Test]
+        public void ArchiveRecord_HasComponent_ReturnsFalse()
+        {
+            var archiveRecord = GetRecordWithComponents();
+            Assert.That(archiveRecord.HasComponent("test"), Is.False);
+        }
+
+        [Test]
+        public void ArchiveRecord_GetComponentById_ReturnsSapDocumentComponentModel()
+        {
+            var archiveRecord = GetRecordWithComponents();
+            var model = archiveRecord.GetComponentById("COMP2");
+            Assert.Multiple(() =>
+            {
+                Assert.That(model, Is.Not.Null);
+                Assert.That(model, Is.InstanceOf<SapDocumentComponentModel>());
+                Assert.That(model?.CompId, Is.EqualTo("COMP2"));
+            });
+        }
+
+        [Test]
+        public void ArchiveRecord_GetComponentById_ReturnsNull()
+        {
+            var archiveRecord = GetRecordWithComponents();
+            var comp = archiveRecord.GetComponentById("test");
+            Assert.That(comp, Is.Null);
+        }
+
+        [Test]
+        public void ArchiveRecord_GetAllComponents_ReturnsListofSapDocumentComponentModel()
+        {
+            var archiveRecord = GetRecordWithComponents();
+            var comps = archiveRecord.GetAllComponents();
+            Assert.Multiple(() =>
+            {
+                Assert.That(comps, Is.Not.Null);
+                Assert.That(comps, Is.InstanceOf<List<SapDocumentComponentModel>>());
+                Assert.That(comps.Any(), Is.True);
+                Assert.That(comps.Count, Is.EqualTo(3));
+            });
+        }
+
+        [Test]
+        public void ArchiveRecord_DeleteComponent_ReturnsTrue()
+        {
+            ShimTrimMainObject.AllInstances.Delete = (obj) =>
+            {
+                Assert.That(obj, Is.Not.Null);
+            };
+            var archiveRecord = GetRecordWithComponents();
+            Assert.That(archiveRecord.DeleteComponent("COMP2"), Is.True);
+        }
+
+        [Test]
+        public void ArchiveRecord_DeleteComponent_ReturnsFalse()
+        {
+            var archiveRecord = GetRecordWithComponents();
+            Assert.That(archiveRecord.DeleteComponent("test"), Is.False);
+        }
+
+        [Test]
+        public void ArchiveRecord_DeleteRecord()
+        {
+            ShimTrimMainObject.AllInstances.Delete = (obj) =>
+            {
+                Assert.That(obj, Is.Not.Null);
+            };
+            var archiveRecord = GetRecordWithComponents();
+            archiveRecord.DeleteRecord();
+            _mockLogger.Verify(x => x.LogInformation(It.Is<string>(s => s.Contains("deleted successfully."))), Times.Once);
+        }
+
+        [Test]
+        public async Task ArchiveRecord_ExtractAllComponents_ReturnsZeroResults()
+        {
+            ShimRecordSapComponent.AllInstances.GetExtractDocument = (a) =>
+            {
+                return null;
+            };
+            var shimRecord = new ShimRecord();
+            var fakeComponents = new List<RecordSapComponent>
+            {
+                new ShimRecordSapComponent { ComponentIdGet = () => "COMP1",  ArchiveDateGet = () => new ShimTrimDateTime { DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11) }.Instance,
+                    DateModifiedGet = () => new ShimTrimDateTime { DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11) }.Instance }
+            };
+            var shimComponents = new ShimRecordSapComponents();
+            shimComponents.Bind(fakeComponents);
+            shimRecord.ChildSapComponentsGet = () => shimComponents;
+            var archive = GetRecordWithComponents();
+            var components = await archive.ExtractAllComponents();
+            Assert.That(components.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public async Task ArchiveRecord_ExtractAllComponents_ReturnsAllComponents()
+        {
+            ShimRecordSapComponent.AllInstances.GetExtractDocument = (a) =>
+            {
+                return new ShimExtractDocument()
+                {
+                    FileNameGet = () => Path.Combine(AppContext.BaseDirectory, "TestDocuments", "Test.pdf"),
+                    FileTypeGet = () => "application/pdf"
+                };
+            };
+            ShimExtractDocument.AllInstances.DoExtractStringBooleanBooleanString = (instance, t, a , d , e) =>
+            {
+                
+            };
+            var shimRecord = new ShimRecord();
+            var fakeComponents = new List<RecordSapComponent>
+            {
+                new ShimRecordSapComponent { ComponentIdGet = () => "COMP1",  ArchiveDateGet = () => new ShimTrimDateTime { DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11) }.Instance,
+                    DateModifiedGet = () => new ShimTrimDateTime { DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11) }.Instance }
+            };
+            var shimComponents = new ShimRecordSapComponents();
+            shimComponents.Bind(fakeComponents);
+            shimRecord.ChildSapComponentsGet = () => shimComponents;
+            var archive = new ArchiveRecord(shimRecord, _trimConfig, _mockLogger.Object);
+            var components = await archive.ExtractAllComponents();
+            Assert.That(components.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public async Task ArchiveRecord_ExtractComponentById_ReturnsSapComponent() 
+        {
+            string filename = Path.Combine(AppContext.BaseDirectory, "TestDocuments", "Test.pdf");
+            ShimRecordSapComponent.AllInstances.GetExtractDocument = (a) =>
+            {
+                return new ShimExtractDocument()
+                {
+                    FileNameGet = () => filename,
+                    FileTypeGet = () => "application/pdf"
+                };
+            };
+            ShimExtractDocument.AllInstances.DoExtractStringBooleanBooleanString = (instance, t, a, d, e) => { };
+            var archive = GetRecordWithComponents();
+            var component = await archive.ExtractComponentById("COMP2");
+            Assert.That(component, Is.Not.Null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(component.FileName, Is.EqualTo(filename));
+                Assert.That(component.CompId, Is.EqualTo("COMP2"));
+            });            
+        }
+
+        [Test]
+        public void ArchiveRecord_SetRecordMetadata()
+        {
+            ShimRecord.AllInstances.SapModifiedDateSetTrimDateTime = (r, date) => { };
+            ShimTrimDateTime.NowGet = () => { return DateTime.Now; };
+            Assert.DoesNotThrow(() => _archiveRecord.SetRecordMetadata());
+        }
+
+        [Test]
+        public async Task ArchiveRecord_ExtractComponentById_ReturnsNull()
+        {
+            var archive = GetRecordWithComponents();
+            var component = await archive.ExtractComponentById("test");
+            Assert.That(component, Is.Null);
+        }
+
+        private ArchiveRecord GetRecordWithComponents()
+        {
+            var shimRecord = new ShimRecord();
+            shimRecord.ChildSapComponentsGet = () => GetRecordSapComponents();
+            return new ArchiveRecord(shimRecord, _trimConfig, _mockLogger.Object);
+        }
+
+        private ShimRecordSapComponents GetRecordSapComponents(bool forExtract = false)
+        {
+            var fakeComponents = new List<RecordSapComponent>
+            {
+                new ShimRecordSapComponent { ComponentIdGet = () => "COMP1",  ArchiveDateGet = () => new ShimTrimDateTime { DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11) }.Instance,
+                    DateModifiedGet = () => new ShimTrimDateTime { DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11) }.Instance },
+                new ShimRecordSapComponent
+                {
+                    ComponentIdGet = () => "COMP2",
+                    ApplicationVersionGet = () => "1.0",
+                    ArchiveLinkVersionGet = () => "1.0",
+                    ContentTypeGet = () => "application/pdf",
+                    CharacterSetGet = () => "UTF-8",
+                    BytesGet = () => 100,
+                    FileNameGet = () => "test.pdf",
+                    ArchiveDateGet = () => new ShimTrimDateTime { DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11) }.Instance,
+                    DateModifiedGet = () => new ShimTrimDateTime { DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11) }.Instance
+                },
+                new ShimRecordSapComponent { ComponentIdGet = () => "COMP3",  ArchiveDateGet = () => new ShimTrimDateTime { DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11) }.Instance,
+                    DateModifiedGet = () => new ShimTrimDateTime { DateGet = () => new DateTime(2024, 2, 2, 11, 11, 11) }.Instance }
+            };
+            var shimComponents = new ShimRecordSapComponents();
+            shimComponents.Bind(fakeComponents);
+            return shimComponents;
+        }
+
+        [TearDown]
         public void TearDown()
         {
             _shimContext.Dispose();
