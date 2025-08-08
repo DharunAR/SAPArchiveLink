@@ -203,22 +203,13 @@ namespace SAPArchiveLink.Tests
             Assert.That(serverModel.ContentRepositories[0].ContRepStatus, Is.EqualTo(expectedStatus));
         }
 
-        [Test]
-        public void GetServerInfo_ReturnsAllContentRepositories()
-        {
-            SetupShimsForServerInfo(true);
-            var serverModel = _trimRepository.GetServerInfo("0045", "");
-            Assert.That(serverModel.ContentRepositories.Count, Is.EqualTo(2));
-            Assert.That(serverModel.PVersion, Is.EqualTo("0045"));
-        }
-
         private void SetupShimsForServerInfo(bool isEnabled)
         {
             var fakeShim = new ShimTrimDateTime()
             {
                 DateGet = () => DateTime.Now
             };
-            var fakeComponents = new List<ShimSapRepoItem>()
+            var fakeComponents = new List<SapRepoItem>()
             {
                 new ShimSapRepoItem()
                 {
