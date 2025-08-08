@@ -48,11 +48,7 @@ namespace SAPArchiveLink
             if (!string.IsNullOrWhiteSpace(_trimConfig.TrustedUser))
             {
                 db.TrustedUser = _trimConfig.TrustedUser;
-            }
-            else
-            {
-                db.TrustedUser = "TRIMSERVICES";
-            }
+            }      
 
             if (!string.IsNullOrWhiteSpace(_trimConfig.WGSAlternateName))
             {

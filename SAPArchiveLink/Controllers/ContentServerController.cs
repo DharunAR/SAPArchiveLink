@@ -26,6 +26,7 @@ namespace SAPArchiveLink.Controllers
         {
             try
             {
+                Request.EnableBuffering();
                 string queryString = Request.QueryString.Value?.TrimStart('?') ?? "";
 
                 if (string.IsNullOrWhiteSpace(queryString))
@@ -49,7 +50,7 @@ namespace SAPArchiveLink.Controllers
                         charset = match.Groups[1].Value.Trim();
                     }
                 }
-
+             
                 var commandRequest = new CommandRequest
                 {
                     Url = queryString,

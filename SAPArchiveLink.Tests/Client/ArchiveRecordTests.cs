@@ -141,7 +141,49 @@ namespace SAPArchiveLink.Tests
 
         [Test]
         public void CreateNewArchiveRecord_WithValidRecordType_ShouldReturnArchiveRecord()
-        {
+        {          
+            var fakeRecordType = new ShimRecordType
+            {
+                UsualBehaviourGet = () => RecordBehaviour.SapDocument
+            };
+
+
+            var fakeHistory = new ShimOriginHistory();
+
+            var fakeOrigin = new ShimOrigin
+            {
+                StartBatchString = (batchName) =>
+                {
+                    return fakeHistory;
+                },
+                NewRecordOriginHistory = (history) =>
+                {
+                    return new ShimRecord();
+                },
+                DefaultRecordTypeGet = () => fakeRecordType,
+                
+            };
+           
+            ShimOrigin.AllInstances.NewRecordExRecordTypeOriginHistory = (instance, recordType, history) =>
+            {
+                return new ShimRecord();
+            };
+
+            ShimOrigin.AllInstances.NewRecordOriginHistory = (instance, history) =>
+            {
+                return new ShimRecord();
+            };
+            
+            ShimTrimMainObjectSearch.ConstructorDatabaseBaseObjectTypes = (tmos, db, bot) =>
+            {
+                // Replace the enumerator with our fake data
+                var shimTmos = new ShimTrimMainObjectSearch(tmos)
+                {
+                    GetEnumerator = () =>
+                        new List<Origin> { fakeOrigin }.GetEnumerator()
+                };
+            };
+
             var mockLogger = new Mock<ILogHelper<ArchiveRecord>>();
             var db = new ShimDatabase();
             var trimConfig = new TrimConfigSettings { WorkPath = "C:\\Trim\\Work", RecordTypeName = "SAPTest" };
@@ -156,12 +198,56 @@ namespace SAPArchiveLink.Tests
             ShimRecordType.AllInstances.SapTitleTemplateGet = (value) => { return "%contrep %docid"; };
             ShimDatabase.AllInstances.FindTrimObjectByNameBaseObjectTypesString = (d, type, name) =>
             {
-                return new ShimRecordType
+                if (string.Equals(name, "SAPTest", StringComparison.OrdinalIgnoreCase))
                 {
-                    UsualBehaviourGet = () => RecordBehaviour.SapDocument
+                    // Return special mocked record type
+                    return new ShimRecordType
+                    {
+                        UsualBehaviourGet = () => RecordBehaviour.SapDocument
+                    };
+                }
+
+                return new ShimOrigin
+                {
+                    DefaultRecordTypeGet = () =>
+                    {
+                        return new ShimRecordType
+                        {
+                            UsualBehaviourGet = () => RecordBehaviour.SapDocument
+                        };
+                    }
                 };
             };
+
+            ShimTrimSearchClause.AllInstances.SetCriteriaFromStringString = (instance, value) =>
+            {
+                return true;
+            };
+
+            ShimTrimMainObjectSearch.AllInstances.AddSearchClauseTrimSearchClause = (instance, clause) => { };
+            ShimTrimMainObjectSearch.AllInstances.CountGet = (instance) =>
+            {
+                return 1;
+            };
+            ShimTrimMainObjectSearch.AllInstances.GetResultAsUriArrayInt64 = (max, db) =>
+            {
+                return new ShimTrimURIList();
+            };
+            ShimTrimMainObjectSearch.AllInstances.GetResultAsUriArray = (max) =>
+            {
+                return new long[] { 1 };
+            };
             ShimTrimDateTime.ConstructorDateTime = (t, d) => { };
+            ShimOrigin.AllInstances.AllocateContainerRecord = (instance, recordType) =>
+            {
+                new ShimRecord();
+            };
+            ShimTrimObject.AllInstances.UriGet = (a) =>
+            {
+                return new ShimTrimURI { ValueGet = () => 1 };
+            };
+       
+
             var archiveRecord = ArchiveRecord.CreateNewArchiveRecord(db, trimConfig, mockLogger.Object, new CreateSapDocumentModel() { DocId = "docId", ContentLength = "100", ContRep = "CM", PVersion = "0047", DocProt = "r"});
             Assert.That(archiveRecord, Is.Not.Null);
         }

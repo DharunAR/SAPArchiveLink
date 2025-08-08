@@ -1,4 +1,7 @@
-﻿using TRIM.SDK;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Linq;
+using TRIM.SDK;
 
 namespace SAPArchiveLink
 {
@@ -8,7 +11,8 @@ namespace SAPArchiveLink
         private readonly TrimConfigSettings _trimConfig;
         private RecordSapComponentsAdapter? _componentsAdapter;
         private readonly ILogHelper<ArchiveRecord> _log;
-
+        private static readonly ConcurrentDictionary<string, List<long>> _originCache
+    = new ConcurrentDictionary<string, List<long>>();
         /// <summary>
         /// Initializes a new instance of the <see cref="ArchiveRecord"/> class.
         /// </summary>
@@ -105,26 +109,90 @@ namespace SAPArchiveLink
         {
             logger.LogInformation($"Creating new ArchiveRecord for ContRep: {model.ContRep}, DocId: {model.DocId}, PVersion: {model.PVersion}");
             var recType = GetRecordType(db, trimConfig, model.ContRep, logger);
+            Origin? origin;
+            Record rec;
             if (recType == null)
             {
                 logger.LogError(TrimApplication.GetMessage(MessageIds.sap_NoValidRecTypeFound, model.ContRep));
                 return null;
             }
+            else
+            {
+                origin = GetOrigin(db, recType, logger);
+                if (origin == null)
+                {
+                    logger.LogInformation($"No valid Origin found for RecordType {recType.Name}");
+                }
+
+            }
 
             var now = DateTime.UtcNow;
-
-            var record = new Record(db, recType)
+            if (origin != null)
             {
-                SapReposId = model.ContRep,
-                SapDocumentId = model.DocId,
-                SapArchiveLinkVsn = model.PVersion,
-                SapDocumentProtection = model.DocProt,
-                SapArchiveDate = now,
-                SapModifiedDate = now,
-                TypedTitle = GenerateTitle(recType, model, now)
-            };
+                OriginHistory history = origin.StartBatch("SAP_ARCHIVELINK");
+                 rec = origin.NewRecord(history);
+                origin.AllocateContainer(rec);
+            }
+            else
+            {
+                 rec = new Record(db, recType);
+            }   
 
-            return new ArchiveRecord(record, trimConfig, logger);
+            rec.SapReposId = model.ContRep;
+            rec.SapDocumentId = model.DocId;
+            rec.SapArchiveLinkVsn = model.PVersion;
+            rec.SapDocumentProtection = model.DocProt;
+            rec.SapArchiveDate = now;
+            rec.SapModifiedDate = now;
+            rec.TypedTitle = GenerateTitle(recType, model, now);
+
+            return new ArchiveRecord(rec, trimConfig, logger);
+        }
+
+        /// <summary>
+        /// Retrieves the Origin associated with a specific RecordType in the database.
+        /// </summary>
+        /// <param name="db"></param>
+        /// <param name="recType"></param>
+        /// <param name="logger"></param>
+        /// <returns></returns>
+
+        public static Origin? GetOrigin(Database db, RecordType recType, ILogHelper<ArchiveRecord> logger)
+        {
+            string cacheKey = $"{db.Id}-{recType.Uri}";
+
+            if (_originCache.TryGetValue(cacheKey, out var cachedUris))
+            {
+                logger.LogInformation($"[Cache Hit] Found origins for RecordType {recType.Uri}");
+                foreach (var uri in cachedUris)
+                {
+                    var org = new Origin(db, uri);                    
+                    if (org.DefaultRecordType != null && org.DefaultRecordType.Uri == recType.Uri)
+                    {
+                        return org;
+                    }
+                }
+                return null;
+            }
+
+            var tmos = new TrimMainObjectSearch(db, BaseObjectTypes.Origin);
+            var clause = new TrimSearchClause(db, BaseObjectTypes.Origin, SearchClauseIds.OriginType);
+            clause.SetCriteriaFromString(OriginType.Sap.ToString());
+            tmos.AddSearchClause(clause);
+            var origins = tmos.OfType<Origin>().ToList();
+
+            // Store only URIs in cache
+            var uris = origins.Select(o => o.Uri.Value).ToList();
+            _originCache[cacheKey] = uris;
+            
+            foreach (Origin org in tmos)
+            {
+                if (org.DefaultRecordType != null && org.DefaultRecordType.Uri == recType.Uri)
+                {
+                    return org;
+                }
+            }
+            return null;
         }
 
         /// <summary>
