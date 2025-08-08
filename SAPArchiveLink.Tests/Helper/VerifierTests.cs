@@ -273,7 +273,7 @@ namespace SAPArchiveLink.Tests
             _testCert.Dispose();
         }
 
-        private X509Certificate2 CreateSelfSignedTestCertificate()
+        public X509Certificate2 CreateSelfSignedTestCertificate()
         {
             var ecdsa = ECDsa.Create();
             var req = new CertificateRequest("CN=TestCert", ecdsa, HashAlgorithmName.SHA256);

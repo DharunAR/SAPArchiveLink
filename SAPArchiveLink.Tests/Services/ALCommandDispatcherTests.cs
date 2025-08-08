@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Moq;
+using System.Security.Cryptography.X509Certificates;
 
 namespace SAPArchiveLink.Tests
 {
@@ -13,6 +14,7 @@ namespace SAPArchiveLink.Tests
         private Mock<ITrimRepository> _trimRepositoryMock;
         private Mock<IArchiveCertificate> _archiveCertificateMock;
         private ContentServerRequestAuthenticator _authenticator;
+        private X509Certificate2 _testCert;
         private ALCommandDispatcher _dispatcher;
 
         [SetUp]
@@ -24,6 +26,7 @@ namespace SAPArchiveLink.Tests
             _dbConnectionMock = new Mock<IDatabaseConnection>();
             _trimRepositoryMock = new Mock<ITrimRepository>();
             _archiveCertificateMock = new Mock<IArchiveCertificate>();
+            _testCert = new VerifierTests().CreateSelfSignedTestCertificate();
 
             _dbConnectionMock.Setup(d => d.GetDatabase()).Returns(_trimRepositoryMock.Object);
             _trimRepositoryMock.Setup(r => r.IsProductFeatureActivated()).Returns(true);
@@ -42,9 +45,9 @@ namespace SAPArchiveLink.Tests
             );
         }
 
-        [TestCase("get&compId=1&contRep=CM&pVersion=0045", ALCommandTemplate.GET, "GET")]
-        [TestCase("create&compId=2&contRep=CM&pVersion=0045", ALCommandTemplate.CREATEPUT, "PUT")]
-        [TestCase("docget&compId=3&contRep=CM&pVersion=0045", ALCommandTemplate.DOCGET, "GET")]
+        [TestCase("get&compId=1&contRep=CM&pVersion=0045&seckey=dGVzdHNpZw==&authid=testAuth&expiration=20991231235959&accessmode=r", ALCommandTemplate.GET, "GET")]
+        [TestCase("create&compId=2&contRep=CM&pVersion=0045&seckey=dGVzdHNpZw==&authid=testAuth&expiration=20991231235959&accessmode=c", ALCommandTemplate.CREATEPUT, "PUT")]
+        [TestCase("docget&compId=3&contRep=CM&pVersion=0045&seckey=dGVzdHNpZw==&authid=testAuth&expiration=20991231235959&accessmode=r", ALCommandTemplate.DOCGET, "GET")]
         public async Task RunRequest_ValidCommand_DispatchesToHandler(string url, ALCommandTemplate template, string method)
         {
             var mockHandler = new Mock<ICommandHandler>();
@@ -58,7 +61,21 @@ namespace SAPArchiveLink.Tests
             _trimRepositoryMock.Setup(r => r.GetArchiveCertificate(It.IsAny<string>())).Returns(_archiveCertificateMock.Object);
             _archiveCertificateMock.Setup(c => c.IsEnabled()).Returns(true);
 
-            var result = await _dispatcher.RunRequest(CreateCommandRequest(url, method), _authenticator);
+            // Setup _verifier behavior to bypass real certificate checks
+            var mockVerifier = new Mock<IVerifier>();
+            mockVerifier.Setup(v => v.SetCertificate(It.IsAny<IArchiveCertificate>()));
+            mockVerifier.Setup(v => v.SetSignedData(It.IsAny<byte[]>()));
+            mockVerifier.Setup(v => v.SetRequiredPermission(It.IsAny<int>()));
+            mockVerifier.Setup(v => v.VerifyAgainst(It.IsAny<byte[]>()));
+            mockVerifier.Setup(v => v.GetCertificate(It.IsAny<int>())).Returns(_testCert);
+
+            var mockLogger = new Mock<ILogHelper<ContentServerRequestAuthenticator>>();
+
+            _authenticator = new ContentServerRequestAuthenticator(mockVerifier.Object, mockLogger.Object, _mockResponseFactory.Object);
+
+            var commandRequest = CreateCommandRequest(url, method);
+
+            var result = await _dispatcher.RunRequest(commandRequest, _authenticator);
 
             mockHandler.Verify(h => h.HandleAsync(It.IsAny<ICommand>(), It.IsAny<ICommandRequestContext>()), Times.Once);
             Assert.That(result, Is.TypeOf<ArchiveLinkResult>());
@@ -172,7 +189,7 @@ namespace SAPArchiveLink.Tests
             _mockResponseFactory.Verify(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status400BadRequest), Times.Once);
         }
 
-        [TestCase("get&compId=1&contRep=CM&pVersion=0047", ALCommandTemplate.GET, "GET")]
+        [TestCase("get&compId=1&contRep=CM&pVersion=0047&seckey=dGVzdHNpZw==&authid=testAuth&expiration=20991231235959&accessmode=r", ALCommandTemplate.GET, "GET")]
         public async Task RunRequest_ExecuteAsync_ReturnsErrorResponse(string url, ALCommandTemplate template, string method)
         {
             var mockHandler = new Mock<ICommandHandler>();
@@ -189,9 +206,16 @@ namespace SAPArchiveLink.Tests
             _mockResponseFactory.Setup(f => f.CreateError(It.IsAny<string>(), It.IsAny<int>()))
                                 .Returns(errorResponse.Object);
 
-            var verifier = new Mock<IVerifier>();
-            var logger = new Mock<ILogHelper<ContentServerRequestAuthenticator>>();
-            var authenticator = new ContentServerRequestAuthenticator(verifier.Object, logger.Object, _mockResponseFactory.Object);
+            var mockVerifier = new Mock<IVerifier>();
+            mockVerifier.Setup(v => v.SetCertificate(It.IsAny<IArchiveCertificate>()));
+            mockVerifier.Setup(v => v.SetSignedData(It.IsAny<byte[]>()));
+            mockVerifier.Setup(v => v.SetRequiredPermission(It.IsAny<int>()));
+            mockVerifier.Setup(v => v.VerifyAgainst(It.IsAny<byte[]>()));
+            mockVerifier.Setup(v => v.GetCertificate(It.IsAny<int>())).Returns(_testCert);
+
+            var mockLogger = new Mock<ILogHelper<ContentServerRequestAuthenticator>>();
+
+            var authenticator = new ContentServerRequestAuthenticator(mockVerifier.Object, mockLogger.Object, _mockResponseFactory.Object);
 
             var request = CreateCommandRequest(url, method);
 
@@ -226,6 +250,12 @@ namespace SAPArchiveLink.Tests
 
             Assert.That(result, Is.TypeOf<ArchiveLinkResult>());
             _mockResponseFactory.Verify(f => f.CreateError(It.IsAny<string>(), StatusCodes.Status500InternalServerError), Times.Once);
+        }
+
+        [TearDown]
+        public void Dispose()
+        {
+            _testCert?.Dispose();
         }
 
         private CommandRequest CreateCommandRequest(string url, string method)
