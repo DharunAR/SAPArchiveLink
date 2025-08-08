@@ -58,11 +58,6 @@ namespace SAPArchiveLink
 
         private RequestAuthResult CheckAuthentication(ICommand command, IArchiveCertificate certificates)
         {
-            bool requiresSignature = !string.IsNullOrEmpty(command.GetValue(ALParameter.VarSecKey));
-
-            if (!requiresSignature)
-                return RequestAuthResult.Success();
-
             try
             {
                 VerifyUrl(command, certificates);
