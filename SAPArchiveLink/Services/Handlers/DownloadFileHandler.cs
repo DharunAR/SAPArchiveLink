@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 using SAPArchiveLink.Resources;
+using System.Net.Mime;
 
 namespace SAPArchiveLink
 {
@@ -144,7 +145,7 @@ namespace SAPArchiveLink
                 {
                     FileName = filePath,
                     Data = body,
-                    ContentType = contentType,
+                    ContentType = contentType ?? MediaTypeNames.Application.Octet,
                 });
             }
             catch
